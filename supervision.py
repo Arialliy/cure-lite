@@ -7,6 +7,7 @@ from torch import Tensor
 
 from .config import MatchConfig
 from .instances import instances_from_binary_mask, union_instance_masks
+from .intervention import full_gt_restores_base_coverage
 from .matching import match_components
 from .types import BranchSupervision, InstanceMap, LegalDeletion, MatchResult
 
@@ -229,3 +230,89 @@ def build_synthetic_supervision(
         positive_gt_ids=(deletion.gt_id,),
         unreachable_gt_ids=(),
     )
+
+
+def build_atomic_intervention_supervision(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    target_gt_id: int,
+    pred_before: InstanceMap,
+    before: MatchResult,
+    after: MatchResult,
+    match_config: MatchConfig = MatchConfig(),
+) -> BranchSupervision:
+    """Build topology-valid supervision for one atomic intervention state.
+
+    This function validates occupancy, component matching, exact coverage loss
+    and full-GT recoverability.  Those tensors alone cannot prove how the state
+    was produced.  Full model consistency is established by
+    ``counterfactual.search`` and ``ModelConsistentState``, which additionally
+    bind the transformed input, frozen-base outputs and audit receipt.  Calling
+    this topology-only builder in isolation is not evidence of model
+    consistency.
+    """
+
+    if not isinstance(gt, InstanceMap):
+        raise TypeError("gt must be an InstanceMap")
+    if not isinstance(pred_before, InstanceMap):
+        raise TypeError("pred_before must be an InstanceMap")
+    if not isinstance(before, MatchResult) or not isinstance(after, MatchResult):
+        raise TypeError("before and after must be MatchResult objects")
+    if not isinstance(match_config, MatchConfig):
+        raise TypeError("match_config must be MatchConfig")
+    if (
+        isinstance(target_gt_id, bool)
+        or not isinstance(target_gt_id, int)
+        or target_gt_id < 1
+    ):
+        raise ValueError("target_gt_id must be a positive integer")
+    gt.by_id(target_gt_id)
+    if before.gt_ids != tuple(sorted(gt.ids)):
+        raise ValueError("before matching is inconsistent with GT")
+    expected_before = match_components(pred_before, gt, match_config)
+    if before != expected_before:
+        raise ValueError("before matching is stale or inconsistent")
+    if target_gt_id not in before.matched_gt_ids:
+        raise ValueError("target_gt_id must be matched before intervention")
+
+    occupied = _validate_factual_state(occupancy, gt, after, match_config)
+    expected_covered = before.matched_gt_ids - {target_gt_id}
+    if after.matched_gt_ids != expected_covered:
+        raise ValueError(
+            "transformed state must introduce exactly the selected target miss"
+        )
+    if not full_gt_restores_base_coverage(
+        occupied,
+        gt,
+        target_gt_id,
+        before,
+        match_config,
+    ):
+        raise ValueError(
+            "full-GT residual does not restore pre-intervention coverage"
+        )
+
+    selected = gt.by_id(target_gt_id).mask
+    background = ~_gt_union(gt)
+    writable = ~occupied
+    target = selected & writable
+    if not bool(torch.any(target)):
+        raise ValueError("selected target has no writable positive pixels")
+    valid = writable & (background | selected)
+    return BranchSupervision(
+        occupancy=occupied.unsqueeze(0),
+        target=target.to(torch.float32).unsqueeze(0),
+        valid_mask=valid.unsqueeze(0),
+        branch="synthetic",
+        positive_gt_ids=(target_gt_id,),
+        unreachable_gt_ids=(),
+    )
+
+
+__all__ = [
+    "build_atomic_intervention_supervision",
+    "build_factual_supervision",
+    "build_synthetic_supervision",
+    "factual_oracle_reachable",
+    "full_gt_recoverable",
+]

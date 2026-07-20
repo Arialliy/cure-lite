@@ -25,6 +25,8 @@ class FrozenBaseOutput:
             raise ValueError("feature must have shape [B,C,h,w] with the same batch size")
         if self.probability.dtype != torch.float32:
             raise TypeError("probability must be float32")
+        if self.feature.dtype != torch.float32:
+            raise TypeError("feature must be float32")
         if not torch.isfinite(self.probability).all():
             raise ValueError("probability contains non-finite values")
         if torch.any((self.probability < 0.0) | (self.probability > 1.0)):

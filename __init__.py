@@ -40,6 +40,7 @@ from .provenance import (
     validate_formal_base_training_run,
 )
 from .supervision import (
+    build_atomic_intervention_supervision,
     build_factual_supervision,
     build_synthetic_supervision,
     factual_oracle_reachable,
@@ -76,6 +77,7 @@ __all__ = [
     "MatchResult",
     "OccupancyConfig",
     "TrainingConfig",
+    "build_atomic_intervention_supervision",
     "build_factual_supervision",
     "build_occupancy",
     "build_occupancy_batch",

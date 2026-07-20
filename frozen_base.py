@@ -92,8 +92,8 @@ class FrozenBaseAdapter(nn.Module, ABC):
             )
         if probability.dtype != torch.float32:
             raise TypeError("base probability must be float32")
-        if not feature.is_floating_point():
-            raise TypeError("base feature must be floating point")
+        if feature.dtype != torch.float32:
+            raise TypeError("base feature must be float32")
         if probability.requires_grad or feature.requires_grad:
             raise ValueError("frozen base outputs must be detached")
         if probability.device != feature.device:

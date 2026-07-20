@@ -1,0 +1,185 @@
+"""Exact factual and synthetic supervision masks for CURE-Lite v0.1."""
+
+from __future__ import annotations
+
+import torch
+from torch import Tensor
+
+from .config import MatchConfig
+from .instances import instances_from_binary_mask, union_instance_masks
+from .matching import match_components
+from .types import BranchSupervision, InstanceMap, LegalDeletion, MatchResult
+
+
+def _occupancy_2d(occupancy: Tensor, shape: tuple[int, int]) -> Tensor:
+    if not isinstance(occupancy, Tensor):
+        raise TypeError("occupancy must be a torch.Tensor")
+    if occupancy.dtype != torch.bool:
+        raise TypeError("occupancy must be bool")
+    result = occupancy.detach().to(device="cpu", dtype=torch.bool)
+    if result.ndim == 3 and result.shape[0] == 1:
+        result = result[0]
+    if result.ndim != 2 or tuple(result.shape) != shape:
+        raise ValueError("occupancy and GT must have the same [H,W] shape")
+    return result.contiguous()
+
+
+def _gt_union(gt: InstanceMap) -> Tensor:
+    return union_instance_masks(gt, gt.ids)
+
+
+def _validate_factual_state(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    match: MatchResult,
+    match_config: MatchConfig,
+) -> Tensor:
+    if not isinstance(gt, InstanceMap):
+        raise TypeError("gt must be an InstanceMap")
+    if not isinstance(match, MatchResult):
+        raise TypeError("match must be a MatchResult")
+    if not isinstance(match_config, MatchConfig):
+        raise TypeError("match_config must be MatchConfig")
+    occupied = _occupancy_2d(occupancy, gt.shape)
+    pred = instances_from_binary_mask(occupied, connectivity=8, min_area=1)
+    expected = match_components(pred, gt, match_config)
+    if match != expected:
+        raise ValueError(
+            "match is stale or inconsistent with occupancy, gt, or match_config"
+        )
+    return occupied
+
+
+def _factual_oracle_reachable_validated(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    gt_id: int,
+    before: MatchResult,
+    match_config: MatchConfig,
+) -> bool:
+    oracle_mask = occupancy | gt.by_id(gt_id).mask
+    oracle_pred = instances_from_binary_mask(
+        oracle_mask,
+        connectivity=8,
+        min_area=1,
+    )
+    oracle_match = match_components(oracle_pred, gt, match_config)
+    return (
+        gt_id in oracle_match.matched_gt_ids
+        and before.matched_gt_ids <= oracle_match.matched_gt_ids
+    )
+
+
+def factual_oracle_reachable(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    gt_id: int,
+    before: MatchResult,
+    match_config: MatchConfig = MatchConfig(),
+) -> bool:
+    """Return whether one factual miss is recoverable by the full pipeline.
+
+    A miss is reachable only if adding its perfect GT mask makes that target
+    matched while retaining every target covered by the factual base state.
+    """
+
+    occupied = _validate_factual_state(
+        occupancy,
+        gt,
+        before,
+        match_config,
+    )
+    if isinstance(gt_id, bool) or not isinstance(gt_id, int) or gt_id < 1:
+        raise ValueError("gt_id must be a positive integer")
+    gt.by_id(gt_id)
+    if gt_id not in before.unmatched_gt_ids:
+        raise ValueError("gt_id must identify a factual unmatched GT")
+    return _factual_oracle_reachable_validated(
+        occupied,
+        gt,
+        gt_id,
+        before,
+        match_config,
+    )
+
+
+def build_factual_supervision(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    match: MatchResult,
+    match_config: MatchConfig = MatchConfig(),
+) -> BranchSupervision:
+    """Build factual supervision with full-pipeline reachability filtering."""
+
+    occupied = _validate_factual_state(occupancy, gt, match, match_config)
+    gt_union = _gt_union(gt)
+    background = ~gt_union
+    writable = ~occupied
+    reachable_ids: list[int] = []
+    unreachable_ids: list[int] = []
+    for gt_id in sorted(match.unmatched_gt_ids):
+        if _factual_oracle_reachable_validated(
+            occupied,
+            gt,
+            gt_id,
+            match,
+            match_config,
+        ):
+            reachable_ids.append(gt_id)
+        else:
+            unreachable_ids.append(gt_id)
+
+    if reachable_ids:
+        target = union_instance_masks(gt, reachable_ids) & writable
+        valid = writable & (background | target)
+        branch = "factual_miss"
+    elif match.unmatched_gt_ids:
+        target = torch.zeros(gt.shape, dtype=torch.bool)
+        # This state is diagnostics-only.  An empty validity mask prevents an
+        # accidental caller from treating it as factual-no-miss supervision.
+        valid = torch.zeros(gt.shape, dtype=torch.bool)
+        branch = "factual_unreachable"
+    else:
+        target = torch.zeros(gt.shape, dtype=torch.bool)
+        valid = writable & background
+        branch = "factual_no_miss"
+
+    return BranchSupervision(
+        occupancy=occupied.unsqueeze(0),
+        target=target.to(torch.float32).unsqueeze(0),
+        valid_mask=valid.unsqueeze(0),
+        branch=branch,
+        positive_gt_ids=tuple(reachable_ids),
+        unreachable_gt_ids=tuple(unreachable_ids),
+    )
+
+
+def build_synthetic_supervision(
+    deletion: LegalDeletion,
+    gt: InstanceMap,
+) -> BranchSupervision:
+    """Build a synthetic state whose sole positive target is the deleted GT."""
+
+    if not isinstance(deletion, LegalDeletion):
+        raise TypeError("deletion must be a LegalDeletion")
+    if not isinstance(gt, InstanceMap):
+        raise TypeError("gt must be an InstanceMap")
+    selected = gt.by_id(deletion.gt_id).mask
+    occupied = _occupancy_2d(deletion.occupancy_after, gt.shape)
+    if deletion.pred_after.shape != gt.shape:
+        raise ValueError("deletion and GT shapes differ")
+    if not torch.equal(occupied, deletion.pred_after.occupancy):
+        raise ValueError("deletion occupancy is inconsistent with pred_after")
+
+    background = ~_gt_union(gt)
+    writable = ~occupied
+    target = selected & writable
+    valid = writable & (background | selected)
+    return BranchSupervision(
+        occupancy=occupied.unsqueeze(0),
+        target=target.to(torch.float32).unsqueeze(0),
+        valid_mask=valid.unsqueeze(0),
+        branch="synthetic",
+        positive_gt_ids=(deletion.gt_id,),
+        unreachable_gt_ids=(),
+    )

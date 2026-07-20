@@ -40,13 +40,14 @@ def full_pipeline_reachable_anchor_miss_ids(
     gt_mask: Tensor,
     match_config: MatchConfig,
 ) -> frozenset[int]:
-    """Return individually oracle-reachable misses of the fixed anchor.
+    """Return individually full-GT-recoverable misses of the fixed anchor.
 
     A miss is reachable only when adding its complete GT mask to the anchor,
     followed by a fresh CC8 decomposition and matching, matches that target and
     retains every target covered by the anchor.  The resulting set supplies a
-    diagnostic reachable-RMR denominator and an individual-oracle upper bound;
-    it never replaces the all-anchor-miss denominator of gross/net RMR.
+    conservative diagnostic denominator for reachable-RMR.  It is not a
+    theoretical upper bound over arbitrary partial residual masks and never
+    replaces the all-anchor-miss denominator of gross/net RMR.
     """
 
     anchor_bool = _as_2d_bool(anchor_prediction, name="anchor_prediction")
@@ -135,6 +136,14 @@ class ImageEvaluation:
 
     @property
     def oracle_upper_bound(self) -> float:
+        """Legacy name for the conservative full-GT recoverability ratio."""
+
+        return self.full_gt_recoverability
+
+    @property
+    def full_gt_recoverability(self) -> float:
+        """Fraction of anchor misses recoverable by adding their complete GT."""
+
         if not self.total_anchor_misses:
             return 0.0
         return self.total_reachable_anchor_misses / self.total_anchor_misses
@@ -202,6 +211,12 @@ class AggregateEvaluation:
     def global_miou(self) -> float:
         return self.miou
 
+    @property
+    def full_gt_recoverability(self) -> float:
+        """Conservative diagnostic; ``oracle_upper_bound`` is a legacy field."""
+
+        return self.oracle_upper_bound
+
 
 def evaluate_binary_prediction(
     prediction: Tensor,
@@ -216,8 +231,8 @@ def evaluate_binary_prediction(
 
     GT IDs not in ``anchor_miss_ids`` are the anchor-covered set ``K0``.
     Reachability is deliberately explicit: callers that have not certified an
-    oracle set get a conservative empty diagnostic denominator rather than an
-    invented claim that every miss is reachable.
+    full-GT-recoverable set get a conservative empty diagnostic denominator
+    rather than an invented claim that every miss is reachable.
     """
 
     pred_bool = _as_2d_bool(prediction, name="prediction")

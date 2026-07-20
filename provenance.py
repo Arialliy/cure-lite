@@ -1,9 +1,10 @@
-"""Strict provenance contract for a base detector trained only on ``D_B``.
+"""Strict provenance contract for a base detector developed only on ``D_B``.
 
 The CURE-Lite evidence protocol is invalid when the frozen base checkpoint has
-seen residual-training, validation, or test samples.  This module records the
-exact ``D_B`` sample/scene membership next to the checkpoint and validates it
-against the frozen split manifest before downstream caches are trusted.
+used ``D_R``, ``D_V``, or ``D_T`` for fitting or checkpoint selection.  This
+module records the exact ``D_B`` membership next to the checkpoint and, for the
+formal evidence path, binds a group-disjoint ``D_B-fit``/``D_B-select``
+partition before downstream caches are trusted.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from .splits import SplitManifest
 
 
 BASE_TRAINING_PROVENANCE_SCHEMA = "cure-lite-base-training-provenance-v1"
+BASE_CHECKPOINT_SELECTION_SCHEMA = "cure-lite-base-checkpoint-selection-v1"
 CURE_LITE_METHOD_VERSION = "cure-lite-v0.1"
 
 
@@ -26,8 +28,10 @@ class BaseTrainingProvenanceError(ValueError):
     """Raised when base-training provenance cannot satisfy the formal protocol."""
 
 
-FORMAL_BASE_PREFLIGHT_SCHEMA = "cure-lite-mshnet-base-preflight-v1"
-FORMAL_BASE_FINAL_SCHEMA = "cure-lite-mshnet-base-final-receipt-v1"
+LEGACY_FORMAL_BASE_PREFLIGHT_SCHEMA = "cure-lite-mshnet-base-preflight-v1"
+LEGACY_FORMAL_BASE_FINAL_SCHEMA = "cure-lite-mshnet-base-final-receipt-v1"
+FORMAL_BASE_PREFLIGHT_SCHEMA = "cure-lite-mshnet-base-preflight-v2"
+FORMAL_BASE_FINAL_SCHEMA = "cure-lite-mshnet-base-final-receipt-v2"
 
 
 def _sha256(value: object, *, name: str) -> str:
@@ -77,6 +81,186 @@ def _manifest_d_b_samples(manifest: SplitManifest) -> tuple[BaseTrainingSample, 
             for record in records
         )
     )
+
+
+@dataclass(frozen=True)
+class BaseCheckpointSelection:
+    """Canonical group-disjoint partition used to select a base checkpoint.
+
+    This contract is deliberately separate from :class:`BaseTrainingProvenance`.
+    The latter remains a generic declaration that the resulting checkpoint used
+    only ``D_B`` samples; the formal launcher additionally has to prove which
+    ``D_B`` rows were used for parameter fitting and which were used solely for
+    checkpoint selection.
+    """
+
+    split_manifest_fingerprint: str
+    fit_sample_ids: tuple[str, ...]
+    select_sample_ids: tuple[str, ...]
+    source_split: str = "D_B"
+    fit_role: str = "D_B-fit"
+    select_role: str = "D_B-select"
+    schema_version: str = BASE_CHECKPOINT_SELECTION_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema_version != BASE_CHECKPOINT_SELECTION_SCHEMA:
+            raise BaseTrainingProvenanceError(
+                f"unsupported checkpoint-selection schema {self.schema_version!r}"
+            )
+        if self.source_split != "D_B":
+            raise BaseTrainingProvenanceError(
+                "checkpoint-selection source_split must be exactly 'D_B'"
+            )
+        if self.fit_role != "D_B-fit" or self.select_role != "D_B-select":
+            raise BaseTrainingProvenanceError(
+                "checkpoint-selection roles must be D_B-fit and D_B-select"
+            )
+        object.__setattr__(
+            self,
+            "split_manifest_fingerprint",
+            _sha256(
+                self.split_manifest_fingerprint,
+                name="checkpoint_selection.split_manifest_fingerprint",
+            ),
+        )
+        for name, values in (
+            ("fit_sample_ids", self.fit_sample_ids),
+            ("select_sample_ids", self.select_sample_ids),
+        ):
+            if not isinstance(values, tuple):
+                raise BaseTrainingProvenanceError(f"{name} must be a tuple")
+            if not values:
+                raise BaseTrainingProvenanceError(f"{name} cannot be empty")
+            if any(not isinstance(value, str) or not value for value in values):
+                raise BaseTrainingProvenanceError(
+                    f"{name} must contain non-empty sample IDs"
+                )
+            if values != tuple(sorted(set(values))):
+                raise BaseTrainingProvenanceError(
+                    f"{name} must be sorted and contain unique sample IDs"
+                )
+        if set(self.fit_sample_ids) & set(self.select_sample_ids):
+            raise BaseTrainingProvenanceError(
+                "D_B-fit and D_B-select sample IDs must be disjoint"
+            )
+
+    @classmethod
+    def from_manifest(
+        cls,
+        manifest: SplitManifest,
+        *,
+        fit_sample_ids: tuple[str, ...] | list[str],
+        select_sample_ids: tuple[str, ...] | list[str],
+    ) -> "BaseCheckpointSelection":
+        """Build and validate a complete partition of manifest ``D_B``."""
+
+        selection = cls(
+            split_manifest_fingerprint=manifest.fingerprint,
+            fit_sample_ids=tuple(sorted(fit_sample_ids)),
+            select_sample_ids=tuple(sorted(select_sample_ids)),
+        )
+        selection.validate_against(manifest)
+        return selection
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> "BaseCheckpointSelection":
+        if not isinstance(value, Mapping):
+            raise TypeError("checkpoint selection must be a mapping")
+        expected_keys = {
+            "schema_version",
+            "split_manifest_fingerprint",
+            "source_split",
+            "fit_role",
+            "select_role",
+            "fit_sample_ids",
+            "select_sample_ids",
+            "selection_fingerprint",
+        }
+        if set(value) != expected_keys:
+            missing = sorted(expected_keys - set(value))
+            unknown = sorted(set(value) - expected_keys)
+            raise BaseTrainingProvenanceError(
+                "invalid checkpoint-selection fields; "
+                f"missing={missing}, unknown={unknown}"
+            )
+        fit_ids = value["fit_sample_ids"]
+        select_ids = value["select_sample_ids"]
+        if not isinstance(fit_ids, list) or not isinstance(select_ids, list):
+            raise BaseTrainingProvenanceError(
+                "persisted checkpoint-selection sample IDs must be lists"
+            )
+        selection = cls(
+            split_manifest_fingerprint=value["split_manifest_fingerprint"],
+            fit_sample_ids=tuple(fit_ids),
+            select_sample_ids=tuple(select_ids),
+            source_split=value["source_split"],
+            fit_role=value["fit_role"],
+            select_role=value["select_role"],
+            schema_version=value["schema_version"],
+        )
+        declared = _sha256(
+            value["selection_fingerprint"], name="selection_fingerprint"
+        )
+        if not hmac.compare_digest(declared, selection.fingerprint):
+            raise BaseTrainingProvenanceError(
+                "checkpoint-selection fingerprint does not match its contents"
+            )
+        return selection
+
+    def canonical_payload(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "split_manifest_fingerprint": self.split_manifest_fingerprint,
+            "source_split": self.source_split,
+            "fit_role": self.fit_role,
+            "select_role": self.select_role,
+            "fit_sample_ids": list(self.fit_sample_ids),
+            "select_sample_ids": list(self.select_sample_ids),
+        }
+
+    @property
+    def fingerprint(self) -> str:
+        return stable_fingerprint(self.canonical_payload())
+
+    def to_mapping(self) -> dict[str, object]:
+        result = self.canonical_payload()
+        result["selection_fingerprint"] = self.fingerprint
+        return result
+
+    def validate_against(self, manifest: SplitManifest) -> None:
+        """Require an exhaustive D_B partition with no shared grouping key."""
+
+        if not isinstance(manifest, SplitManifest):
+            raise TypeError("manifest must be a SplitManifest")
+        if not hmac.compare_digest(
+            self.split_manifest_fingerprint,
+            _sha256(manifest.fingerprint, name="manifest.fingerprint"),
+        ):
+            raise BaseTrainingProvenanceError(
+                "checkpoint selection uses a different split manifest"
+            )
+        d_b_records = manifest.records_for("D_B")
+        manifest.assert_purpose("base_train", d_b_records)
+        by_id = {record.sample_id: record for record in d_b_records}
+        declared = set(self.fit_sample_ids) | set(self.select_sample_ids)
+        if declared != set(by_id):
+            raise BaseTrainingProvenanceError(
+                "D_B-fit/D_B-select must form the exact manifest D_B partition"
+            )
+
+        grouping_owners: dict[tuple[str, str], str] = {}
+        for role, sample_ids in (
+            (self.fit_role, self.fit_sample_ids),
+            (self.select_role, self.select_sample_ids),
+        ):
+            for sample_id in sample_ids:
+                for grouping_key in by_id[sample_id].grouping_keys():
+                    prior = grouping_owners.setdefault(grouping_key, role)
+                    if prior != role:
+                        kind, value = grouping_key
+                        raise BaseTrainingProvenanceError(
+                            f"{kind}={value!r} crosses D_B-fit/D_B-select"
+                        )
 
 
 @dataclass(frozen=True)
@@ -316,6 +500,7 @@ class FormalBaseTrainingIdentity:
     final_receipt_sha256: str
     preflight_receipt_sha256: str
     checkpoint_sha256: str
+    checkpoint_selection_fingerprint: str
     upstream_commit: str
     upstream_tree: str
     model_source_sha256: str
@@ -331,8 +516,9 @@ def validate_formal_base_training_run(
 
     A standalone post-hoc D_B declaration is intentionally insufficient.  The
     final receipt must bind a preflight artifact created before the native child,
-    an isolated view containing only D_B/D_V, the exact upstream tree/recipe,
-    and the newly produced checkpoint.
+    an isolated view containing group-disjoint D_B-fit/D_B-select partitions,
+    the exact upstream tree/recipe, and the newly produced checkpoint.  The
+    external D_V split is never exposed to base fitting or checkpoint selection.
     """
 
     from .cache.schema import file_sha256
@@ -340,6 +526,11 @@ def validate_formal_base_training_run(
     final_path = Path(final_receipt_path).resolve(strict=True)
     run_root = final_path.parent
     final = _load_json_object(final_path, name="formal base final receipt")
+    if final.get("schema_version") == LEGACY_FORMAL_BASE_FINAL_SCHEMA:
+        raise BaseTrainingProvenanceError(
+            "legacy formal base receipt is invalid because it used D_V for "
+            "base checkpoint selection; regenerate a v2 D_B-fit/D_B-select run"
+        )
     required_final = {
         "schema_version": FORMAL_BASE_FINAL_SCHEMA,
         "method_version": CURE_LITE_METHOD_VERSION,
@@ -358,12 +549,18 @@ def validate_formal_base_training_run(
     if final.get("preflight_receipt_sha256") != preflight_sha256:
         raise BaseTrainingProvenanceError("preflight receipt SHA256 mismatch")
     preflight = _load_json_object(preflight_path, name="formal base preflight receipt")
+    if preflight.get("schema_version") == LEGACY_FORMAL_BASE_PREFLIGHT_SCHEMA:
+        raise BaseTrainingProvenanceError(
+            "legacy formal base preflight is invalid because it assigned D_V "
+            "to base checkpoint selection"
+        )
+    d_b_view_roles = {"train": "D_B-fit", "validation": "D_B-select"}
     required_preflight = {
         "schema_version": FORMAL_BASE_PREFLIGHT_SCHEMA,
         "method_version": CURE_LITE_METHOD_VERSION,
         "status": "ready_for_fresh_native_training",
         "split_manifest_fingerprint": manifest.fingerprint,
-        "dataset_view_roles": {"train": "D_B", "validation": "D_V"},
+        "dataset_view_roles": d_b_view_roles,
         "fresh_output_policy": "new_output_no_resume_no_checkpoint_fallback",
     }
     for key, expected in required_preflight.items():
@@ -371,6 +568,19 @@ def validate_formal_base_training_run(
             raise BaseTrainingProvenanceError(
                 f"formal base preflight mismatch for {key}"
             )
+    checkpoint_selection_raw = preflight.get("checkpoint_selection")
+    if not isinstance(checkpoint_selection_raw, Mapping):
+        raise BaseTrainingProvenanceError(
+            "formal base preflight checkpoint-selection contract is missing"
+        )
+    checkpoint_selection = BaseCheckpointSelection.from_mapping(
+        checkpoint_selection_raw
+    )
+    checkpoint_selection.validate_against(manifest)
+    if final.get("checkpoint_selection_fingerprint") != checkpoint_selection.fingerprint:
+        raise BaseTrainingProvenanceError(
+            "formal base final receipt does not bind checkpoint selection"
+        )
     if final.get("dataset_view_fingerprint") != preflight.get(
         "dataset_view_fingerprint"
     ) or final.get("recipe_fingerprint") != preflight.get("recipe_fingerprint"):
@@ -381,8 +591,10 @@ def validate_formal_base_training_run(
     if not isinstance(recipe, Mapping):
         raise BaseTrainingProvenanceError("formal base preflight recipe is missing")
     expected_recipe = {
-        "training_split": "D_B",
-        "validation_split": "D_V",
+        "training_split": "D_B-fit",
+        "validation_split": "D_B-select",
+        "checkpoint_selection_split": "D_B-select",
+        "external_validation_split": None,
         "resume": False,
         "resume_path": None,
         "input_checkpoint": None,
@@ -507,43 +719,107 @@ def validate_formal_base_training_run(
         raise BaseTrainingProvenanceError(
             "isolated dataset-view fingerprint or records are inconsistent"
         )
+    if index.get("split_manifest_fingerprint") != manifest.fingerprint or index.get(
+        "roles"
+    ) != preflight.get("dataset_view_roles"):
+        raise BaseTrainingProvenanceError(
+            "isolated dataset-view manifest or D_B partition roles are invalid"
+        )
 
     rows = preflight.get("dataset_view_records")
     if not isinstance(rows, list):
         raise BaseTrainingProvenanceError("formal base preflight has no dataset rows")
     manifest_rows = {
         record.sample_id: record
-        for split in ("D_B", "D_V")
-        for record in manifest.records_for(split)
+        for record in manifest.records_for("D_B")
     }
+    fit_ids = set(checkpoint_selection.fit_sample_ids)
     seen: set[str] = set()
+    seen_view_ids: set[str] = set()
+    native_ids: dict[str, list[str]] = {"train": [], "validation": []}
     for row in rows:
         if not isinstance(row, Mapping):
             raise BaseTrainingProvenanceError("formal base dataset row is invalid")
         sample_id = row.get("sample_id")
         if not isinstance(sample_id, str) or sample_id not in manifest_rows:
-            raise BaseTrainingProvenanceError("formal base dataset row is not D_B/D_V")
+            raise BaseTrainingProvenanceError("formal base dataset row is not in D_B")
         if sample_id in seen:
             raise BaseTrainingProvenanceError("formal base dataset rows contain duplicates")
         seen.add(sample_id)
         record = manifest_rows[sample_id]
-        expected_role = "train" if record.split == "D_B" else "validation"
-        if row.get("split") != record.split or row.get("role") != expected_role:
+        expected_role = "train" if sample_id in fit_ids else "validation"
+        if row.get("split") != "D_B" or row.get("role") != expected_role:
             raise BaseTrainingProvenanceError("formal base dataset role mismatch")
+        view_id = row.get("view_id")
+        if (
+            not isinstance(view_id, str)
+            or not view_id
+            or view_id in seen_view_ids
+        ):
+            raise BaseTrainingProvenanceError(
+                "formal base dataset view_id is invalid or duplicated"
+            )
+        seen_view_ids.add(view_id)
+        native_ids[expected_role].append(view_id)
         if record.mask is None:
-            raise BaseTrainingProvenanceError("formal base D_B/D_V mask is missing")
-        if row.get("image_sha256") != file_sha256(
+            raise BaseTrainingProvenanceError("formal base D_B mask is missing")
+        source_image_sha256 = file_sha256(
             _resolve_manifest_asset(manifest, record.image)
-        ) or row.get("mask_sha256") != file_sha256(
+        )
+        source_mask_sha256 = file_sha256(
             _resolve_manifest_asset(manifest, record.mask)
+        )
+        declared_image_sha256 = row.get("image_sha256")
+        declared_mask_sha256 = row.get("mask_sha256")
+        if (
+            declared_image_sha256 != source_image_sha256
+            or declared_mask_sha256 != source_mask_sha256
         ):
             raise BaseTrainingProvenanceError(
                 "formal base dataset content differs from the frozen manifest"
             )
+        view_image = _bound_child(
+            view_root,
+            row.get("image"),
+            name=f"dataset_view_records[{sample_id!r}].image",
+        )
+        view_mask = _bound_child(
+            view_root,
+            row.get("mask"),
+            name=f"dataset_view_records[{sample_id!r}].mask",
+        )
+        if (
+            file_sha256(view_image) != declared_image_sha256
+            or file_sha256(view_mask) != declared_mask_sha256
+        ):
+            raise BaseTrainingProvenanceError(
+                "isolated dataset-view asset differs from its frozen D_B source"
+            )
     if seen != set(manifest_rows):
         raise BaseTrainingProvenanceError(
-            "formal base dataset view is not the exact D_B/D_V set"
+            "formal base dataset view is not the exact D_B set"
         )
+    native_split_files = index.get("native_split_files_sha256")
+    expected_split_files = {
+        "trainval.txt": "train",
+        "test.txt": "validation",
+    }
+    if not isinstance(native_split_files, Mapping) or set(
+        native_split_files
+    ) != set(expected_split_files):
+        raise BaseTrainingProvenanceError(
+            "isolated dataset-view native split-file bindings are invalid"
+        )
+    for filename, role in expected_split_files.items():
+        split_file = _bound_child(view_root, filename, name=filename)
+        if native_split_files.get(filename) != file_sha256(split_file):
+            raise BaseTrainingProvenanceError(
+                f"isolated dataset-view {filename} SHA256 mismatch"
+            )
+        if split_file.read_text(encoding="utf-8").splitlines() != native_ids[role]:
+            raise BaseTrainingProvenanceError(
+                f"isolated dataset-view {filename} does not encode {role} rows"
+            )
 
     checkpoint_block = final.get("checkpoint")
     provenance_block = final.get("base_training_provenance")
@@ -614,6 +890,7 @@ def validate_formal_base_training_run(
         final_receipt_sha256=file_sha256(final_path),
         preflight_receipt_sha256=preflight_sha256,
         checkpoint_sha256=checkpoint_sha256,
+        checkpoint_selection_fingerprint=checkpoint_selection.fingerprint,
         upstream_commit=str(upstream["commit"]),
         upstream_tree=str(upstream["tree"]),
         model_source_sha256=str(sources["model/MSHNet.py"]),
@@ -621,14 +898,18 @@ def validate_formal_base_training_run(
 
 
 __all__ = [
+    "BASE_CHECKPOINT_SELECTION_SCHEMA",
     "BASE_TRAINING_PROVENANCE_SCHEMA",
     "CURE_LITE_METHOD_VERSION",
+    "BaseCheckpointSelection",
     "BaseTrainingProvenance",
     "BaseTrainingProvenanceError",
     "BaseTrainingSample",
     "FormalBaseTrainingIdentity",
     "FORMAL_BASE_FINAL_SCHEMA",
     "FORMAL_BASE_PREFLIGHT_SCHEMA",
+    "LEGACY_FORMAL_BASE_FINAL_SCHEMA",
+    "LEGACY_FORMAL_BASE_PREFLIGHT_SCHEMA",
     "validate_base_training_provenance",
     "validate_formal_base_training_run",
 ]

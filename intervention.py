@@ -57,7 +57,7 @@ def _identity_pairs(result: MatchResult) -> tuple[tuple[int, int], ...]:
     return tuple((pair.gt_id, pair.pred_id) for pair in result.pairs)
 
 
-def oracle_restores_base_coverage(
+def full_gt_restores_base_coverage(
     occupancy_after: Tensor,
     gt: InstanceMap,
     gt_id: int,
@@ -67,11 +67,13 @@ def oracle_restores_base_coverage(
     connectivity: int = 8,
     min_area: int = 1,
 ) -> bool:
-    """Whether a perfect residual target restores the pre-deletion coverage.
+    """Whether adding the complete GT restores pre-deletion coverage.
 
-    The oracle mask is deliberately decomposed into connected components
-    again.  Merely exposing writable pixels is insufficient because adding a
-    target can merge it with another component and change one-to-one matching.
+    The full-GT mask is deliberately decomposed into connected components
+    again.  This is a conservative legality condition, not a theoretical
+    oracle over all possible partial residual masks.  Merely exposing writable
+    pixels is insufficient because adding a target can merge it with another
+    component and change one-to-one matching.
     """
 
     if not isinstance(gt, InstanceMap):
@@ -96,6 +98,29 @@ def oracle_restores_base_coverage(
     return oracle_match.matched_gt_ids == before.matched_gt_ids
 
 
+def oracle_restores_base_coverage(
+    occupancy_after: Tensor,
+    gt: InstanceMap,
+    gt_id: int,
+    before: MatchResult,
+    match_config: MatchConfig,
+    *,
+    connectivity: int = 8,
+    min_area: int = 1,
+) -> bool:
+    """Backward-compatible alias for :func:`full_gt_restores_base_coverage`."""
+
+    return full_gt_restores_base_coverage(
+        occupancy_after,
+        gt,
+        gt_id,
+        before,
+        match_config,
+        connectivity=connectivity,
+        min_area=min_area,
+    )
+
+
 def enumerate_legal_deletions(
     pred: InstanceMap,
     gt: InstanceMap,
@@ -106,7 +131,7 @@ def enumerate_legal_deletions(
     match_config: MatchConfig | None = None,
     intervention_config: InterventionConfig | None = None,
 ) -> tuple[LegalDeletion, ...]:
-    """Enumerate deletions satisfying A/B/C and full oracle restoration.
+    """Enumerate deletions satisfying A/B/C and full-GT restoration.
 
     The fifth positional argument is normally :class:`InterventionConfig`, as
     shown by the main-body API.  Passing a :class:`MatchConfig` there is also
@@ -157,7 +182,7 @@ def enumerate_legal_deletions(
         # A writable target is legal only when perfect residual output survives
         # the complete CC8 + one-to-one matching pipeline and restores exactly
         # the GT coverage that existed before deletion.
-        if not oracle_restores_base_coverage(
+        if not full_gt_restores_base_coverage(
             occupancy_after,
             gt,
             pair.gt_id,

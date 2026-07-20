@@ -672,6 +672,10 @@ def _validate_common(value: object) -> dict[str, Any]:
 
     tau_o = _float(common["tau_o"], name="common_config.tau_o", minimum=0.0, maximum=1.0)
     tau_b = _float(common["tau_B"], name="common_config.tau_B", minimum=0.0, maximum=1.0)
+    if tau_b > tau_o:
+        raise RuntimeError(
+            "common_config.tau_B must not exceed tau_o for the Base@B control"
+        )
     _float(common["pixel_fa_budget"], name="common_config.pixel_fa_budget", minimum=0.0)
     component_budget = common["component_fa_per_mp_budget"]
     if component_budget is not None:

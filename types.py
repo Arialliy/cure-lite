@@ -244,9 +244,17 @@ class BranchSupervision:
     """One factual or synthetic residual-supervision state.
 
     ``positive_gt_ids`` records only targets that are valid positive training
-    supervision.  ``unreachable_gt_ids`` is diagnostic metadata: those IDs
-    remain part of the primary RMR denominator even though they must not enter
-    either factual training pool.
+    supervision in this state.  ``reachable_gt_ids`` records the complete
+    individually full-GT-recoverable factual catalog before one target is
+    selected.  ``unreachable_gt_ids`` is diagnostic metadata: those IDs remain
+    part of the primary miss denominator even though they must not enter either
+    factual training pool.
+
+    The metadata fields remain optional for backwards-compatible construction
+    of manually assembled training-control states.  The normative builders
+    always populate them.  When ``reachable_gt_ids`` is supplied for a
+    factual-miss state, it is treated as authoritative and must contain the
+    selected positive ID.
     """
 
     occupancy: Tensor
@@ -255,6 +263,7 @@ class BranchSupervision:
     branch: str
     positive_gt_ids: tuple[int, ...] = ()
     unreachable_gt_ids: tuple[int, ...] = ()
+    reachable_gt_ids: tuple[int, ...] = ()
 
     def validate(self) -> None:
         if not all(isinstance(value, Tensor) for value in (self.occupancy, self.target, self.valid_mask)):
@@ -283,6 +292,7 @@ class BranchSupervision:
         for name, values in (
             ("positive_gt_ids", self.positive_gt_ids),
             ("unreachable_gt_ids", self.unreachable_gt_ids),
+            ("reachable_gt_ids", self.reachable_gt_ids),
         ):
             if not isinstance(values, tuple):
                 raise TypeError(f"{name} must be a tuple")
@@ -295,11 +305,60 @@ class BranchSupervision:
                 raise ValueError(f"{name} must be sorted and unique")
         if set(self.positive_gt_ids) & set(self.unreachable_gt_ids):
             raise ValueError("positive and unreachable GT IDs must be disjoint")
+        if set(self.reachable_gt_ids) & set(self.unreachable_gt_ids):
+            raise ValueError("reachable and unreachable GT IDs must be disjoint")
         positive = self.target.to(torch.bool)
         if torch.any(positive & ~self.valid_mask):
             raise ValueError("positive target lies outside valid_mask")
         if torch.any(self.valid_mask & self.occupancy):
             raise ValueError("valid_mask overlaps occupancy")
+
+        has_target = bool(torch.any(positive))
+        has_valid = bool(torch.any(self.valid_mask))
+        if self.branch == "factual_miss":
+            if not has_target:
+                raise ValueError("factual_miss requires a non-empty positive target")
+            if self.reachable_gt_ids:
+                if len(self.positive_gt_ids) != 1:
+                    raise ValueError(
+                        "factual_miss with reachable metadata requires exactly one "
+                        "selected positive GT"
+                    )
+                if not set(self.positive_gt_ids) <= set(self.reachable_gt_ids):
+                    raise ValueError(
+                        "selected factual positive must belong to reachable_gt_ids"
+                    )
+        elif self.branch == "factual_no_miss":
+            if has_target:
+                raise ValueError("factual_no_miss requires an empty target")
+            if self.positive_gt_ids or self.reachable_gt_ids or self.unreachable_gt_ids:
+                raise ValueError("factual_no_miss cannot carry miss GT metadata")
+        elif self.branch == "factual_unreachable":
+            if has_target or has_valid:
+                raise ValueError(
+                    "factual_unreachable must be diagnostics-only with empty target "
+                    "and valid_mask"
+                )
+            if self.positive_gt_ids or self.reachable_gt_ids:
+                raise ValueError(
+                    "factual_unreachable cannot carry positive or reachable GT IDs"
+                )
+            if not self.unreachable_gt_ids:
+                raise ValueError(
+                    "factual_unreachable requires at least one unreachable GT ID"
+                )
+        else:  # synthetic
+            if not has_target:
+                raise ValueError("synthetic supervision requires a non-empty target")
+            if self.positive_gt_ids and len(self.positive_gt_ids) != 1:
+                raise ValueError(
+                    "synthetic supervision permits exactly one positive GT when "
+                    "metadata is supplied"
+                )
+            if self.reachable_gt_ids or self.unreachable_gt_ids:
+                raise ValueError(
+                    "synthetic supervision cannot carry factual reachability metadata"
+                )
 
     def __post_init__(self) -> None:
         self.validate()

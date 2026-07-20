@@ -46,7 +46,7 @@ class BranchBatch:
             )
         return self
 
-    def validate(self) -> None:
+    def validate(self, *, expected_branch: str | None = None) -> None:
         if not all(
             isinstance(value, Tensor)
             for value in (self.feature, self.occupancy, self.target, self.valid_mask)
@@ -81,6 +81,23 @@ class BranchBatch:
             raise ValueError("positive target lies outside valid_mask")
         if torch.any(self.valid_mask & self.occupancy):
             raise ValueError("valid_mask overlaps occupancy")
+        if expected_branch is not None:
+            if expected_branch not in BRANCHES:
+                raise ValueError(f"unknown expected branch {expected_branch!r}")
+            positive_by_state = self.target.to(torch.bool).flatten(1).any(dim=1)
+            valid_by_state = self.valid_mask.flatten(1).any(dim=1)
+            if expected_branch == "factual_no_miss":
+                if torch.any(positive_by_state):
+                    raise ValueError("factual_no_miss batch must have an empty target")
+                if not torch.all(valid_by_state):
+                    raise ValueError(
+                        "every factual_no_miss state must contain valid negative "
+                        "supervision"
+                    )
+            elif not torch.all(positive_by_state):
+                raise ValueError(
+                    f"every {expected_branch} state must contain positive supervision"
+                )
 
 
 def _resolve_training_config(
@@ -130,7 +147,15 @@ def combine_branch_means(
 
 
 def _validate_optimizer_scope(decoder: nn.Module, optimizer: torch.optim.Optimizer) -> None:
-    decoder_ids = {id(parameter) for parameter in decoder.parameters()}
+    decoder_parameters = list(decoder.parameters())
+    if not decoder_parameters:
+        raise ValueError("decoder contains no parameters")
+    frozen = [parameter for parameter in decoder_parameters if not parameter.requires_grad]
+    if frozen:
+        raise ValueError("every CURE-Lite decoder parameter must require gradients")
+    decoder_ids = {id(parameter) for parameter in decoder_parameters}
+    if len(decoder_ids) != len(decoder_parameters):
+        raise ValueError("decoder exposes duplicate parameter references")
     optimizer_parameters = [
         parameter
         for group in optimizer.param_groups
@@ -138,8 +163,16 @@ def _validate_optimizer_scope(decoder: nn.Module, optimizer: torch.optim.Optimiz
     ]
     if not optimizer_parameters:
         raise ValueError("optimizer contains no parameters")
-    if any(id(parameter) not in decoder_ids for parameter in optimizer_parameters):
+    optimizer_ids = [id(parameter) for parameter in optimizer_parameters]
+    if len(optimizer_ids) != len(set(optimizer_ids)):
+        raise ValueError("optimizer contains duplicate decoder parameters")
+    optimizer_id_set = set(optimizer_ids)
+    foreign = optimizer_id_set - decoder_ids
+    if foreign:
         raise ValueError("CURE-Lite optimizer may contain only decoder parameters")
+    missing = decoder_ids - optimizer_id_set
+    if missing:
+        raise ValueError("optimizer must contain every decoder parameter exactly once")
 
 
 def multi_branch_train_step(
@@ -176,7 +209,7 @@ def multi_branch_train_step(
         if not isinstance(batch, BranchBatch):
             raise TypeError(f"{branch} batch must be BranchBatch")
         batch = batch.batched()
-        batch.validate()
+        batch.validate(expected_branch=branch)
         logits = decoder(batch.feature.detach(), batch.occupancy)
         result = criterion(logits, batch.target, batch.valid_mask)
         if not isinstance(result, Mapping) or "total" not in result:

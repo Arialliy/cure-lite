@@ -232,7 +232,9 @@ def _validated_anchor_state(
     if anchors != expected_anchors:
         raise ValueError("anchor miss sets differ from the fixed occupancy anchor")
     if reachable != expected_reachable:
-        raise ValueError("reachable miss sets differ from the full-pipeline oracle")
+        raise ValueError(
+            "reachable miss sets differ from the full-GT recoverability diagnostic"
+        )
     return anchors, reachable
 
 
@@ -457,18 +459,21 @@ def select_base_threshold_at_budget(
     anchor_miss_ids_by_sample: Mapping[str, frozenset[int]] | None = None,
     reachable_anchor_miss_ids_by_sample: Mapping[str, frozenset[int]] | None = None,
 ) -> ThresholdSelection:
-    """Select Base@B with the shared matcher, anchor sets, and total budget."""
+    """Select Base@B with the shared matcher, anchor sets, and total budget.
+
+    Base@B is the threshold-relaxation control.  A threshold above the fixed
+    anchor threshold can remove anchor pixels and therefore is not a valid
+    Base@B candidate, even when it happens to improve component matching.
+    """
 
     _require_validation(split_role)
+    tau_o = anchor_occupancy_config.threshold
     candidates = tuple(
-        sorted(
-            set(
-                (
-                    *_thresholds(thresholds),
-                    anchor_occupancy_config.threshold,
-                )
-            )
+        threshold
+        for threshold in sorted(
+            set((*_thresholds(thresholds), tau_o))
         )
+        if threshold <= tau_o
     )
     fa_budget = _coerce_budget(budget)
     anchors, reachable = _validated_anchor_state(
@@ -581,6 +586,10 @@ class FrozenBaseThresholdProtocol:
         value = float(self.base_threshold)
         if not isfinite(value) or not 0.0 <= value <= 1.0:
             raise ValueError("base_threshold must be finite and in [0,1]")
+        if value > self.anchor_occupancy_config.threshold:
+            raise ValueError(
+                "Base@B base_threshold must not exceed the anchor occupancy threshold"
+            )
         if self.budget is not None:
             _coerce_budget(self.budget)
 

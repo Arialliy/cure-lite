@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from math import ceil
-import statistics
 import time
 
 import torch
@@ -102,6 +101,12 @@ def measure_decoder_efficiency(
     )
     decoder.train(prior_mode)
     ordered = sorted(samples)
+    midpoint = len(ordered) // 2
+    median_latency_ms = (
+        ordered[midpoint]
+        if len(ordered) % 2 == 1
+        else (ordered[midpoint - 1] + ordered[midpoint]) / 2.0
+    )
     # Nearest-rank empirical p95 (one-indexed rank ceil(0.95*n)).
     p95_index = min(len(ordered) - 1, max(0, ceil(0.95 * len(ordered)) - 1))
     return EfficiencyReport(
@@ -109,7 +114,7 @@ def measure_decoder_efficiency(
         trainable_parameters=trainable_parameters,
         multiply_accumulates=macs,
         flops=2 * macs,
-        median_latency_ms=float(statistics.median(samples)),
+        median_latency_ms=float(median_latency_ms),
         p95_latency_ms=float(ordered[p95_index]),
         peak_vram_bytes=peak_vram,
         repetitions=repetitions,

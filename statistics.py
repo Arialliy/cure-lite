@@ -74,6 +74,55 @@ class PairedRatioObservation:
 
 
 @dataclass(frozen=True)
+class PairedSignedRatioObservation:
+    """Paired signed-count ratios for one pipeline seed and test unit.
+
+    This record is deliberately separate from :class:`PairedRatioObservation`.
+    Ordinary sufficient statistics such as matched/total GT counts remain
+    non-negative and keep the strict ``0 / 0`` empty-unit contract above.
+
+    A net count, however, can be signed.  For example, the additive NetRMR
+    numerator ``matched_gt - total_anchor_covered`` is negative when a method
+    loses anchor-covered targets.  A scene with no anchor misses can therefore
+    have a zero denominator and a non-zero numerator.  Such rows are valid
+    additive evidence: denominators are checked only after rows have been
+    pooled within a pipeline seed (and within a bootstrap resample).
+    """
+
+    seed_id: str
+    scene_id: str
+    baseline_numerator: float
+    baseline_denominator: float
+    method_numerator: float
+    method_denominator: float
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.seed_id, str)
+            or not self.seed_id
+            or not isinstance(self.scene_id, str)
+            or not self.scene_id
+        ):
+            raise ValueError("seed_id and scene_id must be non-empty")
+        for name in ("baseline_numerator", "method_numerator"):
+            raw = getattr(self, name)
+            if isinstance(raw, bool) or not isinstance(raw, Real):
+                raise TypeError(f"{name} must be a real number")
+            value = float(raw)
+            if not isfinite(value):
+                raise ValueError(f"{name} must be finite")
+            object.__setattr__(self, name, value)
+        for name in ("baseline_denominator", "method_denominator"):
+            raw = getattr(self, name)
+            if isinstance(raw, bool) or not isinstance(raw, Real):
+                raise TypeError(f"{name} must be a real number")
+            value = float(raw)
+            if not isfinite(value) or value < 0.0:
+                raise ValueError(f"{name} must be finite and non-negative")
+            object.__setattr__(self, name, value)
+
+
+@dataclass(frozen=True)
 class BootstrapInterval:
     estimate: float
     lower: float
@@ -222,8 +271,11 @@ def formal_paired_hierarchical_bootstrap(
     )
 
 
+_RatioObservation = PairedRatioObservation | PairedSignedRatioObservation
+
+
 def _micro_ratio_difference(
-    observations: Iterable[PairedRatioObservation],
+    observations: Iterable[_RatioObservation],
     *,
     require_information: bool,
 ) -> float:
@@ -251,7 +303,7 @@ def _micro_ratio_difference(
 
 
 def _equal_seed_ratio_difference(
-    grouped: dict[str, dict[str, PairedRatioObservation]],
+    grouped: dict[str, dict[str, _RatioObservation]],
 ) -> float:
     """Return the mean of per-seed micro-ratio differences.
 
@@ -273,8 +325,8 @@ def _equal_seed_ratio_difference(
 
 def _resample_informative_units(
     rng: random.Random,
-    units: tuple[PairedRatioObservation, ...],
-) -> tuple[PairedRatioObservation, ...]:
+    units: tuple[_RatioObservation, ...],
+) -> tuple[_RatioObservation, ...]:
     """Resample one seed's units while keeping a ratio statistic defined.
 
     Sparse RMR data can produce an all-zero-denominator scene draw even though
@@ -296,30 +348,23 @@ def _resample_informative_units(
     )
 
 
-def formal_paired_hierarchical_ratio_bootstrap(
-    observations: Iterable[PairedRatioObservation],
+def _formal_paired_hierarchical_ratio_bootstrap(
+    observations: Iterable[_RatioObservation],
     *,
+    record_type: type,
     replicates: int = 10_000,
     confidence: float = 0.95,
     random_seed: int = 0,
 ) -> BootstrapInterval:
-    """Bootstrap a paired difference of micro-averaged ratios.
-
-    Full-pipeline seeds are sampled first.  Within every sampled seed, the
-    common scene/sequence units are sampled with replacement and their four
-    sufficient statistics are pooled before computing that seed's paired
-    micro-ratio difference.  Seed effects are then averaged with equal weight.
-    """
-
     if replicates < 1:
         raise ValueError("replicates must be positive")
     if not 0.0 < confidence < 1.0:
         raise ValueError("confidence must lie strictly between zero and one")
     items = tuple(observations)
-    grouped_raw = _formal_groups(items, PairedRatioObservation)
-    grouped: dict[str, dict[str, PairedRatioObservation]] = {
+    grouped_raw = _formal_groups(items, record_type)
+    grouped: dict[str, dict[str, _RatioObservation]] = {
         seed_id: {
-            scene_id: cast(PairedRatioObservation, item)
+            scene_id: cast(_RatioObservation, item)
             for scene_id, item in by_scene.items()
         }
         for seed_id, by_scene in grouped_raw.items()
@@ -365,11 +410,67 @@ def formal_paired_hierarchical_ratio_bootstrap(
     )
 
 
+def formal_paired_hierarchical_ratio_bootstrap(
+    observations: Iterable[PairedRatioObservation],
+    *,
+    replicates: int = 10_000,
+    confidence: float = 0.95,
+    random_seed: int = 0,
+) -> BootstrapInterval:
+    """Bootstrap a paired difference of ordinary micro-averaged ratios.
+
+    Full-pipeline seeds are sampled first.  Within every sampled seed, the
+    common scene/sequence units are sampled with replacement and their four
+    sufficient statistics are pooled before computing that seed's paired
+    micro-ratio difference.  Seed effects are then averaged with equal weight.
+
+    Numerators must remain non-negative, and an individual zero-denominator
+    row must have a zero numerator.  Use
+    :func:`formal_paired_hierarchical_signed_ratio_bootstrap` for additive net
+    counts such as the NetRMR numerator.
+    """
+
+    return _formal_paired_hierarchical_ratio_bootstrap(
+        observations,
+        record_type=PairedRatioObservation,
+        replicates=replicates,
+        confidence=confidence,
+        random_seed=random_seed,
+    )
+
+
+def formal_paired_hierarchical_signed_ratio_bootstrap(
+    observations: Iterable[PairedSignedRatioObservation],
+    *,
+    replicates: int = 10_000,
+    confidence: float = 0.95,
+    random_seed: int = 0,
+) -> BootstrapInterval:
+    """Bootstrap paired ratios whose additive numerators may be signed.
+
+    A single scene may have a zero denominator and a non-zero signed numerator.
+    Rows are pooled within each seed before division, and only the aggregate
+    baseline and method denominators must be positive.  The same rule is
+    applied to every within-seed bootstrap draw; uninformative draws are
+    redrawn rather than assigned an artificial ratio of zero.
+    """
+
+    return _formal_paired_hierarchical_ratio_bootstrap(
+        observations,
+        record_type=PairedSignedRatioObservation,
+        replicates=replicates,
+        confidence=confidence,
+        random_seed=random_seed,
+    )
+
+
 __all__ = [
     "BootstrapInterval",
     "PairedObservation",
     "PairedRatioObservation",
+    "PairedSignedRatioObservation",
     "formal_paired_hierarchical_bootstrap",
     "formal_paired_hierarchical_ratio_bootstrap",
+    "formal_paired_hierarchical_signed_ratio_bootstrap",
     "paired_hierarchical_bootstrap",
 ]

@@ -16,7 +16,11 @@ from .instances import (
     mask_iou,
     union_instance_masks,
 )
-from .intervention import enumerate_legal_deletions, oracle_restores_base_coverage
+from .intervention import (
+    enumerate_legal_deletions,
+    full_gt_restores_base_coverage,
+    oracle_restores_base_coverage,
+)
 from .matching import match_components
 from .occupancy import (
     build_occupancy,
@@ -26,6 +30,8 @@ from .occupancy import (
 )
 from .sampling import choose_uniform_legal_deletion, stable_hash
 from .provenance import (
+    BASE_CHECKPOINT_SELECTION_SCHEMA,
+    BaseCheckpointSelection,
     BaseTrainingProvenance,
     BaseTrainingProvenanceError,
     BaseTrainingSample,
@@ -37,6 +43,7 @@ from .supervision import (
     build_factual_supervision,
     build_synthetic_supervision,
     factual_oracle_reachable,
+    full_gt_recoverable,
 )
 from .types import (
     BranchSupervision,
@@ -49,7 +56,9 @@ from .types import (
 )
 
 __all__ = [
+    "BASE_CHECKPOINT_SELECTION_SCHEMA",
     "BranchSupervision",
+    "BaseCheckpointSelection",
     "BaseTrainingProvenance",
     "BaseTrainingProvenanceError",
     "BaseTrainingSample",
@@ -77,6 +86,8 @@ __all__ = [
     "decompose_occupancy",
     "enumerate_legal_deletions",
     "factual_oracle_reachable",
+    "full_gt_recoverable",
+    "full_gt_restores_base_coverage",
     "instances_from_binary_mask",
     "mask_iou",
     "match_components",

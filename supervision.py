@@ -50,7 +50,7 @@ def _validate_factual_state(
     return occupied
 
 
-def _factual_oracle_reachable_validated(
+def _full_gt_recoverable_validated(
     occupancy: Tensor,
     gt: InstanceMap,
     gt_id: int,
@@ -70,17 +70,19 @@ def _factual_oracle_reachable_validated(
     )
 
 
-def factual_oracle_reachable(
+def full_gt_recoverable(
     occupancy: Tensor,
     gt: InstanceMap,
     gt_id: int,
     before: MatchResult,
     match_config: MatchConfig = MatchConfig(),
 ) -> bool:
-    """Return whether one factual miss is recoverable by the full pipeline.
+    """Return whether one factual miss is recoverable by adding its full GT.
 
-    A miss is reachable only if adding its perfect GT mask makes that target
-    matched while retaining every target covered by the factual base state.
+    This is a conservative full-pipeline diagnostic, not a theoretical oracle
+    over arbitrary partial repair masks.  It succeeds only if adding the
+    complete GT mask matches that target while retaining every target covered
+    by the factual base state.
     """
 
     occupied = _validate_factual_state(
@@ -94,7 +96,7 @@ def factual_oracle_reachable(
     gt.by_id(gt_id)
     if gt_id not in before.unmatched_gt_ids:
         raise ValueError("gt_id must identify a factual unmatched GT")
-    return _factual_oracle_reachable_validated(
+    return _full_gt_recoverable_validated(
         occupied,
         gt,
         gt_id,
@@ -103,13 +105,38 @@ def factual_oracle_reachable(
     )
 
 
+def factual_oracle_reachable(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    gt_id: int,
+    before: MatchResult,
+    match_config: MatchConfig = MatchConfig(),
+) -> bool:
+    """Backward-compatible alias for :func:`full_gt_recoverable`."""
+
+    return full_gt_recoverable(occupancy, gt, gt_id, before, match_config)
+
+
 def build_factual_supervision(
     occupancy: Tensor,
     gt: InstanceMap,
     match: MatchResult,
     match_config: MatchConfig = MatchConfig(),
+    *,
+    selected_gt_id: int | None = None,
 ) -> BranchSupervision:
-    """Build factual supervision with full-pipeline reachability filtering."""
+    """Build one factual target with full-pipeline reachability filtering.
+
+    Reachability is tested independently for every factual miss.  A training
+    state nevertheless contains exactly one of those misses: combining several
+    individually reachable masks can change connected components and matching,
+    so their union is not necessarily jointly reachable.  By default the
+    canonical smallest reachable GT ID is selected.  Callers that implement a
+    reproducible sampling schedule may explicitly pass another reachable ID.
+
+    ``reachable_gt_ids`` retains the complete diagnostic catalog, while
+    ``positive_gt_ids`` contains only the target actually supervised here.
+    """
 
     occupied = _validate_factual_state(occupancy, gt, match, match_config)
     gt_union = _gt_union(gt)
@@ -118,7 +145,7 @@ def build_factual_supervision(
     reachable_ids: list[int] = []
     unreachable_ids: list[int] = []
     for gt_id in sorted(match.unmatched_gt_ids):
-        if _factual_oracle_reachable_validated(
+        if _full_gt_recoverable_validated(
             occupied,
             gt,
             gt_id,
@@ -129,17 +156,35 @@ def build_factual_supervision(
         else:
             unreachable_ids.append(gt_id)
 
+    if selected_gt_id is not None and (
+        isinstance(selected_gt_id, bool) or not isinstance(selected_gt_id, int)
+    ):
+        raise TypeError("selected_gt_id must be an integer or None")
+
+    selected_ids: tuple[int, ...] = ()
     if reachable_ids:
-        target = union_instance_masks(gt, reachable_ids) & writable
+        selected = reachable_ids[0] if selected_gt_id is None else selected_gt_id
+        if selected not in reachable_ids:
+            raise ValueError(
+                "selected_gt_id must identify an individually reachable factual miss"
+            )
+        selected_ids = (selected,)
+        target = union_instance_masks(gt, selected_ids) & writable
         valid = writable & (background | target)
         branch = "factual_miss"
     elif match.unmatched_gt_ids:
+        if selected_gt_id is not None:
+            raise ValueError(
+                "selected_gt_id was provided but this state has no reachable miss"
+            )
         target = torch.zeros(gt.shape, dtype=torch.bool)
         # This state is diagnostics-only.  An empty validity mask prevents an
         # accidental caller from treating it as factual-no-miss supervision.
         valid = torch.zeros(gt.shape, dtype=torch.bool)
         branch = "factual_unreachable"
     else:
+        if selected_gt_id is not None:
+            raise ValueError("selected_gt_id was provided for a no-miss state")
         target = torch.zeros(gt.shape, dtype=torch.bool)
         valid = writable & background
         branch = "factual_no_miss"
@@ -149,8 +194,9 @@ def build_factual_supervision(
         target=target.to(torch.float32).unsqueeze(0),
         valid_mask=valid.unsqueeze(0),
         branch=branch,
-        positive_gt_ids=tuple(reachable_ids),
+        positive_gt_ids=selected_ids,
         unreachable_gt_ids=tuple(unreachable_ids),
+        reachable_gt_ids=tuple(reachable_ids),
     )
 
 

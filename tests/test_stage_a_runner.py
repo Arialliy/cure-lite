@@ -164,16 +164,22 @@ def test_stage_a_single_entry_is_replayable_and_never_reads_d_t(
         d_v_dataset,
         _stage_a_config(),
         output,
+        calibration_workers=2,
     )
 
     assert (output / "COMPLETE.json").is_file()
     assert not (output / ".incomplete").exists()
     for receipt_name in ("config", "anchor", "support", "calibration", "results"):
         assert (output / "receipts" / f"{receipt_name}.json").is_file()
-    for variant in ("factual_only", "uniform_legal"):
+    for variant in (
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+    ):
         assert (output / "decoders" / variant / "receipt.json").is_file()
     assert {path.name for path in (output / "decoders").iterdir()} == {
         "factual_only",
+        "factual_exposure_matched",
         "uniform_legal",
     }
 
@@ -201,9 +207,15 @@ def test_stage_a_single_entry_is_replayable_and_never_reads_d_t(
     complete_payload = json.loads(
         (output / "COMPLETE.json").read_text(encoding="utf-8")
     )
-    assert set(results_payload["methods"]) == {"A", "Base@B", "F", "U"}
-    assert set(calibration_payload["methods"]) == {"A", "Base@B", "F", "U"}
-    assert complete_payload["method_order"] == ["A", "Base@B", "F", "U"]
+    assert set(results_payload["methods"]) == {"A", "Base@B", "F", "F×", "U"}
+    assert set(calibration_payload["methods"]) == {
+        "A",
+        "Base@B",
+        "F",
+        "F×",
+        "U",
+    }
+    assert complete_payload["method_order"] == ["A", "Base@B", "F", "F×", "U"]
 
     persisted_json = _all_json_text(output)
     assert _UNUSED_D_T_ID not in persisted_json

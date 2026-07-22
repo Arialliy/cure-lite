@@ -27,17 +27,20 @@ from cure_lite.experiment.stage_a_runner import (  # noqa: E402
 )
 from cure_lite.splits import load_and_validate_manifest  # noqa: E402
 from tools.run_stage_a import (  # noqa: E402
+    DEFAULT_CALIBRATION_WORKERS,
     METHOD_ORDER,
+    _calibration_progress,
     _development_mechanism_screen,
     _json_object,
     _metric_summary,
+    _positive_int,
     load_stage_a_config,
 )
 
 
-ASSESSMENT_SCHEMA = "cure-lite-stage-a-assessment-v1"
-DECISION_RULE_SCHEMA = "cure-lite-stage-a-decision-rule-v1"
-FREEZE_SCHEMA = "cure-lite-stage-a-protocol-freeze-v1"
+ASSESSMENT_SCHEMA = "cure-lite-stage-a-assessment-v2"
+DECISION_RULE_SCHEMA = "cure-lite-stage-a-decision-rule-v2"
+FREEZE_SCHEMA = "cure-lite-stage-a-protocol-freeze-v2"
 _ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -51,6 +54,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--protocol-freeze", type=Path, required=True)
     parser.add_argument("--stage-run", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--calibration-workers",
+        type=_positive_int,
+        default=DEFAULT_CALIBRATION_WORKERS,
+        help=(
+            "candidate-evaluation worker processes for exact full replay; "
+            "execution-only"
+        ),
+    )
     return parser
 
 
@@ -97,7 +109,34 @@ def _validate_decision_rule(
     }
     if set(rule) != expected_keys:
         raise ValueError("Stage-A decision-rule fields are not canonical")
-    expected_values = {
+    expected_values = stage_a_decision_rule_payload(
+        dataset=dataset,
+        seed=seed,
+        stage_config_sha256=stage_config_sha256,
+    )
+    if dict(rule) != expected_values:
+        raise ValueError("Stage-A decision rule differs from the supported rule")
+
+
+def stage_a_decision_rule_payload(
+    *,
+    dataset: str,
+    seed: int,
+    stage_config_sha256: str,
+) -> dict[str, object]:
+    """Return canonical F×-aware decision data for a newly frozen run."""
+
+    if not isinstance(dataset, str) or not dataset:
+        raise ValueError("dataset must be non-empty")
+    if isinstance(seed, bool) or not isinstance(seed, int):
+        raise TypeError("seed must be an integer")
+    if (
+        not isinstance(stage_config_sha256, str)
+        or len(stage_config_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in stage_config_sha256)
+    ):
+        raise ValueError("stage_config_sha256 must be a lowercase SHA256 digest")
+    return {
         "schema_version": DECISION_RULE_SCHEMA,
         "dataset": dataset,
         "seed": seed,
@@ -106,18 +145,17 @@ def _validate_decision_rule(
         "independent_generalization_claim": False,
         "method_order": list(METHOD_ORDER),
         "primary_metric": "total_object_level_pd",
-        "comparators": ["Base@B", "F"],
+        "comparators": ["Base@B", "F", "F×"],
         "strict_improvement_required": True,
         "positive_signal_requires_all": [
             "Pd(U) > Pd(Base@B)",
             "Pd(U) > Pd(F)",
+            "Pd(U) > Pd(F×)",
         ],
         "all_methods_must_satisfy_configured_constraints": True,
         "secondary_quality_metrics": ["mIoU", "nIoU"],
         "stage_a_config_sha256": stage_config_sha256,
     }
-    if dict(rule) != expected_values:
-        raise ValueError("Stage-A decision rule differs from the supported rule")
 
 
 def _resolve_frozen_path(value: object, *, name: str) -> Path:
@@ -141,6 +179,33 @@ def validate_protocol_freeze(
 ) -> None:
     if freeze.get("schema_version") != FREEZE_SCHEMA:
         raise ValueError("unsupported Stage-A protocol-freeze schema")
+    expected_fields = {
+        "assessment_output",
+        "assessment_service_invocation_id",
+        "assessment_tool_sha256",
+        "base_training_config_sha256",
+        "build_record_sha256",
+        "cache_output",
+        "decision_rule_sha256",
+        "frozen_at_utc",
+        "manifest_file_sha256",
+        "manifest_fingerprint",
+        "method_source_tree_digest",
+        "reference_base_output",
+        "reference_base_source_sha256",
+        "reference_service_invocation_id",
+        "run_tool_sha256",
+        "runtime_python_environment",
+        "runtime_splits",
+        "schema_version",
+        "software_test_result",
+        "stage_a_config_sha256",
+        "stage_a_output",
+        "stage_a_service_invocation_id",
+        "unused_split",
+    }
+    if set(freeze) != expected_fields:
+        raise ValueError("Stage-A protocol-freeze fields are not canonical")
     if freeze.get("runtime_splits") != ["D_B", "D_R", "D_V"]:
         raise ValueError("protocol freeze runtime split roles changed")
     if freeze.get("unused_split") != "D_T":
@@ -151,6 +216,13 @@ def validate_protocol_freeze(
         ("decision_rule_sha256", decision_rule_path),
     )
     for field, path in file_bindings:
+        if freeze.get(field) != _sha256(path):
+            raise RuntimeError(f"protocol freeze {field} no longer matches")
+    tool_bindings = (
+        ("run_tool_sha256", _ROOT / "tools" / "run_stage_a.py"),
+        ("assessment_tool_sha256", Path(__file__).resolve(strict=True)),
+    )
+    for field, path in tool_bindings:
         if freeze.get(field) != _sha256(path):
             raise RuntimeError(f"protocol freeze {field} no longer matches")
     if freeze.get("method_source_tree_digest") != _source_tree_digest():
@@ -182,6 +254,7 @@ def _assessment_payload(
         "A": results.anchor,
         "Base@B": results.base_at_budget,
         "F": results.factual_only,
+        "F×": results.factual_exposure_matched,
         "U": results.uniform_legal,
     }
     screen = _development_mechanism_screen(results)
@@ -211,6 +284,9 @@ def _assessment_payload(
             "A": completed.anchor.selected_threshold,
             "Base@B": calibration.base_at_budget.protocol.selected_threshold,
             "F": calibration.factual_only.protocol.selected_threshold,
+            "F×": (
+                calibration.factual_exposure_matched.protocol.selected_threshold
+            ),
             "U": calibration.uniform_legal.protocol.selected_threshold,
         },
         "method_order": list(METHOD_ORDER),
@@ -289,6 +365,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         d_r_dataset,
         d_v_dataset,
         expected_base_fingerprint=contract.base_fingerprint,
+        calibration_workers=args.calibration_workers,
+        calibration_progress=_calibration_progress,
     )
     if completed.config.canonical_payload() != config.canonical_payload():
         raise RuntimeError("completed Stage-A config differs from frozen config")

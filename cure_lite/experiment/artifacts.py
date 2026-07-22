@@ -27,8 +27,10 @@ from ..config import (
 from ..decoder import CURELiteDecoder
 
 
-DECODER_ARTIFACT_SCHEMA = "cure-lite-decoder-artifact-v1"
-DECODER_VARIANTS = frozenset({"factual_only", "uniform_legal"})
+DECODER_ARTIFACT_SCHEMA = "cure-lite-decoder-artifact-v2"
+DECODER_VARIANTS = frozenset(
+    {"factual_only", "factual_exposure_matched", "uniform_legal"}
+)
 _WEIGHTS_NAME = "decoder.safetensors"
 _LOG_NAME = "train_log.json"
 _RECEIPT_NAME = "receipt.json"
@@ -170,6 +172,30 @@ class DecoderRunConfig:
             "synthetic": self.synthetic_batch,
         }
 
+    @property
+    def variant_contract(self) -> dict[str, Any]:
+        """Describe the third loss slot that distinguishes F, Fx, and U."""
+
+        third_slot_sources = {
+            "factual_only": "absent",
+            "factual_exposure_matched": "independent_factual_positive_replacement",
+            "uniform_legal": "uniform_legal_deletion",
+        }
+        active = self.variant != "factual_only"
+        return {
+            "third_loss_slot_source": third_slot_sources[self.variant],
+            "third_loss_slot_batch": self.synthetic_batch if active else 0,
+            "third_loss_slot_coefficient": (
+                "training_config.lambda_synthetic" if active else "none"
+            ),
+            "matched_reference_variant": (
+                "uniform_legal"
+                if self.variant == "factual_exposure_matched"
+                else None
+            ),
+            "deletion_intervention_used": self.variant == "uniform_legal",
+        }
+
     def canonical_payload(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,
@@ -200,6 +226,7 @@ class DecoderRunConfig:
                 "weight_decay": self.weight_decay,
             },
             "branch_batch_sizes": self.branch_batch_sizes,
+            "variant_contract": self.variant_contract,
             "fixed_stopping_rule": {
                 "epochs": self.trained_epochs,
                 "steps_per_epoch": self.steps_per_epoch,
@@ -234,6 +261,7 @@ class DecoderRunConfig:
             "training_config",
             "optimization_config",
             "branch_batch_sizes",
+            "variant_contract",
             "fixed_stopping_rule",
             "data_augmentation",
         }
@@ -248,6 +276,7 @@ class DecoderRunConfig:
         optimization = value["optimization_config"]
         batches = value["branch_batch_sizes"]
         stopping = value["fixed_stopping_rule"]
+        variant_contract = value["variant_contract"]
         if not all(
             isinstance(item, Mapping)
             for item in (
@@ -260,6 +289,7 @@ class DecoderRunConfig:
                 optimization,
                 batches,
                 stopping,
+                variant_contract,
             )
         ):
             raise TypeError("decoder artifact configuration sections must be mappings")
@@ -466,6 +496,7 @@ def _normalized_logs(
     expected_epochs: int,
     expected_steps: int,
     variant: str,
+    expected_branch_batches: Mapping[str, int],
 ) -> tuple[dict[str, Any], ...]:
     if len(logs) != expected_epochs:
         raise ValueError("epoch log count must equal trained_epochs")
@@ -491,12 +522,66 @@ def _normalized_logs(
             for value in pools.values()
         ):
             raise ValueError("epoch pool sizes must be non-negative integers")
-        if variant == "factual_only" and pools["synthetic"] != 0:
-            raise ValueError("factual_only logs cannot contain a synthetic pool")
+        if pools["factual_miss"] < 1 or pools["factual_no_miss"] < 1:
+            raise ValueError("decoder logs require both factual training pools")
+        if variant in {"factual_only", "factual_exposure_matched"} and pools["synthetic"] != 0:
+            raise ValueError(
+                f"{variant} logs cannot contain a deletion-synthetic pool"
+            )
+        if variant == "uniform_legal" and pools["synthetic"] < 1:
+            raise ValueError("U logs require a non-empty deletion-synthetic pool")
         if not isinstance(metrics, dict) or not metrics:
             raise TypeError("epoch metrics must be a non-empty mapping")
         if metrics.get("steps") != expected_steps:
             raise ValueError("epoch metrics differ from fixed steps_per_epoch")
+        def require_constant_branch(
+            branch: str,
+            *,
+            active: float,
+            states: float,
+        ) -> None:
+            expected = {
+                f"{branch}/active": active,
+                f"{branch}/active_min": active,
+                f"{branch}/active_max": active,
+                f"{branch}/states": states,
+                f"{branch}/states_min": states,
+                f"{branch}/states_max": states,
+            }
+            if any(metrics.get(name) != value for name, value in expected.items()):
+                raise ValueError(
+                    f"{variant} {branch} exposure must match on every step"
+                )
+
+        for branch in ("factual_miss", "factual_no_miss"):
+            require_constant_branch(
+                branch,
+                active=1.0,
+                states=float(expected_branch_batches[branch]),
+            )
+        if variant == "factual_only":
+            try:
+                require_constant_branch("synthetic", active=0.0, states=0.0)
+            except ValueError as error:
+                raise ValueError(
+                    "F must leave the third loss slot inactive on every step"
+                ) from error
+        else:
+            try:
+                require_constant_branch(
+                    "synthetic",
+                    active=1.0,
+                    states=float(expected_branch_batches["synthetic"]),
+                )
+            except ValueError as error:
+                if variant == "factual_exposure_matched":
+                    raise ValueError(
+                        "F× third loss slot does not match synthetic_batch exposure "
+                        "on every step"
+                    ) from error
+                raise ValueError(
+                    "U third loss slot exposure differs from config on every step"
+                ) from error
         for name, value in metrics.items():
             if not isinstance(name, str) or not name:
                 raise ValueError("metric names must be non-empty strings")
@@ -558,6 +643,7 @@ def _save_decoder_artifact(
         expected_epochs=config.trained_epochs,
         expected_steps=config.steps_per_epoch,
         variant=config.variant,
+        expected_branch_batches=config.branch_batch_sizes,
     )
     target = Path(directory).expanduser().resolve(strict=False)
     if target.exists() or target.is_symlink():
@@ -662,6 +748,7 @@ def load_decoder_artifact(
         expected_epochs=config.trained_epochs,
         expected_steps=config.steps_per_epoch,
         variant=config.variant,
+        expected_branch_batches=config.branch_batch_sizes,
     )
     try:
         from safetensors.torch import load_file

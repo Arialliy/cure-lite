@@ -124,6 +124,9 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
         d_v_dataset: object,
         config: object,
         output_dir: Path,
+        *,
+        calibration_workers: int,
+        calibration_progress: object,
     ) -> object:
         events.append("run")
         assert received_d_r == d_r_index
@@ -132,11 +135,14 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
         assert d_v_dataset.split == "D_V"
         assert config.canonical_payload() == config_payload
         assert output_dir == output
+        assert calibration_workers == cli.DEFAULT_CALIBRATION_WORKERS
+        assert calibration_progress is cli._calibration_progress
         return SimpleNamespace(
             results=SimpleNamespace(
                 anchor=_metrics(pd=0.6),
                 base_at_budget=_metrics(pd=0.65),
                 factual_only=_metrics(pd=0.7),
+                factual_exposure_matched=_metrics(pd=0.72),
                 uniform_legal=_metrics(pd=0.75),
             ),
             support_summary=SimpleNamespace(
@@ -186,11 +192,13 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
     assert screen["primary_metric"] == "total_pd"
     assert screen["u_minus_base_at_budget_pd"] == pytest.approx(0.1)
     assert screen["u_minus_factual_only_pd"] == pytest.approx(0.05)
+    assert screen["u_minus_factual_exposure_matched_pd"] == pytest.approx(0.03)
     assert screen["mechanism_signal"] is True
     assert screen["not_an_independent_generalization_claim"] is True
-    assert summary["method_order"] == ["A", "Base@B", "F", "U"]
-    assert list(summary["methods"]) == ["A", "Base@B", "F", "U"]
+    assert summary["method_order"] == ["A", "Base@B", "F", "F×", "U"]
+    assert list(summary["methods"]) == ["A", "Base@B", "F", "F×", "U"]
     assert summary["methods"]["F"]["pd"] == 0.7
+    assert summary["methods"]["F×"]["pd"] == 0.72
     assert not output.exists()
 
 

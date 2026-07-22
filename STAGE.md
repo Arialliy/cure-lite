@@ -40,7 +40,8 @@ not a claimed innovation, and not imported by the Stage-A core or CLI.
 
 The occupancy-to-feature projection uses adaptive max pooling. A source-grid
 legal deletion is eligible for synthetic training only if the projected
-occupancy seen by the decoder changes. Stage-A v2 also performs two checks
+occupancy seen by the decoder changes. The five-way Stage-A config v3 also
+performs two checks
 before any decoder update:
 
 1. the selected Base anchor must satisfy the configured total false-alarm and
@@ -59,25 +60,34 @@ The observed support is recorded in `receipts/support.json`.
    `D_B-fit / D_B-select` for reference-Base training and checkpoint choice.
 4. Train the project-owned reference U-Net for the configured 800 epochs.
 5. Export model-independent `D_R / D_V` `(p_b, F_b)` caches.
-6. Run the single-seed `A / Base@B / F / U` real Stage-A pilot.
+6. Run the single-seed `A / Base@B / F / F× / U` real Stage-A mechanism gate.
 7. Treat all `D_V` numbers only as development selection scores and decide
    whether the minimal mechanism has enough support to continue.
 
-The latest complete software run reports `149 passed`. This closes the tested
+The latest complete software run reports `160 passed`. This closes the tested
 software path but does not replace steps 4–7 and does not prove a real-data
 gain.
 
-The four-way pilot answers three distinct questions:
+The five-way gate answers four distinct questions:
 
 - `U > A`: does the residual route improve on the selected Base anchor?
 - `U > Base@B`: is the result more than relaxing the Base threshold?
 - `U > F`: does uniform legal intervention add evidence beyond factual-only
   residual learning?
+- `U > F×`: does the intervention add evidence beyond an exposure-matched
+  factual-positive control?
 
-`F` and `U` share factual examples and their order, but `U` has additional
-synthetic exposure. A paper-level attribution to the intervention therefore
-also needs an exposure-matched factual control (`F×`) with the same number of
-updates/examples as `U`. The current four-way Stage-A remains a first screen.
+`F×` uses the same initialization, optimizer updates, state-forwards, third
+loss slot, batch size, loss weight, threshold grid, and evaluation path as
+`U`, but fills that slot with independently sampled factual-positive states
+instead of deletion interventions. The old frozen four-way seed-42 run may
+finish unchanged as a diagnostic; it is not retroactively upgraded to the new
+five-way protocol.
+
+The formal calibrator prepares fixed per-image anchor and GT state once, then
+evaluates an exact candidate ledger serially or with CUDA-safe spawned worker
+processes. Regression tests require every candidate and selected receipt to be
+identical to the original scalar evaluator.
 
 No Stage-1 command reads `D_T` images or labels. `D_T` evaluation belongs only
 to a later, explicitly prepared evaluation phase after the development choices

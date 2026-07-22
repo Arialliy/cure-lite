@@ -18,6 +18,7 @@ from torch import Tensor
 from .config import MatchConfig
 from .instances import instances_from_binary_mask
 from .matching import match_components
+from .types import InstanceMap
 
 
 def _as_2d_bool(value: Tensor, *, name: str) -> Tensor:
@@ -59,6 +60,45 @@ def full_pipeline_reachable_anchor_miss_ids(
         anchor_bool, connectivity=8, min_area=1
     )
     gt_instances = instances_from_binary_mask(gt_bool, connectivity=8, min_area=1)
+    return full_pipeline_reachable_anchor_miss_ids_from_instances(
+        anchor_bool,
+        gt_bool,
+        anchor_instances,
+        gt_instances,
+        match_config,
+    )
+
+
+def full_pipeline_reachable_anchor_miss_ids_from_instances(
+    anchor_prediction: Tensor,
+    gt_mask: Tensor,
+    anchor_instances: InstanceMap,
+    gt_instances: InstanceMap,
+    match_config: MatchConfig,
+) -> frozenset[int]:
+    """Evaluate reachability with exact, already decomposed anchor/GT masks.
+
+    The explicit occupancy checks make this a safe package API: stale or
+    mismatched precomputed components fail closed.  This lets calibration build
+    fixed components once without changing the public metric semantics.
+    """
+
+    anchor_bool = _as_2d_bool(anchor_prediction, name="anchor_prediction")
+    gt_bool = _as_2d_bool(gt_mask, name="gt_mask")
+    if anchor_bool.shape != gt_bool.shape:
+        raise ValueError("anchor_prediction and gt_mask must have identical shapes")
+    if not isinstance(anchor_instances, InstanceMap):
+        raise TypeError("anchor_instances must be an InstanceMap")
+    if not isinstance(gt_instances, InstanceMap):
+        raise TypeError("gt_instances must be an InstanceMap")
+    if anchor_instances.shape != tuple(anchor_bool.shape) or not torch.equal(
+        anchor_instances.occupancy, anchor_bool
+    ):
+        raise ValueError("anchor instance map differs from anchor_prediction")
+    if gt_instances.shape != tuple(gt_bool.shape) or not torch.equal(
+        gt_instances.occupancy, gt_bool
+    ):
+        raise ValueError("GT instance map differs from gt_mask")
     anchor_match = match_components(anchor_instances, gt_instances, match_config)
     covered = anchor_match.matched_gt_ids
     reachable: list[int] = []
@@ -244,6 +284,52 @@ def evaluate_binary_prediction(
         pred_bool, connectivity=8, min_area=1
     )
     gt_instances = instances_from_binary_mask(gt_bool, connectivity=8, min_area=1)
+    return evaluate_binary_prediction_from_instances(
+        pred_bool,
+        gt_bool,
+        pred_instances,
+        gt_instances,
+        match_config,
+        anchor_miss_ids=anchor_miss_ids,
+        reachable_anchor_miss_ids=reachable_anchor_miss_ids,
+        residual_mask=residual_mask,
+    )
+
+
+def evaluate_binary_prediction_from_instances(
+    prediction: Tensor,
+    gt_mask: Tensor,
+    pred_instances: InstanceMap,
+    gt_instances: InstanceMap,
+    match_config: MatchConfig,
+    *,
+    anchor_miss_ids: set[int] | frozenset[int] = frozenset(),
+    reachable_anchor_miss_ids: set[int] | frozenset[int] = frozenset(),
+    residual_mask: Tensor | None = None,
+) -> ImageEvaluation:
+    """Evaluate with exact, already decomposed prediction and GT masks.
+
+    The public evaluator and the accelerated calibration ledger both delegate
+    here.  Explicit occupancy checks make a stale or mismatched component map
+    fail closed rather than silently changing metric semantics.
+    """
+
+    pred_bool = _as_2d_bool(prediction, name="prediction")
+    gt_bool = _as_2d_bool(gt_mask, name="gt_mask")
+    if pred_bool.shape != gt_bool.shape:
+        raise ValueError("prediction and gt_mask must have identical shapes")
+    if not isinstance(pred_instances, InstanceMap):
+        raise TypeError("pred_instances must be an InstanceMap")
+    if not isinstance(gt_instances, InstanceMap):
+        raise TypeError("gt_instances must be an InstanceMap")
+    if pred_instances.shape != tuple(pred_bool.shape) or not torch.equal(
+        pred_instances.occupancy, pred_bool
+    ):
+        raise ValueError("prediction instance map differs from prediction")
+    if gt_instances.shape != tuple(gt_bool.shape) or not torch.equal(
+        gt_instances.occupancy, gt_bool
+    ):
+        raise ValueError("GT instance map differs from gt_mask")
     match = match_components(pred_instances, gt_instances, match_config)
 
     anchor_ids = frozenset(int(item) for item in anchor_miss_ids)

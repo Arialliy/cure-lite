@@ -1,10 +1,10 @@
-"""Provenance-bound paired F/U training for the Gate-2 CURE-Lite pilot.
+"""Provenance-bound paired F/Fx/U training for the Gate-2 CURE-Lite pilot.
 
 The lower-level training helpers intentionally remain useful for unit tests and
 mechanism studies.  This module is the formal experiment entry point: it only
 accepts a fully verified ``D_R`` cache bundle, creates the decoder, loss, and
-optimizer internally, and forces Factual-only and Uniform-Legal to start from
-the exact same decoder bytes.
+optimizer internally, and forces Factual-only, exposure-matched Factual-only,
+and Uniform-Legal to start from the exact same decoder bytes.
 """
 
 from __future__ import annotations
@@ -145,15 +145,17 @@ class CompletedDecoderRun:
 @dataclass(frozen=True, slots=True)
 class _CompletedPairSeal:
     factual_only: CompletedDecoderRun
+    factual_exposure_matched: CompletedDecoderRun
     uniform_legal: CompletedDecoderRun
     initial_decoder_fingerprint: str
 
 
 @dataclass(frozen=True)
 class CompletedPairedGate2Run:
-    """The paired F/U outputs sharing one proven initialization."""
+    """The paired F/Fx/U outputs sharing one proven initialization."""
 
     factual_only: CompletedDecoderRun
+    factual_exposure_matched: CompletedDecoderRun
     uniform_legal: CompletedDecoderRun
     initial_decoder_fingerprint: str
     _verification_token: object
@@ -166,6 +168,7 @@ class CompletedPairedGate2Run:
             )
         if (
             seal.factual_only is not self.factual_only
+            or seal.factual_exposure_matched is not self.factual_exposure_matched
             or seal.uniform_legal is not self.uniform_legal
             or seal.initial_decoder_fingerprint
             != self.initial_decoder_fingerprint
@@ -176,25 +179,92 @@ class CompletedPairedGate2Run:
         self._verify_source_seal()
         if self.factual_only.config.variant != "factual_only":
             raise ValueError("factual_only result has the wrong variant")
+        if (
+            self.factual_exposure_matched.config.variant
+            != "factual_exposure_matched"
+        ):
+            raise ValueError("factual_exposure_matched result has the wrong variant")
         if self.uniform_legal.config.variant != "uniform_legal":
             raise ValueError("uniform_legal result has the wrong variant")
         if not (
             self.factual_only.config.initial_decoder_fingerprint
+            == self.factual_exposure_matched.config.initial_decoder_fingerprint
             == self.uniform_legal.config.initial_decoder_fingerprint
             == self.initial_decoder_fingerprint
         ):
-            raise ValueError("paired F/U runs do not share one initialization")
-        factual_payload = self.factual_only.config.canonical_payload()
-        uniform_payload = self.uniform_legal.config.canonical_payload()
-        factual_payload.pop("variant")
-        uniform_payload.pop("variant")
-        if factual_payload != uniform_payload:
-            raise ValueError("paired F/U run configs differ outside variant")
+            raise ValueError("paired F/Fx/U runs do not share one initialization")
+        common_payloads = []
+        for run in (
+            self.factual_only,
+            self.factual_exposure_matched,
+            self.uniform_legal,
+        ):
+            payload = run.config.canonical_payload()
+            payload.pop("variant")
+            payload.pop("variant_contract")
+            common_payloads.append(payload)
+        if any(payload != common_payloads[0] for payload in common_payloads[1:]):
+            raise ValueError("paired F/Fx/U run configs differ outside variant")
+        for factual_log, exposure_log, uniform_log in zip(
+            self.factual_only.training_log.epoch_logs,
+            self.factual_exposure_matched.training_log.epoch_logs,
+            self.uniform_legal.training_log.epoch_logs,
+            strict=True,
+        ):
+            factual_pools = dict(factual_log.pool_sizes)
+            exposure_pools = dict(exposure_log.pool_sizes)
+            uniform_pools = dict(uniform_log.pool_sizes)
+            for branch in ("factual_miss", "factual_no_miss"):
+                if not (
+                    factual_pools[branch]
+                    == exposure_pools[branch]
+                    == uniform_pools[branch]
+                ):
+                    raise ValueError(
+                        f"F/F×/U factual pool size differs for {branch}"
+                    )
+            factual_metrics = dict(factual_log.metrics)
+            exposure_metrics = dict(exposure_log.metrics)
+            uniform_metrics = dict(uniform_log.metrics)
+            for branch in ("factual_miss", "factual_no_miss"):
+                for suffix in (
+                    "active",
+                    "active_min",
+                    "active_max",
+                    "states",
+                    "states_min",
+                    "states_max",
+                ):
+                    key = f"{branch}/{suffix}"
+                    if not (
+                        factual_metrics.get(key)
+                        == exposure_metrics.get(key)
+                        == uniform_metrics.get(key)
+                    ):
+                        raise ValueError(
+                            "F/F×/U factual exposure differs for " f"{key}"
+                        )
+            for suffix in (
+                "active",
+                "active_min",
+                "active_max",
+                "states",
+                "states_min",
+                "states_max",
+            ):
+                key = f"synthetic/{suffix}"
+                if exposure_metrics.get(key) != uniform_metrics.get(key):
+                    raise ValueError(f"F×/U third-slot exposure differs for {key}")
+            if exposure_pools["synthetic"] != 0:
+                raise ValueError("F× may not contain deletion-synthetic states")
+            if uniform_pools["synthetic"] < 1:
+                raise ValueError("U must contain deletion-synthetic states")
         self.verify_unchanged()
 
     def verify_unchanged(self) -> None:
         self._verify_source_seal()
         self.factual_only.verify_unchanged()
+        self.factual_exposure_matched.verify_unchanged()
         self.uniform_legal.verify_unchanged()
 
 
@@ -231,7 +301,11 @@ def _run_config(
     bundle: LoadedDRCacheBundle,
     config: PairedGate2TrainingConfig,
     *,
-    variant: Literal["factual_only", "uniform_legal"],
+    variant: Literal[
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+    ],
     initial_decoder_fingerprint: str,
 ) -> DecoderRunConfig:
     return DecoderRunConfig(
@@ -270,7 +344,7 @@ def _fresh_paired_decoders(
     *,
     global_seed: int,
     device: torch.device,
-) -> tuple[CURELiteDecoder, CURELiteDecoder, str]:
+) -> tuple[CURELiteDecoder, CURELiteDecoder, CURELiteDecoder, str]:
     if device.type == "meta":
         raise ValueError("formal training cannot run on the meta device")
     # Initialization happens on CPU inside an isolated RNG context.  Loading
@@ -284,18 +358,22 @@ def _fresh_paired_decoders(
     }
     initial_fingerprint = decoder_state_fingerprint(template)
     factual = CURELiteDecoder(config)
+    exposure_matched = CURELiteDecoder(config)
     uniform = CURELiteDecoder(config)
     factual.load_state_dict(initial_state, strict=True)
+    exposure_matched.load_state_dict(initial_state, strict=True)
     uniform.load_state_dict(initial_state, strict=True)
     factual.to(device)
+    exposure_matched.to(device)
     uniform.to(device)
     if not (
         decoder_state_fingerprint(factual)
+        == decoder_state_fingerprint(exposure_matched)
         == decoder_state_fingerprint(uniform)
         == initial_fingerprint
     ):
         raise RuntimeError("failed to create byte-identical paired decoders")
-    return factual, uniform, initial_fingerprint
+    return factual, exposure_matched, uniform, initial_fingerprint
 
 
 def run_paired_gate2_training(
@@ -304,7 +382,7 @@ def run_paired_gate2_training(
     *,
     device: torch.device | str = "cpu",
 ) -> CompletedPairedGate2Run:
-    """Train F and U with one D_R bundle and a byte-identical initialization."""
+    """Train F, Fx, and U with one D_R bundle and identical initialization."""
 
     if not isinstance(bundle, LoadedDRCacheBundle):
         raise TypeError("bundle must be a LoadedDRCacheBundle")
@@ -326,7 +404,12 @@ def run_paired_gate2_training(
         intervention_config=bundle.intervention_config,
     )
     require_training_branch_support(support_pools, variant="uniform_legal")
-    factual_decoder, uniform_decoder, initial_fingerprint = _fresh_paired_decoders(
+    (
+        factual_decoder,
+        exposure_matched_decoder,
+        uniform_decoder,
+        initial_fingerprint,
+    ) = _fresh_paired_decoders(
         config.decoder_config,
         global_seed=config.global_seed,
         device=resolved_device,
@@ -335,6 +418,7 @@ def run_paired_gate2_training(
     outputs: dict[str, CompletedDecoderRun] = {}
     for variant, decoder in (
         ("factual_only", factual_decoder),
+        ("factual_exposure_matched", exposure_matched_decoder),
         ("uniform_legal", uniform_decoder),
     ):
         run_config = _run_config(
@@ -377,14 +461,17 @@ def run_paired_gate2_training(
         bundle.verify_unchanged()
 
     factual_output = outputs["factual_only"]
+    exposure_matched_output = outputs["factual_exposure_matched"]
     uniform_output = outputs["uniform_legal"]
     pair_seal = _CompletedPairSeal(
         factual_only=factual_output,
+        factual_exposure_matched=exposure_matched_output,
         uniform_legal=uniform_output,
         initial_decoder_fingerprint=initial_fingerprint,
     )
     result = CompletedPairedGate2Run(
         factual_only=factual_output,
+        factual_exposure_matched=exposure_matched_output,
         uniform_legal=uniform_output,
         initial_decoder_fingerprint=initial_fingerprint,
         _verification_token=pair_seal,

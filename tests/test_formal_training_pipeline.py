@@ -24,6 +24,8 @@ from cure_lite.experiment.formal_evaluation import (
     build_loaded_d_v_method_run,
     calibrate_paired_gate2,
     evaluate_paired_gate2,
+    select_formal_base_threshold,
+    select_formal_residual_threshold,
 )
 from cure_lite.experiment.formal_anchor import (
     build_loaded_d_v_base_run,
@@ -176,6 +178,8 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     )
 
     assert result.factual_only.config.initial_decoder_fingerprint == (
+        result.factual_exposure_matched.config.initial_decoder_fingerprint
+    ) == (
         result.uniform_legal.config.initial_decoder_fingerprint
     )
     assert result.factual_only.config.base_index_sha256 == bundle.base_index_sha256
@@ -184,6 +188,21 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         "factual_miss": 1,
         "factual_no_miss": 1,
         "synthetic": 0,
+    }
+    exposure_log = result.factual_exposure_matched.training_log.epoch_logs[0]
+    assert dict(exposure_log.pool_sizes) == {
+        "factual_miss": 1,
+        "factual_no_miss": 1,
+        "synthetic": 0,
+    }
+    assert dict(exposure_log.metrics)["synthetic/active"] == 1.0
+    assert dict(exposure_log.metrics)["synthetic/states"] == 1.0
+    assert result.factual_exposure_matched.config.variant_contract == {
+        "third_loss_slot_source": "independent_factual_positive_replacement",
+        "third_loss_slot_batch": 1,
+        "third_loss_slot_coefficient": "training_config.lambda_synthetic",
+        "matched_reference_variant": "uniform_legal",
+        "deletion_intervention_used": False,
     }
     assert dict(result.uniform_legal.training_log.epoch_logs[0].pool_sizes)[
         "synthetic"
@@ -200,6 +219,10 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     uniform_fingerprint = save_completed_decoder_run(
         str(tmp_path / "uniform-artifact"), result.uniform_legal
     )
+    exposure_fingerprint = save_completed_decoder_run(
+        str(tmp_path / "exposure-artifact"),
+        result.factual_exposure_matched,
+    )
     loaded_factual = load_decoder_artifact(
         tmp_path / "factual-artifact",
         expected_config=result.factual_only.config,
@@ -208,12 +231,18 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         tmp_path / "uniform-artifact",
         expected_config=result.uniform_legal.config,
     )
+    loaded_exposure = load_decoder_artifact(
+        tmp_path / "exposure-artifact",
+        expected_config=result.factual_exposure_matched.config,
+    )
     assert loaded_factual.artifact_fingerprint == factual_fingerprint
     assert loaded_uniform.artifact_fingerprint == uniform_fingerprint
+    assert loaded_exposure.artifact_fingerprint == exposure_fingerprint
 
     with pytest.raises(TypeError, match="bound fields were replaced"):
         replace(d_v_bundle, base_fingerprint="0" * 64)
     factual_d_v_run = build_loaded_d_v_method_run(d_v_bundle, loaded_factual)
+    exposure_d_v_run = build_loaded_d_v_method_run(d_v_bundle, loaded_exposure)
     uniform_d_v_run = build_loaded_d_v_method_run(d_v_bundle, loaded_uniform)
     factual_sample = factual_d_v_run.residual_samples[0]
     forged_samples = (
@@ -245,6 +274,7 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     ):
         calibrate_paired_gate2(
             factual_d_v_run,
+            exposure_d_v_run,
             uniform_d_v_run,
             anchor=mismatched_anchor,
             residual_thresholds=[0.5, 0.9],
@@ -253,14 +283,43 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         )
     calibration = calibrate_paired_gate2(
         factual_d_v_run,
+        exposure_d_v_run,
         uniform_d_v_run,
         anchor=anchor,
         residual_thresholds=[0.5, 0.9],
         base_thresholds=[0.3, 0.5],
         budget=budget,
     )
+    legacy_base = select_formal_base_threshold(
+        factual_d_v_run,
+        [0.3, 0.5],
+        budget,
+    )
+    legacy_factual = select_formal_residual_threshold(
+        factual_d_v_run,
+        [0.5, 0.9],
+        budget,
+    )
+    legacy_exposure = select_formal_residual_threshold(
+        exposure_d_v_run,
+        [0.5, 0.9],
+        budget,
+    )
+    legacy_uniform = select_formal_residual_threshold(
+        uniform_d_v_run,
+        [0.5, 0.9],
+        budget,
+    )
+    assert calibration.base_at_budget.protocol == legacy_base.protocol
+    assert calibration.factual_only.protocol == legacy_factual.protocol
+    assert (
+        calibration.factual_exposure_matched.protocol
+        == legacy_exposure.protocol
+    )
+    assert calibration.uniform_legal.protocol == legacy_uniform.protocol
     metrics = evaluate_paired_gate2(
         factual_d_v_run,
+        exposure_d_v_run,
         uniform_d_v_run,
         calibration,
     )
@@ -269,9 +328,14 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         calibration.base_at_budget.protocol.selected_metrics
     )
     assert metrics.factual_only == calibration.factual_only.protocol.selected_metrics
+    assert metrics.factual_exposure_matched == (
+        calibration.factual_exposure_matched.protocol.selected_metrics
+    )
     assert metrics.uniform_legal == calibration.uniform_legal.protocol.selected_metrics
     assert calibration.anchor.selected_threshold == 0.7
     assert calibration.factual_only.protocol.candidate_threshold_grid == (
+        calibration.factual_exposure_matched.protocol.candidate_threshold_grid
+    ) == (
         calibration.uniform_legal.protocol.candidate_threshold_grid
     )
     assert (

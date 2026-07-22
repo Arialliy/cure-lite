@@ -41,17 +41,26 @@ class CURELiteTrainEngine:
         step_batches: Iterable[Mapping[str, BranchBatch]],
     ) -> dict[str, float | int]:
         totals: dict[str, float] = {}
+        minima: dict[str, float] = {}
+        maxima: dict[str, float] = {}
         steps = 0
         for batches in step_batches:
             logs = self.step(batches)
             steps += 1
             for key, value in logs.items():
-                totals[key] = totals.get(key, 0.0) + float(value)
+                numeric = float(value)
+                totals[key] = totals.get(key, 0.0) + numeric
+                if key.endswith("/active") or key.endswith("/states"):
+                    minima[key] = min(minima.get(key, numeric), numeric)
+                    maxima[key] = max(maxima.get(key, numeric), numeric)
         if steps == 0:
             raise ValueError("an epoch must contain at least one optimizer step")
         summary: dict[str, float | int] = {
             key: value / steps for key, value in totals.items()
         }
+        for key in minima:
+            summary[f"{key}_min"] = minima[key]
+            summary[f"{key}_max"] = maxima[key]
         summary["steps"] = steps
         return summary
 

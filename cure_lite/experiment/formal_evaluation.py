@@ -9,12 +9,24 @@ false-alarm budget.  There is deliberately no ``D_T`` entry point.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
+from multiprocessing.context import BaseContext
 from typing import Iterable, Literal
 
 import torch
 
 from ..cache.schema import stable_fingerprint
-from ..calibration import CalibrationSample
+from ..calibration import (
+    CalibrationSample,
+    FalseAlarmBudget,
+    ThresholdSelection,
+)
+from ..calibration_ledger import (
+    CalibrationCandidateLedger,
+    ProgressCallback,
+    evaluate_candidate_ledger,
+    prepare_calibration_context,
+)
 from ..metrics import AggregateEvaluation
 from ..splits import SplitManifest
 from .artifacts import LoadedDecoderArtifact
@@ -392,6 +404,76 @@ def _formal_receipt(
     )
 
 
+def _canonical_candidate_grid(
+    values: Iterable[float],
+    *,
+    allow_empty: bool,
+) -> tuple[float, ...]:
+    """Match the strict D_V protocol's threshold-grid normalization."""
+
+    resolved: list[float] = []
+    for value in values:
+        if isinstance(value, bool):
+            raise TypeError("threshold candidates must be real numbers, not bool")
+        try:
+            threshold = float(value)
+        except (TypeError, ValueError) as error:
+            raise TypeError("threshold candidates must be real numbers") from error
+        if not isfinite(threshold) or not 0.0 <= threshold <= 1.0:
+            raise ValueError("threshold candidates must be finite and in [0,1]")
+        resolved.append(threshold)
+    grid = tuple(sorted(set(resolved)))
+    if not grid and not allow_empty:
+        raise ValueError("threshold candidates are empty")
+    return grid
+
+
+def _protocol_from_ledger_selection(
+    run: LoadedDVMethodRun,
+    thresholds: Iterable[float],
+    budget: FalseAlarmBudget,
+    selection: ThresholdSelection,
+    *,
+    variant: Literal["residual", "base_at_budget"],
+) -> BoundDVThresholdProtocol:
+    """Bind one exact ledger selection to the existing formal receipt type."""
+
+    if not isinstance(selection, ThresholdSelection):
+        raise TypeError("selection must be a ThresholdSelection")
+    if not selection.feasible or selection.metrics is None:
+        raise RuntimeError(
+            selection.reason or f"D_V {variant} selection is infeasible"
+        )
+    if variant == "base_at_budget" and selection.threshold is None:
+        raise RuntimeError("D_V Base@B selection must be numeric")
+    samples = run.base_samples if variant == "base_at_budget" else run.residual_samples
+    sample_fingerprint = (
+        run.base_samples_fingerprint
+        if variant == "base_at_budget"
+        else run.residual_samples_fingerprint
+    )
+    ordered_ids = tuple(
+        record.sample_id for record in run.access.records_for("D_V")
+    )
+    if tuple(sample.sample_id for sample in samples) != ordered_ids:
+        raise RuntimeError("formal D_V samples are not in manifest order")
+    return BoundDVThresholdProtocol(
+        variant=variant,
+        manifest_fingerprint=run.access.manifest.fingerprint,
+        ordered_d_v_sample_ids=ordered_ids,
+        sample_tensor_fingerprint=sample_fingerprint,
+        candidate_threshold_grid=_canonical_candidate_grid(
+            thresholds,
+            allow_empty=variant == "residual",
+        ),
+        occupancy_config=run.artifact.config.occupancy_config,
+        match_config=run.artifact.config.match_config,
+        budget=budget,
+        selected_threshold=selection.threshold,
+        selected_metrics=selection.metrics,
+    )
+
+
 def select_formal_residual_threshold(
     run: LoadedDVMethodRun,
     thresholds: Iterable[float],
@@ -479,23 +561,42 @@ def evaluate_formal_base_threshold(
 
 def _common_training_fingerprint(
     factual_run: LoadedDVMethodRun,
+    exposure_matched_run: LoadedDVMethodRun,
     uniform_run: LoadedDVMethodRun,
 ) -> str:
-    left = factual_run.artifact.config.canonical_payload()
-    right = uniform_run.artifact.config.canonical_payload()
-    left_variant = left.pop("variant")
-    right_variant = right.pop("variant")
-    if left_variant != "factual_only" or right_variant != "uniform_legal":
-        raise ValueError("paired calibration requires factual_only and uniform_legal")
-    if left != right:
-        raise RuntimeError("F/U training contracts differ outside decoder variant")
-    if (
-        factual_run.artifact.config.initial_decoder_fingerprint
-        != uniform_run.artifact.config.initial_decoder_fingerprint
+    runs = (factual_run, exposure_matched_run, uniform_run)
+    expected_variants = (
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+    )
+    common_payloads: list[dict[str, object]] = []
+    for run, expected_variant in zip(runs, expected_variants, strict=True):
+        payload = run.artifact.config.canonical_payload()
+        variant = payload.pop("variant")
+        payload.pop("variant_contract")
+        if variant != expected_variant:
+            raise ValueError(
+                "paired calibration requires factual_only, "
+                "factual_exposure_matched, and uniform_legal"
+            )
+        common_payloads.append(payload)
+    if any(payload != common_payloads[0] for payload in common_payloads[1:]):
+        raise RuntimeError(
+            "F/Fx/U training contracts differ outside decoder variant"
+        )
+    initial_fingerprints = {
+        run.artifact.config.initial_decoder_fingerprint for run in runs
+    }
+    if len(initial_fingerprints) != 1:
+        raise RuntimeError(
+            "F/Fx/U decoder artifacts do not share one initialization"
+        )
+    if any(
+        run.base_samples_fingerprint != factual_run.base_samples_fingerprint
+        for run in runs[1:]
     ):
-        raise RuntimeError("F/U decoder artifacts do not share one initialization")
-    if factual_run.base_samples_fingerprint != uniform_run.base_samples_fingerprint:
-        raise RuntimeError("F/U runs do not use the same D_V base/GT tensors")
+        raise RuntimeError("F/Fx/U runs do not use the same D_V base/GT tensors")
     bundle_fields = (
         "split_manifest_fingerprint",
         "split_manifest_file_sha256",
@@ -507,14 +608,15 @@ def _common_training_fingerprint(
         "d_v_gt_fingerprint",
     )
     if any(
-        getattr(factual_run.bundle, name) != getattr(uniform_run.bundle, name)
+        getattr(factual_run.bundle, name) != getattr(run.bundle, name)
+        for run in runs[1:]
         for name in bundle_fields
     ):
-        raise RuntimeError("F/U runs do not use the same verified D_V bundle")
+        raise RuntimeError("F/Fx/U runs do not use the same verified D_V bundle")
     return stable_fingerprint(
         {
-            "schema_version": "cure-lite-paired-gate2-training-contract-v1",
-            "common_run_config": left,
+            "schema_version": "cure-lite-paired-gate2-training-contract-v2",
+            "common_run_config": common_payloads[0],
             "initial_decoder_fingerprint": (
                 factual_run.artifact.config.initial_decoder_fingerprint
             ),
@@ -527,11 +629,12 @@ def _common_training_fingerprint(
 
 @dataclass(frozen=True)
 class PairedGate2Calibration:
-    """The complete A/Base@B/F/U D_V selection with shared contracts."""
+    """The complete A/Base@B/F/Fx/U D_V selection with shared contracts."""
 
     anchor: FrozenAnchorReceipt
     base_at_budget: FormalDVThresholdReceipt
     factual_only: FormalDVThresholdReceipt
+    factual_exposure_matched: FormalDVThresholdReceipt
     uniform_legal: FormalDVThresholdReceipt
     common_training_fingerprint: str
     _verification_token: object
@@ -546,11 +649,14 @@ class PairedGate2Calibration:
             seal.anchor is not self.anchor
             or seal.base_at_budget is not self.base_at_budget
             or seal.factual_only is not self.factual_only
+            or seal.factual_exposure_matched is not self.factual_exposure_matched
             or seal.uniform_legal is not self.uniform_legal
             or seal.common_training_fingerprint
             != self.common_training_fingerprint
         ):
             raise TypeError("paired Gate-2 calibration fields were replaced")
+        if not isinstance(seal.ledger, CalibrationCandidateLedger):
+            raise TypeError("paired Gate-2 calibration ledger was replaced")
 
     def __post_init__(self) -> None:
         self._verify_source_seal()
@@ -565,15 +671,25 @@ class PairedGate2Calibration:
             raise ValueError("Base@B receipt has the wrong mode")
         if self.factual_only.mode != "residual":
             raise ValueError("F receipt has the wrong mode")
+        if self.factual_exposure_matched.mode != "residual":
+            raise ValueError("Fx receipt has the wrong mode")
         if self.uniform_legal.mode != "residual":
             raise ValueError("U receipt has the wrong mode")
         if self.factual_only.decoder_variant != "factual_only":
             raise ValueError("F receipt is not bound to the factual-only decoder")
+        if (
+            self.factual_exposure_matched.decoder_variant
+            != "factual_exposure_matched"
+        ):
+            raise ValueError(
+                "Fx receipt is not bound to the exposure-matched decoder"
+            )
         if self.uniform_legal.decoder_variant != "uniform_legal":
             raise ValueError("U receipt is not bound to the Uniform-Legal decoder")
         common_protocols = (
             self.base_at_budget.protocol,
             self.factual_only.protocol,
+            self.factual_exposure_matched.protocol,
             self.uniform_legal.protocol,
         )
         reference = common_protocols[0]
@@ -586,7 +702,7 @@ class PairedGate2Calibration:
             or protocol.budget != reference.budget
             for protocol in common_protocols[1:]
         ):
-            raise ValueError("Base@B/F/U do not share one D_V protocol")
+            raise ValueError("Base@B/F/Fx/U do not share one D_V protocol")
         if (
             self.anchor.manifest_fingerprint != reference.manifest_fingerprint
             or self.anchor.ordered_d_v_sample_ids
@@ -596,12 +712,18 @@ class PairedGate2Calibration:
             or self.anchor.occupancy_config != reference.occupancy_config
             or self.anchor.match_config != reference.match_config
         ):
-            raise ValueError("A/Base@B/F/U do not share one D_V anchor protocol")
-        if (
-            self.factual_only.protocol.candidate_threshold_grid
-            != self.uniform_legal.protocol.candidate_threshold_grid
+            raise ValueError("A/Base@B/F/Fx/U do not share one D_V anchor protocol")
+        residual_protocols = (
+            self.factual_only.protocol,
+            self.factual_exposure_matched.protocol,
+            self.uniform_legal.protocol,
+        )
+        if any(
+            protocol.candidate_threshold_grid
+            != residual_protocols[0].candidate_threshold_grid
+            for protocol in residual_protocols[1:]
         ):
-            raise ValueError("F/U residual threshold grids differ")
+            raise ValueError("F/Fx/U residual threshold grids differ")
         provenance_fields = (
             "manifest_file_sha256",
             "base_index_fingerprint",
@@ -616,22 +738,25 @@ class PairedGate2Calibration:
             for receipt in common_protocols_receipts(self)
             for name in provenance_fields
         ):
-            raise ValueError("A/Base@B/F/U provenance differs")
+            raise ValueError("A/Base@B/F/Fx/U provenance differs")
         formal_receipts = common_protocols_receipts(self)
         if any(
             receipt.global_seed != formal_receipts[0].global_seed
             for receipt in formal_receipts[1:]
         ):
-            raise ValueError("Base@B/F/U global seeds differ")
+            raise ValueError("Base@B/F/Fx/U global seeds differ")
 
     @property
     def receipt_fingerprint(self) -> str:
         return stable_fingerprint(
             {
-                "schema_version": "cure-lite-paired-gate2-calibration-v2",
+                "schema_version": "cure-lite-paired-gate2-calibration-v3",
                 "anchor": self.anchor.receipt_fingerprint,
                 "base_at_budget": self.base_at_budget.receipt_fingerprint,
                 "factual_only": self.factual_only.receipt_fingerprint,
+                "factual_exposure_matched": (
+                    self.factual_exposure_matched.receipt_fingerprint
+                ),
                 "uniform_legal": self.uniform_legal.receipt_fingerprint,
                 "common_training_fingerprint": self.common_training_fingerprint,
             }
@@ -644,6 +769,7 @@ def common_protocols_receipts(
     return (
         calibration.base_at_budget,
         calibration.factual_only,
+        calibration.factual_exposure_matched,
         calibration.uniform_legal,
     )
 
@@ -653,8 +779,10 @@ class _PairedCalibrationSeal:
     anchor: FrozenAnchorReceipt
     base_at_budget: FormalDVThresholdReceipt
     factual_only: FormalDVThresholdReceipt
+    factual_exposure_matched: FormalDVThresholdReceipt
     uniform_legal: FormalDVThresholdReceipt
     common_training_fingerprint: str
+    ledger: CalibrationCandidateLedger
 
 
 @dataclass(frozen=True)
@@ -662,91 +790,251 @@ class Gate2DVResults:
     anchor: AggregateEvaluation
     base_at_budget: AggregateEvaluation
     factual_only: AggregateEvaluation
+    factual_exposure_matched: AggregateEvaluation
     uniform_legal: AggregateEvaluation
 
 
 def calibrate_paired_gate2(
     factual_run: LoadedDVMethodRun,
+    exposure_matched_run: LoadedDVMethodRun,
     uniform_run: LoadedDVMethodRun,
     *,
     anchor: FrozenAnchorReceipt,
     residual_thresholds: Iterable[float],
     base_thresholds: Iterable[float],
-    budget: object,
+    budget: FalseAlarmBudget,
+    max_workers: int = 1,
+    mp_context: BaseContext | str | None = None,
+    progress: ProgressCallback | None = None,
 ) -> PairedGate2Calibration:
-    """Select A/Base@B/F/U together so comparison settings cannot drift."""
+    """Select A/Base@B/F/Fx/U from one exact shared candidate ledger."""
 
     if not isinstance(anchor, FrozenAnchorReceipt):
         raise TypeError("anchor must be a FrozenAnchorReceipt")
+    if not isinstance(budget, FalseAlarmBudget):
+        raise TypeError("budget must be a FalseAlarmBudget")
     factual_run.verify_unchanged()
+    exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
-    common_fingerprint = _common_training_fingerprint(factual_run, uniform_run)
+    common_fingerprint = _common_training_fingerprint(
+        factual_run,
+        exposure_matched_run,
+        uniform_run,
+    )
     anchor_run = build_loaded_d_v_base_run(factual_run.bundle)
     evaluate_frozen_anchor(anchor_run, anchor)
     if factual_run.artifact.config.occupancy_config != anchor.occupancy_config:
         raise RuntimeError("decoder occupancy config differs from frozen tau_o")
     if factual_run.artifact.config.match_config != anchor.match_config:
         raise RuntimeError("decoder matching config differs from frozen anchor")
-    residual_grid = tuple(residual_thresholds)
-    base_grid = tuple(base_thresholds)
-    base_at_budget = select_formal_base_threshold(
-        factual_run, base_grid, budget
+    residual_grid = _canonical_candidate_grid(
+        residual_thresholds,
+        allow_empty=True,
     )
-    factual_only = select_formal_residual_threshold(
-        factual_run, residual_grid, budget
+    base_grid = _canonical_candidate_grid(
+        base_thresholds,
+        allow_empty=False,
     )
-    uniform_legal = select_formal_residual_threshold(
-        uniform_run, residual_grid, budget
+    context = prepare_calibration_context(
+        factual_run.base_samples,
+        anchor.occupancy_config,
+        anchor.match_config,
+    )
+    if context.anchor_metrics != anchor.selected_metrics:
+        raise RuntimeError("prepared calibration anchor differs from frozen A")
+    ledger = evaluate_candidate_ledger(
+        context,
+        {
+            "F": factual_run.residual_samples,
+            "F×": exposure_matched_run.residual_samples,
+            "U": uniform_run.residual_samples,
+        },
+        base_thresholds=base_grid,
+        residual_thresholds_by_method={
+            "F": residual_grid,
+            "F×": residual_grid,
+            "U": residual_grid,
+        },
+        max_workers=max_workers,
+        mp_context=mp_context,
+        progress=progress,
+    )
+    base_at_budget = _formal_receipt(
+        factual_run,
+        _protocol_from_ledger_selection(
+            factual_run,
+            base_grid,
+            budget,
+            ledger.select("Base@B", budget),
+            variant="base_at_budget",
+        ),
+    )
+    factual_only = _formal_receipt(
+        factual_run,
+        _protocol_from_ledger_selection(
+            factual_run,
+            residual_grid,
+            budget,
+            ledger.select("F", budget),
+            variant="residual",
+        ),
+    )
+    factual_exposure_matched = _formal_receipt(
+        exposure_matched_run,
+        _protocol_from_ledger_selection(
+            exposure_matched_run,
+            residual_grid,
+            budget,
+            ledger.select("F×", budget),
+            variant="residual",
+        ),
+    )
+    uniform_legal = _formal_receipt(
+        uniform_run,
+        _protocol_from_ledger_selection(
+            uniform_run,
+            residual_grid,
+            budget,
+            ledger.select("U", budget),
+            variant="residual",
+        ),
     )
     seal = _PairedCalibrationSeal(
         anchor=anchor,
         base_at_budget=base_at_budget,
         factual_only=factual_only,
+        factual_exposure_matched=factual_exposure_matched,
         uniform_legal=uniform_legal,
         common_training_fingerprint=common_fingerprint,
+        ledger=ledger,
     )
     calibration = PairedGate2Calibration(
         anchor=anchor,
         base_at_budget=base_at_budget,
         factual_only=factual_only,
+        factual_exposure_matched=factual_exposure_matched,
         uniform_legal=uniform_legal,
         common_training_fingerprint=common_fingerprint,
         _verification_token=seal,
     )
     factual_run.verify_unchanged()
+    exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
     return calibration
 
 
 def evaluate_paired_gate2(
     factual_run: LoadedDVMethodRun,
+    exposure_matched_run: LoadedDVMethodRun,
     uniform_run: LoadedDVMethodRun,
     calibration: PairedGate2Calibration,
 ) -> Gate2DVResults:
-    """Reproduce the complete fixed D_V comparison without any free config."""
+    """Materialize results already proven by the sealed shared-grid ledger.
+
+    A serialized Stage-A replay calls :func:`calibrate_paired_gate2` again and
+    therefore recomputes the complete ledger.  Re-running four independent
+    legacy selectors here would duplicate that same grid inside one state
+    build without adding an independent evidence boundary.
+    """
 
     if not isinstance(calibration, PairedGate2Calibration):
         raise TypeError("calibration must be PairedGate2Calibration")
     calibration._verify_source_seal()
+    seal = calibration._verification_token
+    assert type(seal) is _PairedCalibrationSeal
     if (
-        _common_training_fingerprint(factual_run, uniform_run)
+        _common_training_fingerprint(
+            factual_run,
+            exposure_matched_run,
+            uniform_run,
+        )
         != calibration.common_training_fingerprint
     ):
         raise RuntimeError("paired training contract differs from calibration")
+    receipts = (
+        (factual_run, calibration.base_at_budget, "base_at_budget"),
+        (factual_run, calibration.factual_only, "residual"),
+        (
+            exposure_matched_run,
+            calibration.factual_exposure_matched,
+            "residual",
+        ),
+        (uniform_run, calibration.uniform_legal, "residual"),
+    )
+    for run, receipt, mode in receipts:
+        _verify_receipt(run, receipt, mode=mode)
+
+    selected = {
+        method: seal.ledger.select(method, calibration.base_at_budget.protocol.budget)
+        for method in ("Base@B", "F", "F×", "U")
+    }
+    protocols = {
+        "Base@B": calibration.base_at_budget.protocol,
+        "F": calibration.factual_only.protocol,
+        "F×": calibration.factual_exposure_matched.protocol,
+        "U": calibration.uniform_legal.protocol,
+    }
+    if any(
+        choice.threshold != protocols[method].selected_threshold
+        or choice.metrics != protocols[method].selected_metrics
+        for method, choice in selected.items()
+    ):
+        raise RuntimeError("paired candidate ledger differs from frozen receipts")
+
+    # Independently rebuild fixed anchor/GT state and evaluate only the four
+    # selected points.  The sealed full ledger proves global selection; this
+    # small second pass preserves the former fail-closed fixed-threshold check
+    # without repeating every candidate grid four more times.
+    verification_context = prepare_calibration_context(
+        factual_run.base_samples,
+        calibration.anchor.occupancy_config,
+        calibration.anchor.match_config,
+    )
+    if verification_context.anchor_metrics != calibration.anchor.selected_metrics:
+        raise RuntimeError("fixed-point verification anchor differs from A")
+    residual_verification_grids = {
+        method: (
+            ()
+            if protocols[method].selected_threshold is None
+            else (protocols[method].selected_threshold,)
+        )
+        for method in ("F", "F×", "U")
+    }
+    verification_ledger = evaluate_candidate_ledger(
+        verification_context,
+        {
+            "F": factual_run.residual_samples,
+            "F×": exposure_matched_run.residual_samples,
+            "U": uniform_run.residual_samples,
+        },
+        base_thresholds=(protocols["Base@B"].selected_threshold,),
+        residual_thresholds_by_method=residual_verification_grids,
+        max_workers=1,
+    )
+    verified = {
+        method: verification_ledger.select(
+            method,
+            calibration.base_at_budget.protocol.budget,
+        )
+        for method in ("Base@B", "F", "F×", "U")
+    }
+    if any(
+        choice.threshold != protocols[method].selected_threshold
+        or choice.metrics != protocols[method].selected_metrics
+        for method, choice in verified.items()
+    ):
+        raise RuntimeError("selected-point verification differs from frozen receipts")
+
     anchor_run = build_loaded_d_v_base_run(factual_run.bundle)
     result = Gate2DVResults(
         anchor=evaluate_frozen_anchor(anchor_run, calibration.anchor),
-        base_at_budget=evaluate_formal_base_threshold(
-            factual_run, calibration.base_at_budget
-        ),
-        factual_only=evaluate_formal_residual_threshold(
-            factual_run, calibration.factual_only
-        ),
-        uniform_legal=evaluate_formal_residual_threshold(
-            uniform_run, calibration.uniform_legal
-        ),
+        base_at_budget=verified["Base@B"].metrics,
+        factual_only=verified["F"].metrics,
+        factual_exposure_matched=verified["F×"].metrics,
+        uniform_legal=verified["U"].metrics,
     )
     factual_run.verify_unchanged()
+    exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
     return result
 

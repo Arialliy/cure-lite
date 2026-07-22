@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any, Mapping, Sequence
@@ -28,8 +29,8 @@ from cure_lite.experiment.stage_a_runner import (  # noqa: E402
 from cure_lite.splits import load_and_validate_manifest  # noqa: E402
 
 
-SUMMARY_SCHEMA = "cure-lite-stage-a-summary-v2"
-METHOD_ORDER = ("A", "Base@B", "F", "U")
+SUMMARY_SCHEMA = "cure-lite-stage-a-summary-v3"
+METHOD_ORDER = ("A", "Base@B", "F", "F×", "U")
 _RESULT_FIELDS = (
     "pd",
     "miou",
@@ -42,6 +43,36 @@ _RESULT_FIELDS = (
     "retention",
     "budget_violation",
 )
+DEFAULT_CALIBRATION_WORKERS = min(24, max(1, os.cpu_count() or 1))
+
+
+def _positive_int(value: str) -> int:
+    try:
+        resolved = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer") from error
+    if resolved < 1:
+        raise argparse.ArgumentTypeError("must be positive")
+    return resolved
+
+
+def _calibration_progress(done: int, total: int) -> None:
+    """Emit bounded, machine-readable progress without contaminating stdout."""
+
+    stride = max(1, total // 20)
+    if done == 1 or done == total or done % stride == 0:
+        print(
+            json.dumps(
+                {
+                    "event": "calibration_candidate_progress",
+                    "completed": done,
+                    "total": total,
+                },
+                sort_keys=True,
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -51,6 +82,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--d-v-base-index", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--calibration-workers",
+        type=_positive_int,
+        default=DEFAULT_CALIBRATION_WORKERS,
+        help=(
+            "candidate-evaluation worker processes; execution-only and does "
+            "not alter the frozen scientific protocol"
+        ),
+    )
     return parser
 
 
@@ -112,6 +152,7 @@ def _development_mechanism_screen(results: object) -> dict[str, object]:
 
     base_at_budget = results.base_at_budget
     factual_only = results.factual_only
+    factual_exposure_matched = results.factual_exposure_matched
     uniform_legal = results.uniform_legal
     all_within_constraints = not any(
         result.budget_violation
@@ -119,25 +160,42 @@ def _development_mechanism_screen(results: object) -> dict[str, object]:
             results.anchor,
             base_at_budget,
             factual_only,
+            factual_exposure_matched,
             uniform_legal,
         )
     )
     delta_pd_base = uniform_legal.pd - base_at_budget.pd
     delta_pd_factual = uniform_legal.pd - factual_only.pd
-    pd_rule_met = delta_pd_base > 0.0 and delta_pd_factual > 0.0
+    delta_pd_exposure_matched = uniform_legal.pd - factual_exposure_matched.pd
+    pd_rule_met = (
+        delta_pd_base > 0.0
+        and delta_pd_factual > 0.0
+        and delta_pd_exposure_matched > 0.0
+    )
     secondary_iou_non_degradation = (
-        uniform_legal.miou >= max(base_at_budget.miou, factual_only.miou)
-        and uniform_legal.niou >= max(base_at_budget.niou, factual_only.niou)
+        uniform_legal.miou
+        >= max(
+            base_at_budget.miou,
+            factual_only.miou,
+            factual_exposure_matched.miou,
+        )
+        and uniform_legal.niou
+        >= max(
+            base_at_budget.niou,
+            factual_only.niou,
+            factual_exposure_matched.niou,
+        )
     )
     signal = all_within_constraints and pd_rule_met
     return {
-        "schema_version": "cure-lite-stage-a-development-screen-v1",
+        "schema_version": "cure-lite-stage-a-development-screen-v2",
         "primary_metric": "total_pd",
         "strict_improvement_required": True,
-        "comparators": ["Base@B", "F"],
+        "comparators": ["Base@B", "F", "F×"],
         "all_methods_within_constraints": all_within_constraints,
         "u_minus_base_at_budget_pd": delta_pd_base,
         "u_minus_factual_only_pd": delta_pd_factual,
+        "u_minus_factual_exposure_matched_pd": delta_pd_exposure_matched,
         "primary_rule_met": pd_rule_met,
         "secondary_iou_non_degradation": secondary_iou_non_degradation,
         "mechanism_signal": signal,
@@ -156,6 +214,7 @@ def _summary_payload(completed: object, manifest: object) -> dict[str, object]:
         "A": results.anchor,
         "Base@B": results.base_at_budget,
         "F": results.factual_only,
+        "F×": results.factual_exposure_matched,
         "U": results.uniform_legal,
     }
     return {
@@ -206,6 +265,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         d_v_dataset,
         config,
         output,
+        calibration_workers=args.calibration_workers,
+        calibration_progress=_calibration_progress,
     )
     print(
         json.dumps(

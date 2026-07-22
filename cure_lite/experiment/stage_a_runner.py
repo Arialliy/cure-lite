@@ -2,8 +2,9 @@
 
 The runner closes the development-only experiment in one fixed order:
 
-``D_V base cache -> decoder-free anchor -> D_R base/state cache -> paired F/U
-training -> immutable decoder artifacts -> A/Base@B/F/U calibration/evaluation``.
+``D_V base cache -> decoder-free anchor -> D_R base/state cache -> paired
+F/Fx/U training -> immutable decoder artifacts -> A/Base@B/F/Fx/U
+calibration/evaluation``.
 
 Only exact :class:`~cure_lite.data.ManifestImageDataset` views for ``D_R`` and
 ``D_V`` are accepted.  There is intentionally no ``D_T`` argument or access
@@ -26,6 +27,7 @@ import torch
 
 from ..cache.schema import file_sha256, stable_fingerprint
 from ..calibration import FalseAlarmBudget
+from ..calibration_ledger import ProgressCallback
 from ..config import (
     DecoderConfig,
     InterventionConfig,
@@ -73,18 +75,35 @@ from .formal_training import (
 from .training_pipeline import TrainingSupportRequirements, TrainingSupportSummary
 
 
-STAGE_A_RUN_SCHEMA = "cure-lite-stage-a-run-v2"
+STAGE_A_RUN_SCHEMA = "cure-lite-stage-a-run-v3"
+STAGE_A_CONFIG_SCHEMA = "cure-lite-stage-a-config-v3"
 _CONFIG_SCHEMA = "cure-lite-stage-a-config-receipt-v1"
 _ANCHOR_SCHEMA = "cure-lite-stage-a-anchor-receipt-v1"
 _SUPPORT_SCHEMA = "cure-lite-stage-a-support-receipt-v1"
-_CALIBRATION_SCHEMA = "cure-lite-stage-a-calibration-receipt-v1"
-_RESULTS_SCHEMA = "cure-lite-stage-a-results-receipt-v1"
-_METHOD_ORDER = ("A", "Base@B", "F", "U")
+_CALIBRATION_SCHEMA = "cure-lite-stage-a-calibration-receipt-v2"
+_RESULTS_SCHEMA = "cure-lite-stage-a-results-receipt-v2"
+_METHOD_ORDER = ("A", "Base@B", "F", "F×", "U")
 _INCOMPLETE_NAME = ".incomplete"
 _COMPLETE_NAME = "COMPLETE.json"
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
 _NON_METHOD_SOURCE_ROOTS = {"adapters", "reference_base", "toy"}
 _NON_METHOD_SOURCE_FILES = {"provenance.py"}
+
+
+def _method_contract_payload() -> dict[str, object]:
+    """Return the fixed five-way comparison encoded by config schema v3."""
+
+    return {
+        "method_order": list(_METHOD_ORDER),
+        "decoder_variants": {
+            "F": "factual_only",
+            "F×": "factual_exposure_matched",
+            "U": "uniform_legal",
+        },
+        "exposure_matched_control": "F×",
+        "intervention_method": "U",
+        "strict_pd_comparators": ["Base@B", "F", "F×"],
+    }
 
 
 def _canonical_threshold_grid(
@@ -117,6 +136,14 @@ def _canonical_digest(value: object, *, name: str) -> str:
     ):
         raise ValueError(f"{name} must be a lowercase SHA256 digest")
     return normalized
+
+
+def _calibration_worker_count(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError("calibration_workers must be an integer")
+    if value < 1:
+        raise ValueError("calibration_workers must be positive")
+    return value
 
 
 def _budget_payload(budget: FalseAlarmBudget) -> dict[str, float | None]:
@@ -292,7 +319,8 @@ class StageARunConfig:
 
     def canonical_payload(self) -> dict[str, object]:
         return {
-            "schema_version": STAGE_A_RUN_SCHEMA,
+            "schema_version": STAGE_A_CONFIG_SCHEMA,
+            "method_contract": _method_contract_payload(),
             "training": _training_payload(self.training),
             "anchor_thresholds": list(self.anchor_thresholds),
             "base_thresholds": list(self.base_thresholds),
@@ -308,6 +336,7 @@ class StageARunConfig:
     def from_mapping(cls, value: Mapping[str, object]) -> "StageARunConfig":
         expected = {
             "schema_version",
+            "method_contract",
             "training",
             "anchor_thresholds",
             "base_thresholds",
@@ -318,8 +347,10 @@ class StageARunConfig:
             "intervention_config",
             "device",
         }
-        if set(value) != expected or value["schema_version"] != STAGE_A_RUN_SCHEMA:
+        if set(value) != expected or value["schema_version"] != STAGE_A_CONFIG_SCHEMA:
             raise ValueError("Stage-A run config fields or schema are not canonical")
+        if value["method_contract"] != _method_contract_payload():
+            raise ValueError("Stage-A method/exposure contract is not canonical")
         match = value["match_config"]
         intervention = value["intervention_config"]
         if not isinstance(match, Mapping) or not isinstance(intervention, Mapping):
@@ -538,6 +569,7 @@ def _calibration_receipt_payload(
             "A": calibration.anchor.canonical_payload(),
             "Base@B": _protocol_payload(calibration.base_at_budget),
             "F": _protocol_payload(calibration.factual_only),
+            "F×": _protocol_payload(calibration.factual_exposure_matched),
             "U": _protocol_payload(calibration.uniform_legal),
         },
         "common_training_fingerprint": calibration.common_training_fingerprint,
@@ -553,6 +585,7 @@ def _results_receipt_payload(
         "A": _metrics_payload(results.anchor),
         "Base@B": _metrics_payload(results.base_at_budget),
         "F": _metrics_payload(results.factual_only),
+        "F×": _metrics_payload(results.factual_exposure_matched),
         "U": _metrics_payload(results.uniform_legal),
     }
     core: dict[str, object] = {
@@ -571,8 +604,10 @@ class _StageAState:
     d_v_bundle: LoadedDVCacheBundle
     d_v_base_run: LoadedDVBaseRun
     factual_artifact: LoadedDecoderArtifact
+    factual_exposure_matched_artifact: LoadedDecoderArtifact
     uniform_artifact: LoadedDecoderArtifact
     factual_d_v_run: LoadedDVMethodRun
+    factual_exposure_matched_d_v_run: LoadedDVMethodRun
     uniform_d_v_run: LoadedDVMethodRun
     anchor: FrozenAnchorReceipt
     support_summary: TrainingSupportSummary
@@ -634,6 +669,9 @@ def _complete_receipt(
         "d_v_base_index_fingerprint": state.d_v_bundle.base_index_fingerprint,
         "factual_decoder_artifact_fingerprint": (
             state.factual_artifact.artifact_fingerprint
+        ),
+        "factual_exposure_matched_decoder_artifact_fingerprint": (
+            state.factual_exposure_matched_artifact.artifact_fingerprint
         ),
         "uniform_decoder_artifact_fingerprint": (
             state.uniform_artifact.artifact_fingerprint
@@ -738,8 +776,12 @@ def _build_downstream_state(
     d_r_bundle: LoadedDRCacheBundle,
     d_v_bundle: LoadedDVCacheBundle,
     factual_artifact: LoadedDecoderArtifact,
+    factual_exposure_matched_artifact: LoadedDecoderArtifact,
     uniform_artifact: LoadedDecoderArtifact,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
 ) -> _StageAState:
+    calibration_workers = _calibration_worker_count(calibration_workers)
     d_v_base_run = build_loaded_d_v_base_run(d_v_bundle)
     anchor = select_frozen_anchor(
         d_v_base_run,
@@ -763,35 +805,60 @@ def _build_downstream_state(
         config=config,
     )
     _verify_artifact_training_binding(
+        factual_exposure_matched_artifact,
+        expected_variant="factual_exposure_matched",
+        bundle=d_r_bundle,
+        config=config,
+    )
+    _verify_artifact_training_binding(
         uniform_artifact,
         expected_variant="uniform_legal",
         bundle=d_r_bundle,
         config=config,
     )
-    if (
-        factual_artifact.config.initial_decoder_fingerprint
-        != uniform_artifact.config.initial_decoder_fingerprint
-    ):
+    initial_fingerprints = {
+        artifact.config.initial_decoder_fingerprint
+        for artifact in (
+            factual_artifact,
+            factual_exposure_matched_artifact,
+            uniform_artifact,
+        )
+    }
+    if len(initial_fingerprints) != 1:
         raise RuntimeError("paired decoder artifacts do not share initialization")
     factual_run = build_loaded_d_v_method_run(d_v_bundle, factual_artifact)
+    factual_exposure_matched_run = build_loaded_d_v_method_run(
+        d_v_bundle,
+        factual_exposure_matched_artifact,
+    )
     uniform_run = build_loaded_d_v_method_run(d_v_bundle, uniform_artifact)
     calibration = calibrate_paired_gate2(
         factual_run,
+        factual_exposure_matched_run,
         uniform_run,
         anchor=anchor,
         residual_thresholds=config.residual_thresholds,
         base_thresholds=config.base_thresholds,
         budget=config.budget,
+        max_workers=calibration_workers,
+        progress=calibration_progress,
     )
-    results = evaluate_paired_gate2(factual_run, uniform_run, calibration)
+    results = evaluate_paired_gate2(
+        factual_run,
+        factual_exposure_matched_run,
+        uniform_run,
+        calibration,
+    )
     return _StageAState(
         config=config,
         d_r_bundle=d_r_bundle,
         d_v_bundle=d_v_bundle,
         d_v_base_run=d_v_base_run,
         factual_artifact=factual_artifact,
+        factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
         factual_d_v_run=factual_run,
+        factual_exposure_matched_d_v_run=factual_exposure_matched_run,
         uniform_d_v_run=uniform_run,
         anchor=anchor,
         support_summary=support_summary,
@@ -817,6 +884,9 @@ def run_stage_a(
     d_v_dataset: ManifestImageDataset,
     config: StageARunConfig,
     output_dir: str | Path,
+    *,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
 ) -> "LoadedStageARun":
     """Execute and publish one complete development-only CURE-Lite Stage-A run."""
 
@@ -824,6 +894,7 @@ def run_stage_a(
         raise TypeError("adapter must be FrozenBaseAdapter")
     if not isinstance(config, StageARunConfig):
         raise TypeError("config must be StageARunConfig")
+    calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
     if adapter.feature_channels != config.training.decoder_config.feature_channels:
         raise ValueError("adapter feature channels differ from decoder config")
@@ -894,11 +965,22 @@ def run_stage_a(
         device=config.device,
     )
     factual_directory = root / "decoders" / "factual_only"
+    factual_exposure_matched_directory = (
+        root / "decoders" / "factual_exposure_matched"
+    )
     uniform_directory = root / "decoders" / "uniform_legal"
     save_completed_decoder_run(factual_directory, paired.factual_only)
+    save_completed_decoder_run(
+        factual_exposure_matched_directory,
+        paired.factual_exposure_matched,
+    )
     save_completed_decoder_run(uniform_directory, paired.uniform_legal)
     factual_artifact = load_decoder_artifact(
         factual_directory, expected_config=paired.factual_only.config
+    )
+    factual_exposure_matched_artifact = load_decoder_artifact(
+        factual_exposure_matched_directory,
+        expected_config=paired.factual_exposure_matched.config,
     )
     uniform_artifact = load_decoder_artifact(
         uniform_directory, expected_config=paired.uniform_legal.config
@@ -908,7 +990,10 @@ def run_stage_a(
         d_r_bundle=d_r_bundle,
         d_v_bundle=d_v_bundle,
         factual_artifact=factual_artifact,
+        factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
     if state.anchor.canonical_payload() != anchor.canonical_payload():
         raise RuntimeError("frozen anchor changed before Stage-A publication")
@@ -937,6 +1022,8 @@ def run_stage_a(
         d_r_dataset,
         d_v_dataset,
         expected_base_fingerprint=base_fingerprint,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
 
 
@@ -947,6 +1034,9 @@ def run_stage_a_from_base_caches(
     d_v_dataset: ManifestImageDataset,
     config: StageARunConfig,
     output_dir: str | Path,
+    *,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
 ) -> "LoadedStageARun":
     """Execute Stage-A from the generic probability/feature cache contract.
 
@@ -957,6 +1047,7 @@ def run_stage_a_from_base_caches(
 
     if not isinstance(config, StageARunConfig):
         raise TypeError("config must be StageARunConfig")
+    calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
     contract = load_base_cache_pair_contract(
         d_r_base_index,
@@ -1072,12 +1163,23 @@ def run_stage_a_from_base_caches(
         device=config.device,
     )
     factual_directory = root / "decoders" / "factual_only"
+    factual_exposure_matched_directory = (
+        root / "decoders" / "factual_exposure_matched"
+    )
     uniform_directory = root / "decoders" / "uniform_legal"
     save_completed_decoder_run(factual_directory, paired.factual_only)
+    save_completed_decoder_run(
+        factual_exposure_matched_directory,
+        paired.factual_exposure_matched,
+    )
     save_completed_decoder_run(uniform_directory, paired.uniform_legal)
     factual_artifact = load_decoder_artifact(
         factual_directory,
         expected_config=paired.factual_only.config,
+    )
+    factual_exposure_matched_artifact = load_decoder_artifact(
+        factual_exposure_matched_directory,
+        expected_config=paired.factual_exposure_matched.config,
     )
     uniform_artifact = load_decoder_artifact(
         uniform_directory,
@@ -1088,7 +1190,10 @@ def run_stage_a_from_base_caches(
         d_r_bundle=d_r_bundle,
         d_v_bundle=d_v_bundle,
         factual_artifact=factual_artifact,
+        factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
     if state.anchor.canonical_payload() != anchor.canonical_payload():
         raise RuntimeError("frozen anchor changed before Stage-A publication")
@@ -1117,6 +1222,8 @@ def run_stage_a_from_base_caches(
         d_r_dataset,
         d_v_dataset,
         expected_base_fingerprint=base_fingerprint,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
 
 
@@ -1126,7 +1233,10 @@ def _load_verified_state(
     d_v_dataset: ManifestImageDataset,
     *,
     expected_base_fingerprint: str,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
 ) -> tuple[_StageAState, str]:
+    calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
     base_fingerprint = _canonical_digest(
         expected_base_fingerprint, name="expected_base_fingerprint"
@@ -1160,6 +1270,7 @@ def _load_verified_state(
         "d_r_state_index_fingerprint",
         "d_v_base_index_fingerprint",
         "factual_decoder_artifact_fingerprint",
+        "factual_exposure_matched_decoder_artifact_fingerprint",
         "uniform_decoder_artifact_fingerprint",
         "artifact_directories",
         "artifact_files",
@@ -1223,13 +1334,19 @@ def _load_verified_state(
         expected_base_fingerprint=base_fingerprint,
     )
     factual_artifact = load_decoder_artifact(root / "decoders" / "factual_only")
+    factual_exposure_matched_artifact = load_decoder_artifact(
+        root / "decoders" / "factual_exposure_matched"
+    )
     uniform_artifact = load_decoder_artifact(root / "decoders" / "uniform_legal")
     state = _build_downstream_state(
         config=config,
         d_r_bundle=d_r_bundle,
         d_v_bundle=d_v_bundle,
         factual_artifact=factual_artifact,
+        factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
     expected_receipts = {
         "anchor": _anchor_receipt_payload(state.anchor),
@@ -1262,6 +1379,8 @@ class _LoadedStageABinding:
     d_r_dataset: ManifestImageDataset
     d_v_dataset: ManifestImageDataset
     expected_base_fingerprint: str
+    calibration_workers: int
+    calibration_progress: ProgressCallback | None
 
 
 @dataclass(frozen=True)
@@ -1273,6 +1392,7 @@ class LoadedStageARun:
     d_r_bundle: LoadedDRCacheBundle
     d_v_bundle: LoadedDVCacheBundle
     factual_artifact: LoadedDecoderArtifact
+    factual_exposure_matched_artifact: LoadedDecoderArtifact
     uniform_artifact: LoadedDecoderArtifact
     anchor: FrozenAnchorReceipt
     support_summary: TrainingSupportSummary
@@ -1292,6 +1412,8 @@ class LoadedStageARun:
             or state.d_r_bundle is not self.d_r_bundle
             or state.d_v_bundle is not self.d_v_bundle
             or state.factual_artifact is not self.factual_artifact
+            or state.factual_exposure_matched_artifact
+            is not self.factual_exposure_matched_artifact
             or state.uniform_artifact is not self.uniform_artifact
             or state.anchor is not self.anchor
             or state.support_summary is not self.support_summary
@@ -1319,6 +1441,8 @@ class LoadedStageARun:
             binding.d_r_dataset,
             binding.d_v_dataset,
             expected_base_fingerprint=binding.expected_base_fingerprint,
+            calibration_workers=binding.calibration_workers,
+            calibration_progress=binding.calibration_progress,
         )
         if fingerprint != self.complete_fingerprint:
             raise RuntimeError("Stage-A COMPLETE fingerprint changed")
@@ -1346,6 +1470,8 @@ def load_stage_a_run(
     d_v_dataset: ManifestImageDataset,
     *,
     expected_base_fingerprint: str,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
 ) -> LoadedStageARun:
     """Strictly reload and fully replay a completed Stage-A run."""
 
@@ -1353,11 +1479,14 @@ def load_stage_a_run(
     if requested.is_symlink():
         raise ValueError("Stage-A root may not be addressed through a symlink")
     root = requested.resolve(strict=True)
+    calibration_workers = _calibration_worker_count(calibration_workers)
     state, complete_fingerprint = _load_verified_state(
         root,
         d_r_dataset,
         d_v_dataset,
         expected_base_fingerprint=expected_base_fingerprint,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
     binding = _LoadedStageABinding(
         root=root,
@@ -1368,6 +1497,8 @@ def load_stage_a_run(
         expected_base_fingerprint=_canonical_digest(
             expected_base_fingerprint, name="expected_base_fingerprint"
         ),
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
     return LoadedStageARun(
         root=root,
@@ -1375,6 +1506,9 @@ def load_stage_a_run(
         d_r_bundle=state.d_r_bundle,
         d_v_bundle=state.d_v_bundle,
         factual_artifact=state.factual_artifact,
+        factual_exposure_matched_artifact=(
+            state.factual_exposure_matched_artifact
+        ),
         uniform_artifact=state.uniform_artifact,
         anchor=state.anchor,
         support_summary=state.support_summary,

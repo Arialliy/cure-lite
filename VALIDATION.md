@@ -22,7 +22,7 @@ Two feature-grid details are part of the method contract:
 - a legal source-grid deletion is usable for synthetic learning only if it
   changes the projected occupancy consumed by the decoder.
 
-The latest complete suite reports `149 passed`. This is software evidence only.
+The latest complete suite reports `160 passed`. This is software evidence only.
 
 ## Gate 1: deterministic toy mechanism
 
@@ -58,9 +58,9 @@ manifest and Stage-A configuration. It does not import the reference U-Net or
 MSHNet. The same runner can later consume caches produced by any detector whose
 adapter satisfies the common contract.
 
-### Pre-training checks in Stage-A v2
+### Pre-training checks in five-way Stage-A v3
 
-Before training either decoder, the runner must:
+Before training the three F/F×/U decoders, the runner must:
 
 1. select the Base anchor using `D_V` and verify that it already meets all
    configured false-alarm and retention constraints;
@@ -76,19 +76,25 @@ as a method result.
 
 ### Minimum comparison
 
-The real pilot compares:
+The formal mechanism gate compares:
 
 1. `A`: frozen Base anchor;
 2. `Base@B`: relaxed Base threshold under the same total constraints;
 3. `F`: factual-only residual learning;
-4. `U`: factual learning plus uniform projected-visible legal deletion.
+4. `F×`: exposure-matched factual-positive replacement in the third loss slot;
+5. `U`: factual learning plus uniform projected-visible legal deletion.
 
-All four use the same manifest, frozen Base, anchor, matching rule, threshold
-grids, and evaluation constraints. `F` and `U` share the factual schedule and
-decoder initialization. However, `U` receives additional synthetic examples,
-so equal factual exposure is not equal total exposure. Before attributing a
-gain specifically to intervention in a submission, add `F×`, an
-exposure-matched factual control with the same overall updates/examples as `U`.
+All five use the same manifest, frozen Base, anchor, matching rule, threshold
+grids, and evaluation constraints. F/F×/U share one decoder initialization and
+common optimizer/training configuration. F× matches U's third-slot activation,
+state-forwards, batch size, positive-target exposure, and loss weight, while
+its deletion-synthetic pool is required to remain empty.
+
+Threshold calibration must use the shared exact candidate ledger. Fixed GT
+instances, anchor instances, anchor misses, and reachability are constructed
+once per image; every optimized candidate and the final deterministic
+selection must compare exactly equal to the scalar reference implementation.
+Worker count is execution-only and is not part of the scientific protocol.
 
 ### Required development outputs
 
@@ -108,10 +114,11 @@ it is not an official-test result and cannot alone justify an ICLR claim.
 The predeclared primary metric is total object-level Pd. For one fixed anchor,
 Pd and NetRMR have the same ordering, but Pd is used for the decision because
 it is a standard IRSTD metric; NetRMR remains diagnostic. A positive Stage-A
-signal requires every method to satisfy the configured constraints and both
-strict inequalities `Pd(U) > Pd(Base@B)` and `Pd(U) > Pd(F)`. The CLI records
-the two deltas and this Boolean decision. mIoU/nIoU changes are reported as a
-secondary quality screen and cannot replace the Pd rule.
+signal requires every method to satisfy the configured constraints and all
+three strict inequalities `Pd(U) > Pd(Base@B)`, `Pd(U) > Pd(F)`, and
+`Pd(U) > Pd(F×)`. The CLI records all three deltas and this Boolean decision.
+mIoU/nIoU changes are reported as a secondary quality screen and cannot
+replace the Pd rule.
 
 - If `Pd(U) <= Pd(Base@B)`, the evidence does not distinguish CURE-Lite from
   Base-threshold relaxation.

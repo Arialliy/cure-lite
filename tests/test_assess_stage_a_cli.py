@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from tools import assess_stage_a as cli
 
 
@@ -46,6 +48,7 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
         anchor=_metrics(0.60),
         base_at_budget=_metrics(0.65),
         factual_only=_metrics(0.70),
+        factual_exposure_matched=_metrics(0.705),
         uniform_legal=_metrics(0.71, miou=0.49, niou=0.49),
     )
     completed = SimpleNamespace(
@@ -62,6 +65,9 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
             ),
             factual_only=SimpleNamespace(
                 protocol=SimpleNamespace(selected_threshold=0.8)
+            ),
+            factual_exposure_matched=SimpleNamespace(
+                protocol=SimpleNamespace(selected_threshold=0.75)
             ),
             uniform_legal=SimpleNamespace(
                 protocol=SimpleNamespace(selected_threshold=0.7)
@@ -85,6 +91,7 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
         "A": 0.5,
         "Base@B": 0.4,
         "F": 0.8,
+        "F×": 0.75,
         "U": 0.7,
     }
 
@@ -92,20 +99,54 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
 def test_current_protocol_freeze_binds_frozen_inputs() -> None:
     protocol = cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
     freeze = json.loads((protocol / "protocol_freeze.json").read_text("utf-8"))
-    cli.validate_protocol_freeze(
-        freeze,
-        manifest_path=protocol / "manifest.json",
-        stage_config_path=protocol / "stage_a_config.json",
-        decision_rule_path=protocol / "stage_a_decision_rule.json",
-        d_r_index_path=(
+    with pytest.raises(ValueError, match="unsupported.*schema"):
+        cli.validate_protocol_freeze(
+            freeze,
+            manifest_path=protocol / "manifest.json",
+            stage_config_path=protocol / "stage_a_config.json",
+            decision_rule_path=protocol / "stage_a_decision_rule.json",
+            d_r_index_path=(
+                cli._ROOT
+                / "runs/irstd1k_stage_a_seed42/reference_base_cache_v1/D_R/index.json"
+            ),
+            d_v_index_path=(
+                cli._ROOT
+                / "runs/irstd1k_stage_a_seed42/reference_base_cache_v1/D_V/index.json"
+            ),
+            stage_run_path=(
+                cli._ROOT / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_v1"
+            ),
+        )
+
+
+def test_v2_protocol_freeze_binds_run_and_assessment_tools() -> None:
+    protocol = cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
+    freeze = json.loads((protocol / "protocol_freeze.json").read_text("utf-8"))
+    freeze.update(
+        {
+            "schema_version": cli.FREEZE_SCHEMA,
+            "method_source_tree_digest": cli._source_tree_digest(),
+            "run_tool_sha256": cli._sha256(cli._ROOT / "tools" / "run_stage_a.py"),
+            "assessment_tool_sha256": cli._sha256(Path(cli.__file__)),
+        }
+    )
+    arguments = {
+        "manifest_path": protocol / "manifest.json",
+        "stage_config_path": protocol / "stage_a_config.json",
+        "decision_rule_path": protocol / "stage_a_decision_rule.json",
+        "d_r_index_path": (
             cli._ROOT
             / "runs/irstd1k_stage_a_seed42/reference_base_cache_v1/D_R/index.json"
         ),
-        d_v_index_path=(
+        "d_v_index_path": (
             cli._ROOT
             / "runs/irstd1k_stage_a_seed42/reference_base_cache_v1/D_V/index.json"
         ),
-        stage_run_path=(
+        "stage_run_path": (
             cli._ROOT / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_v1"
         ),
-    )
+    }
+    cli.validate_protocol_freeze(freeze, **arguments)
+    freeze["run_tool_sha256"] = "0" * 64
+    with pytest.raises(RuntimeError, match="run_tool_sha256"):
+        cli.validate_protocol_freeze(freeze, **arguments)

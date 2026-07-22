@@ -18,7 +18,7 @@ unmotivated modules.
 
 - CURE-Lite semantic, gradient, cache, training, calibration, and evaluation
   contracts are implemented.
-- The latest complete software suite reports `149 passed`. This verifies the
+- The latest complete software suite reports `160 passed`. This verifies the
   implementation path, not real-data performance.
 - A project-owned reference U-Net is the current Stage-A Base. Its run is
   configured for 800 epochs using only `D_B-fit`, with selection only on
@@ -26,8 +26,10 @@ unmotivated modules.
   novelty claim.
 - The formal Stage-A core and CLI consume generic frozen-Base caches containing
   `(p_b, F_b)`; they do not import, instantiate, train, or depend on MSHNet.
-- The single-seed real `A / Base@B / F / U` development pilot is the current
-  task. Until it finishes, CURE-Lite has no established real-data gain.
+- The original frozen single-seed `A / Base@B / F / U` development pilot is
+  still allowed to finish in its unchanged checkout. The next formal protocol
+  is the five-way `A / Base@B / F / F× / U` comparison; old receipts are not
+  rewritten or interpreted as if they contained `F×`.
 - Full CURE and cross-backbone experiments have not started.
 
 Older MSHNet-specific integration utilities are historical engineering work.
@@ -54,17 +56,19 @@ this projected occupancy. This makes the intervention visible to the decoder
 instead of treating a source-grid-only change as usable supervision.
 
 The central comparison is not “add a decoder and compare with the Base.” It is
-the controlled set `A / Base@B / F / U`:
+the controlled set `A / Base@B / F / F× / U`:
 
 - `A`: frozen Base at the selected anchor threshold;
 - `Base@B`: threshold-relaxed Base under the same total constraints;
 - `F`: factual-only residual decoder;
+- `F×`: factual-only positive replacement in the same third loss slot,
+  matching `U` in initialization, updates, state-forwards, positive exposure,
+  batch size, and loss weight without performing a deletion;
 - `U`: the same residual design plus uniform projected-visible legal deletion.
 
-`F` and `U` use the same factual schedule, but `U` additionally sees synthetic
-examples. Therefore a publication-level claim about the intervention also
-requires an exposure-matched factual control (`F×`); the current four-way pilot
-is a mechanism screen, not yet the final paper comparison.
+`F×` makes extra training exposure an explicit control rather than an informal
+caveat. A positive intervention signal requires `U` to beat `Base@B`, `F`, and
+`F×` under the same configured constraints.
 
 ## Model-independent Stage-A boundary
 
@@ -75,7 +79,7 @@ project-owned reference U-Net (D_B only; experimental condition)
   -> generic D_R/D_V caches: probability p_b + feature F_b
   -> CURE-Lite Stage-A core
   -> adaptive-max occupancy and projected-visible support check
-  -> A / Base@B / F / U training, calibration, and D_V development scores
+  -> A / Base@B / F / F× / U training, calibration, and D_V development scores
 ```
 
 The formal runner starts at the cache boundary. Its command accepts only a
@@ -87,11 +91,26 @@ python tools/run_stage_a.py \
   --manifest protocols/IRSTD-1K/stage_a_seed42/manifest.json \
   --d-r-base-index /path/to/base_cache/D_R/index.json \
   --d-v-base-index /path/to/base_cache/D_V/index.json \
-  --config protocols/IRSTD-1K/stage_a_seed42/stage_a_config.json \
-  --output /path/to/new_stage_a_run
+  --config protocols/IRSTD-1K/stage_a_seed42_fx_v1/stage_a_config.json \
+  --output /path/to/new_stage_a_run \
+  --calibration-workers 24
 ```
 
-The v2 configuration includes `support_requirements`. Before decoder training,
+Calibration now prepares the fixed GT/anchor/matching/reachability context once
+and evaluates the threshold ledger in isolated worker processes. Worker count
+is execution-only: candidate metrics, tie-breaking, receipts, and full replay
+are exactly the same as the scalar reference path. Candidate progress is
+reported on stderr. A new five-way run requires a new output directory,
+decision rule, and protocol freeze.
+
+The five-way config and decision rule live under
+`protocols/IRSTD-1K/stage_a_seed42_fx_v1/`. Its final `protocol_freeze.json`
+must be generated only after the implementation commit and output paths are
+fixed. Freeze v2 binds both package sources and the run/assessment tool hashes;
+the historical four-way freeze remains untouched.
+
+The five-way v3 configuration includes `method_contract` and
+`support_requirements`. Before decoder training,
 the runner checks that the fixed anchor already satisfies the shared
 false-alarm/retention constraints and that `D_R` contains enough factual-miss,
 no-miss, reachable-target, synthetic, and projected-visible legal support. The

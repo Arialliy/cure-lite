@@ -45,7 +45,29 @@ def _config() -> DecoderRunConfig:
     )
 
 
+def _epoch_metrics(
+    total: float,
+    *,
+    synthetic_active: float = 1.0,
+    synthetic_states: float = 4.0,
+) -> dict[str, float | int]:
+    result: dict[str, float | int] = {"steps": 3, "total": total}
+    for branch, active, states in (
+        ("factual_miss", 1.0, 4.0),
+        ("factual_no_miss", 1.0, 4.0),
+        ("synthetic", synthetic_active, synthetic_states),
+    ):
+        result[f"{branch}/active"] = active
+        result[f"{branch}/active_min"] = active
+        result[f"{branch}/active_max"] = active
+        result[f"{branch}/states"] = states
+        result[f"{branch}/states_min"] = states
+        result[f"{branch}/states_max"] = states
+    return result
+
+
 def _logs() -> tuple[dict[str, object], ...]:
+
     return (
         {
             "epoch": 0,
@@ -54,7 +76,7 @@ def _logs() -> tuple[dict[str, object], ...]:
                 "factual_no_miss": 1,
                 "synthetic": 2,
             },
-            "metrics": {"steps": 3, "total": 1.0},
+            "metrics": _epoch_metrics(1.0),
         },
         {
             "epoch": 1,
@@ -63,7 +85,7 @@ def _logs() -> tuple[dict[str, object], ...]:
                 "factual_no_miss": 1,
                 "synthetic": 2,
             },
-            "metrics": {"steps": 3, "total": 0.5},
+            "metrics": _epoch_metrics(0.5),
         },
     )
 
@@ -240,3 +262,93 @@ def test_decoder_artifact_rejects_logs_that_disagree_with_fixed_horizon(
     logs[1]["metrics"] = {"steps": 2, "total": 0.5}
     with pytest.raises(ValueError, match="steps_per_epoch"):
         _save_decoder_artifact(tmp_path / "bad-steps", decoder, _config(), logs)
+
+
+def test_exposure_matched_artifact_binds_factual_replacement_loss_slot(
+    tmp_path,
+) -> None:
+    config = replace(
+        _config(),
+        variant="factual_exposure_matched",
+        trained_epochs=1,
+        steps_per_epoch=3,
+        synthetic_batch=4,
+    )
+    logs = (
+        {
+            "epoch": 0,
+            "pool_sizes": {
+                "factual_miss": 2,
+                "factual_no_miss": 1,
+                "synthetic": 0,
+            },
+            "metrics": _epoch_metrics(1.0),
+        },
+    )
+    directory = tmp_path / "fx"
+    _save_decoder_artifact(
+        directory,
+        CURELiteDecoder(feature_channels=3),
+        config,
+        logs,
+    )
+    loaded = load_decoder_artifact(directory, expected_config=config)
+    assert loaded.config.variant_contract["matched_reference_variant"] == (
+        "uniform_legal"
+    )
+    assert loaded.config.variant_contract["deletion_intervention_used"] is False
+
+    bad_logs = [dict(logs[0])]
+    bad_logs[0]["metrics"] = dict(logs[0]["metrics"])
+    bad_logs[0]["metrics"]["synthetic/states"] = 3.0
+    with pytest.raises(ValueError, match="synthetic_batch exposure"):
+        _save_decoder_artifact(
+            tmp_path / "bad-fx",
+            CURELiteDecoder(feature_channels=3),
+            config,
+            bad_logs,
+        )
+
+
+def test_decoder_artifact_enforces_variant_exposure_contracts(tmp_path) -> None:
+    missing_u_pool = json.loads(json.dumps(_logs()))
+    missing_u_pool[0]["pool_sizes"]["synthetic"] = 0
+    with pytest.raises(ValueError, match="non-empty deletion-synthetic pool"):
+        _save_decoder_artifact(
+            tmp_path / "bad-u-pool",
+            CURELiteDecoder(feature_channels=3),
+            _config(),
+            missing_u_pool,
+        )
+
+    wrong_u_exposure = json.loads(json.dumps(_logs()))
+    wrong_u_exposure[0]["metrics"]["synthetic/states"] = 3.0
+    with pytest.raises(ValueError, match="U third loss slot exposure"):
+        _save_decoder_artifact(
+            tmp_path / "bad-u-exposure",
+            CURELiteDecoder(feature_channels=3),
+            _config(),
+            wrong_u_exposure,
+        )
+
+    factual_config = replace(_config(), variant="factual_only")
+    factual_logs = json.loads(json.dumps(_logs()))
+    for row in factual_logs:
+        row["pool_sizes"]["synthetic"] = 0
+        for quantity in ("active", "states"):
+            for suffix in ("", "_min", "_max"):
+                row["metrics"][f"synthetic/{quantity}{suffix}"] = 0.0
+    _save_decoder_artifact(
+        tmp_path / "valid-f",
+        CURELiteDecoder(feature_channels=3),
+        factual_config,
+        factual_logs,
+    )
+    factual_logs[0]["metrics"]["synthetic/active"] = 1.0
+    with pytest.raises(ValueError, match="third loss slot inactive"):
+        _save_decoder_artifact(
+            tmp_path / "bad-f-exposure",
+            CURELiteDecoder(feature_channels=3),
+            factual_config,
+            factual_logs,
+        )

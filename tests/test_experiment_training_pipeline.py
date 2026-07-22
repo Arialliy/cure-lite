@@ -88,6 +88,12 @@ def test_epoch_pools_share_factual_schedule_and_only_u_has_synthetic() -> None:
         epoch=3,
         global_seed=19,
     )
+    exposure_matched = build_epoch_branch_pools(
+        sources,
+        variant="factual_exposure_matched",
+        epoch=3,
+        global_seed=19,
+    )
     uniform = build_epoch_branch_pools(
         sources,
         variant="uniform_legal",
@@ -95,9 +101,20 @@ def test_epoch_pools_share_factual_schedule_and_only_u_has_synthetic() -> None:
         global_seed=19,
     )
 
-    assert len(factual.factual_miss) == len(uniform.factual_miss) == 1
-    assert len(factual.factual_no_miss) == len(uniform.factual_no_miss) == 1
+    assert (
+        len(factual.factual_miss)
+        == len(exposure_matched.factual_miss)
+        == len(uniform.factual_miss)
+        == 1
+    )
+    assert (
+        len(factual.factual_no_miss)
+        == len(exposure_matched.factual_no_miss)
+        == len(uniform.factual_no_miss)
+        == 1
+    )
     assert factual.synthetic == ()
+    assert exposure_matched.synthetic == ()
     assert len(uniform.synthetic) == 2
 
     factual_state = factual.factual_miss[0].supervision
@@ -262,6 +279,42 @@ def test_fixed_training_returns_immutable_training_only_logs() -> None:
         result.epochs = 3
     with pytest.raises(FrozenInstanceError):
         result.epoch_logs[0].epoch = 4
+
+
+def test_factual_exposure_matched_uses_u_sized_third_loss_slot_without_deletion() -> None:
+    sources = _sources()
+    torch.manual_seed(5)
+    decoder = CURELiteDecoder(feature_channels=3)
+    result = run_fixed_training(
+        decoder,
+        CURELiteLoss(),
+        torch.optim.SGD(decoder.parameters(), lr=1e-3),
+        sources,
+        variant="factual_exposure_matched",
+        epochs=1,
+        steps_per_epoch=2,
+        branch_batch_sizes={
+            "factual_miss": 1,
+            "factual_no_miss": 1,
+            "synthetic": 3,
+        },
+        global_seed=7,
+    )
+
+    epoch_log = result.epoch_logs[0]
+    assert dict(epoch_log.pool_sizes) == {
+        "factual_miss": 1,
+        "factual_no_miss": 1,
+        "synthetic": 0,
+    }
+    metrics = dict(epoch_log.metrics)
+    assert metrics["steps"] == 2
+    assert metrics["synthetic/active"] == 1.0
+    assert metrics["synthetic/states"] == 3.0
+    assert metrics["synthetic/active_min"] == 1.0
+    assert metrics["synthetic/active_max"] == 1.0
+    assert metrics["synthetic/states_min"] == 3.0
+    assert metrics["synthetic/states_max"] == 3.0
 
 
 def test_formal_branch_support_rejects_missing_identifying_pool() -> None:

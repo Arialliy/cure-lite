@@ -35,14 +35,24 @@ from ..supervision import (
 )
 from ..types import BranchSupervision, InstanceMap, LegalDeletion, MatchResult
 from ..train.engine import CURELiteTrainEngine
-from ..train.pools import BranchPools, StateExample, iter_fixed_branch_batches
+from ..train.pools import (
+    BranchPools,
+    StateExample,
+    iter_factual_exposure_matched_batches,
+    iter_fixed_branch_batches,
+)
 from ..train.step import BRANCHES
 
 
-TRAINING_VARIANTS = ("factual_only", "uniform_legal")
+TRAINING_VARIANTS = (
+    "factual_only",
+    "factual_exposure_matched",
+    "uniform_legal",
+)
 
 _REQUIRED_BRANCHES = {
     "factual_only": ("factual_miss", "factual_no_miss"),
+    "factual_exposure_matched": ("factual_miss", "factual_no_miss"),
     "uniform_legal": ("factual_miss", "factual_no_miss", "synthetic"),
 }
 
@@ -574,7 +584,7 @@ def require_training_branch_support(
     """Reject a formal training variant whose identifying branches are absent.
 
     Fixed-count sampling intentionally skips empty pools.  That behavior is
-    useful for low-level callers, but a formal F/U comparison would become
+    useful for low-level callers, but a formal F/Fx/U comparison would become
     scientifically meaningless if a required branch were silently skipped.
     In particular, U is evidence for the legal-intervention mechanism only
     when factual-positive, factual-negative, and legal-synthetic states all
@@ -663,10 +673,29 @@ class FixedTrainingLog:
             metrics = dict(epoch_log.metrics)
             if metrics.get("steps") != self.steps_per_epoch:
                 raise ValueError("epoch log steps differ from the fixed horizon")
-            if self.variant == "factual_only" and dict(epoch_log.pool_sizes)[
-                "synthetic"
-            ] != 0:
-                raise ValueError("factual_only logs cannot contain a synthetic pool")
+            for branch in BRANCHES:
+                for quantity in ("active", "states"):
+                    mean_key = f"{branch}/{quantity}"
+                    if not (
+                        metrics.get(f"{mean_key}_min")
+                        == metrics.get(mean_key)
+                        == metrics.get(f"{mean_key}_max")
+                    ):
+                        raise ValueError(
+                            f"{branch} {quantity} must be constant on every step"
+                        )
+            if self.variant in {"factual_only", "factual_exposure_matched"} and dict(
+                epoch_log.pool_sizes
+            )["synthetic"] != 0:
+                raise ValueError(
+                    f"{self.variant} logs cannot contain a deletion-synthetic pool"
+                )
+            if self.variant == "factual_exposure_matched" and (
+                metrics.get("synthetic/active") != 1.0
+                or not isinstance(metrics.get("synthetic/states"), (int, float))
+                or float(metrics["synthetic/states"]) < 1.0
+            ):
+                raise ValueError("F× must use a non-empty third loss slot")
 
     def canonical_epoch_logs(self) -> tuple[dict[str, object], ...]:
         """Return the strict JSON-ready records accepted by artifact storage."""
@@ -713,14 +742,25 @@ def run_fixed_training(
             intervention_config=intervention_config,
         )
         require_training_branch_support(pools, variant=variant)
-        batches = iter_fixed_branch_batches(
-            pools,
-            batch_sizes,
-            epoch=epoch,
-            global_seed=global_seed,
-            device=device,
-            steps=steps_per_epoch,
-        )
+        if variant == "factual_exposure_matched":
+            batches = iter_factual_exposure_matched_batches(
+                pools,
+                batch_sizes,
+                replacement_count=batch_sizes.get("synthetic", 0),
+                epoch=epoch,
+                global_seed=global_seed,
+                device=device,
+                steps=steps_per_epoch,
+            )
+        else:
+            batches = iter_fixed_branch_batches(
+                pools,
+                batch_sizes,
+                epoch=epoch,
+                global_seed=global_seed,
+                device=device,
+                steps=steps_per_epoch,
+            )
         summary = engine.run_epoch(batches)
         logs.append(
             FixedEpochTrainingLog(

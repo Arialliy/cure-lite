@@ -1,0 +1,43 @@
+{
+  "augmentation": "deterministic-dihedral-8",
+  "batch_size": 16,
+  "bce_weight": 0.2,
+  "dataset": "IRSTD-1K",
+  "device": "cuda:1",
+  "epochs": 800,
+  "learning_rate": 0.001,
+  "model": {
+    "bottleneck_channels": 128,
+    "eighth_channels": 96,
+    "feature_channels": 64,
+    "half_channels": 40,
+    "in_channels": 1,
+    "norm_groups": 8,
+    "stem_channels": 24
+  },
+  "optimizer": "adamw",
+  "positive_weight": 20.0,
+  "preprocessing": {
+    "color_mode": "L",
+    "height": 256,
+    "image_interpolation": "bilinear",
+    "mask_interpolation": "nearest",
+    "mean": [
+      0.5
+    ],
+    "range": "float32-[0,1]-then-normalize",
+    "std": [
+      0.5
+    ],
+    "width": 256
+  },
+  "schedule": "cosine-to-zero",
+  "schema_version": "cure-lite-reference-base-config-v1",
+  "selection_fraction": 0.2,
+  "selection_metric": "D_B-select/global-binary-mIoU@0.5",
+  "selection_seed": 42,
+  "selection_tie_break": "lower-select-loss-then-earlier-epoch",
+  "soft_iou_weight": 1.0,
+  "training_seed": 42,
+  "weight_decay": 0.0001
+}

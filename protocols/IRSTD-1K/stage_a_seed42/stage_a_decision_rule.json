@@ -1,0 +1,30 @@
+{
+  "all_methods_must_satisfy_configured_constraints": true,
+  "comparators": [
+    "Base@B",
+    "F"
+  ],
+  "dataset": "IRSTD-1K",
+  "evaluation_role": "development_mechanism_screen",
+  "evaluation_split": "D_V",
+  "independent_generalization_claim": false,
+  "method_order": [
+    "A",
+    "Base@B",
+    "F",
+    "U"
+  ],
+  "positive_signal_requires_all": [
+    "Pd(U) > Pd(Base@B)",
+    "Pd(U) > Pd(F)"
+  ],
+  "primary_metric": "total_object_level_pd",
+  "schema_version": "cure-lite-stage-a-decision-rule-v1",
+  "secondary_quality_metrics": [
+    "mIoU",
+    "nIoU"
+  ],
+  "seed": 42,
+  "stage_a_config_sha256": "c10c331833324dde72e9efe8602b55f0410d9aa2c7db258a9726baf0fd7d4db1",
+  "strict_improvement_required": true
+}

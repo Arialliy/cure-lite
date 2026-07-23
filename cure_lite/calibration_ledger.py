@@ -29,6 +29,7 @@ from .calibration import (
     CalibrationSample,
     FalseAlarmBudget,
     ThresholdSelection,
+    threshold_selection_key,
 )
 from .config import MatchConfig, OccupancyConfig
 from .instances import instances_from_binary_mask
@@ -183,7 +184,7 @@ class CalibrationCandidateLedger:
         method: str,
         budget: FalseAlarmBudget,
     ) -> ThresholdSelection:
-        """Apply the legacy deterministic budget/tie-break rule to one ledger."""
+        """Apply the deterministic standard-metric budget rule to one ledger."""
 
         if not isinstance(budget, FalseAlarmBudget):
             raise TypeError("budget must be a FalseAlarmBudget")
@@ -204,20 +205,17 @@ class CalibrationCandidateLedger:
         if rows[0].mode == "base":
             selected = max(
                 feasible,
-                key=lambda row: (
-                    row.metrics.pd,
-                    row.metrics.net_rmr,
-                    float(row.threshold),
+                key=lambda row: threshold_selection_key(
+                    row.threshold,
+                    row.metrics,
                 ),
             )
         else:
             selected = max(
                 feasible,
-                key=lambda row: (
-                    row.metrics.pd,
-                    row.metrics.net_rmr,
-                    row.metrics.gross_rmr,
-                    float("inf") if row.threshold is None else row.threshold,
+                key=lambda row: threshold_selection_key(
+                    row.threshold,
+                    row.metrics,
                 ),
             )
         return ThresholdSelection(selected.threshold, selected.metrics, True)

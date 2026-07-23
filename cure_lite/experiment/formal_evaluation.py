@@ -1,8 +1,9 @@
 """Strict D_V calibration over verified caches and immutable decoder artifacts.
 
-This is the formal Gate-2 layer above the tensor-level calibration helpers.  It
-binds every D_V result to the manifest, image/GT catalogs, base-cache index,
-trained decoder artifact, common method configuration, threshold grid, and
+This is the formal Gate-2 layer above the tensor-level calibration helpers.
+Residual-method results are bound to their trained decoder artifacts.  The
+``Base@B`` control instead has a distinct decoder-free receipt bound directly
+to the verified base-only D_V run, cache provenance, threshold grid, and
 false-alarm budget.  There is deliberately no ``D_T`` entry point.
 """
 
@@ -27,13 +28,14 @@ from ..calibration_ledger import (
     evaluate_candidate_ledger,
     prepare_calibration_context,
 )
+from ..config import MatchConfig, OccupancyConfig
 from ..metrics import AggregateEvaluation
 from ..splits import SplitManifest
 from .artifacts import LoadedDecoderArtifact
 from .cache_pipeline import LoadedDVCacheBundle
 from .formal_anchor import (
     FrozenAnchorReceipt,
-    build_loaded_d_v_base_run,
+    LoadedDVBaseRun,
     evaluate_frozen_anchor,
 )
 from .evaluation_pipeline import (
@@ -259,9 +261,9 @@ def build_loaded_d_v_method_run(
 
 @dataclass(frozen=True)
 class FormalDVThresholdReceipt:
-    """A tensor-level threshold protocol bound to its cache and decoder source."""
+    """A residual threshold protocol bound to its cache and decoder source."""
 
-    mode: Literal["residual", "base_at_budget"]
+    mode: Literal["residual"]
     protocol: BoundDVThresholdProtocol
     d_v_run_fingerprint: str
     manifest_file_sha256: str
@@ -306,8 +308,8 @@ class FormalDVThresholdReceipt:
 
     def __post_init__(self) -> None:
         self._verify_source_seal()
-        if self.mode not in {"residual", "base_at_budget"}:
-            raise ValueError("unsupported formal D_V receipt mode")
+        if self.mode != "residual":
+            raise ValueError("formal decoder receipt mode must be residual")
         if not isinstance(self.protocol, BoundDVThresholdProtocol):
             raise TypeError("protocol must be BoundDVThresholdProtocol")
         if self.protocol.variant != self.mode:
@@ -361,10 +363,103 @@ class _FormalDVReceiptSeal:
     bound_values: tuple[object, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class _FormalDVBaseReceiptSeal:
+    protocol: BoundDVThresholdProtocol
+    bound_values: tuple[object, ...]
+
+
+@dataclass(frozen=True)
+class FormalDVBaseThresholdReceipt:
+    """Decoder-free Base@B selection bound to one verified D_V base run.
+
+    This receipt intentionally has no decoder artifact, decoder state,
+    decoder variant, or training seed.  Base@B is selected from cached base
+    probabilities and GT only; introducing any decoder identity here would
+    make the control depend on an unrelated trained method.
+    """
+
+    protocol: BoundDVThresholdProtocol
+    d_v_base_run_fingerprint: str
+    manifest_file_sha256: str
+    base_index_fingerprint: str
+    base_index_sha256: str
+    d_v_image_fingerprint: str
+    d_v_gt_fingerprint: str
+    preprocessing_fingerprint: str
+    base_fingerprint: str
+    _verification_token: object
+
+    def _verify_source_seal(self) -> None:
+        seal = self._verification_token
+        if type(seal) is not _FormalDVBaseReceiptSeal:
+            raise TypeError(
+                "FormalDVBaseThresholdReceipt must come from formal "
+                "decoder-free D_V selection"
+            )
+        if seal.protocol is not self.protocol:
+            raise TypeError("formal Base@B threshold protocol object was replaced")
+        if seal.bound_values != (
+            self.d_v_base_run_fingerprint,
+            self.manifest_file_sha256,
+            self.base_index_fingerprint,
+            self.base_index_sha256,
+            self.d_v_image_fingerprint,
+            self.d_v_gt_fingerprint,
+            self.preprocessing_fingerprint,
+            self.base_fingerprint,
+        ):
+            raise TypeError("formal Base@B threshold receipt fields were replaced")
+
+    def __post_init__(self) -> None:
+        self._verify_source_seal()
+        if not isinstance(self.protocol, BoundDVThresholdProtocol):
+            raise TypeError("protocol must be BoundDVThresholdProtocol")
+        if self.protocol.variant != "base_at_budget":
+            raise ValueError("Base@B receipt requires a base_at_budget protocol")
+        if self.protocol.selected_threshold is None:
+            raise ValueError("Base@B receipt requires a numeric threshold")
+        for name in (
+            "d_v_base_run_fingerprint",
+            "manifest_file_sha256",
+            "base_index_fingerprint",
+            "base_index_sha256",
+            "d_v_image_fingerprint",
+            "d_v_gt_fingerprint",
+            "preprocessing_fingerprint",
+            "base_fingerprint",
+        ):
+            _digest(getattr(self, name), name=name)
+
+    @property
+    def receipt_fingerprint(self) -> str:
+        return stable_fingerprint(
+            {
+                "schema_version": (
+                    "cure-lite-formal-d-v-base-threshold-receipt-v1"
+                ),
+                "method": "Base@B",
+                "threshold_protocol_fingerprint": (
+                    self.protocol.receipt_fingerprint
+                ),
+                "d_v_base_run_fingerprint": self.d_v_base_run_fingerprint,
+                "manifest_file_sha256": self.manifest_file_sha256,
+                "base_index_fingerprint": self.base_index_fingerprint,
+                "base_index_sha256": self.base_index_sha256,
+                "d_v_image_fingerprint": self.d_v_image_fingerprint,
+                "d_v_gt_fingerprint": self.d_v_gt_fingerprint,
+                "preprocessing_fingerprint": self.preprocessing_fingerprint,
+                "base_fingerprint": self.base_fingerprint,
+            }
+        )
+
+
 def _formal_receipt(
     run: LoadedDVMethodRun,
     protocol: BoundDVThresholdProtocol,
 ) -> FormalDVThresholdReceipt:
+    if protocol.variant != "residual":
+        raise ValueError("decoder-bound formal receipt requires residual protocol")
     bundle = run.bundle
     artifact = run.artifact
     bound_values = (
@@ -404,6 +499,45 @@ def _formal_receipt(
     )
 
 
+def _formal_base_receipt(
+    run: LoadedDVBaseRun,
+    protocol: BoundDVThresholdProtocol,
+) -> FormalDVBaseThresholdReceipt:
+    """Bind Base@B to base-only cache provenance, never to a decoder."""
+
+    if not isinstance(run, LoadedDVBaseRun):
+        raise TypeError("run must be a LoadedDVBaseRun")
+    if protocol.variant != "base_at_budget":
+        raise ValueError("decoder-free Base@B receipt requires base_at_budget")
+    bundle = run.bundle
+    bound_values = (
+        run.run_fingerprint,
+        bundle.split_manifest_file_sha256,
+        bundle.base_index_fingerprint,
+        bundle.base_index_sha256,
+        bundle.d_v_image_fingerprint,
+        bundle.d_v_gt_fingerprint,
+        bundle.preprocessing_fingerprint,
+        bundle.base_fingerprint,
+    )
+    seal = _FormalDVBaseReceiptSeal(
+        protocol=protocol,
+        bound_values=bound_values,
+    )
+    return FormalDVBaseThresholdReceipt(
+        protocol=protocol,
+        d_v_base_run_fingerprint=bound_values[0],
+        manifest_file_sha256=bound_values[1],
+        base_index_fingerprint=bound_values[2],
+        base_index_sha256=bound_values[3],
+        d_v_image_fingerprint=bound_values[4],
+        d_v_gt_fingerprint=bound_values[5],
+        preprocessing_fingerprint=bound_values[6],
+        base_fingerprint=bound_values[7],
+        _verification_token=seal,
+    )
+
+
 def _canonical_candidate_grid(
     values: Iterable[float],
     *,
@@ -434,9 +568,9 @@ def _protocol_from_ledger_selection(
     budget: FalseAlarmBudget,
     selection: ThresholdSelection,
     *,
-    variant: Literal["residual", "base_at_budget"],
+    variant: Literal["residual"] = "residual",
 ) -> BoundDVThresholdProtocol:
-    """Bind one exact ledger selection to the existing formal receipt type."""
+    """Bind one exact residual ledger selection to its decoder run."""
 
     if not isinstance(selection, ThresholdSelection):
         raise TypeError("selection must be a ThresholdSelection")
@@ -444,14 +578,8 @@ def _protocol_from_ledger_selection(
         raise RuntimeError(
             selection.reason or f"D_V {variant} selection is infeasible"
         )
-    if variant == "base_at_budget" and selection.threshold is None:
-        raise RuntimeError("D_V Base@B selection must be numeric")
-    samples = run.base_samples if variant == "base_at_budget" else run.residual_samples
-    sample_fingerprint = (
-        run.base_samples_fingerprint
-        if variant == "base_at_budget"
-        else run.residual_samples_fingerprint
-    )
+    samples = run.residual_samples
+    sample_fingerprint = run.residual_samples_fingerprint
     ordered_ids = tuple(
         record.sample_id for record in run.access.records_for("D_V")
     )
@@ -464,10 +592,51 @@ def _protocol_from_ledger_selection(
         sample_tensor_fingerprint=sample_fingerprint,
         candidate_threshold_grid=_canonical_candidate_grid(
             thresholds,
-            allow_empty=variant == "residual",
+            allow_empty=True,
         ),
         occupancy_config=run.artifact.config.occupancy_config,
         match_config=run.artifact.config.match_config,
+        budget=budget,
+        selected_threshold=selection.threshold,
+        selected_metrics=selection.metrics,
+    )
+
+
+def _base_protocol_from_ledger_selection(
+    run: LoadedDVBaseRun,
+    thresholds: Iterable[float],
+    occupancy_config: OccupancyConfig,
+    match_config: MatchConfig,
+    budget: FalseAlarmBudget,
+    selection: ThresholdSelection,
+) -> BoundDVThresholdProtocol:
+    """Bind one exact Base@B ledger selection to a decoder-free base run."""
+
+    if not isinstance(selection, ThresholdSelection):
+        raise TypeError("selection must be a ThresholdSelection")
+    if not selection.feasible or selection.metrics is None:
+        raise RuntimeError(selection.reason or "D_V Base@B selection is infeasible")
+    if selection.threshold is None:
+        raise RuntimeError("D_V Base@B selection must be numeric")
+    if not isinstance(occupancy_config, OccupancyConfig):
+        raise TypeError("occupancy_config must be an OccupancyConfig")
+    if not isinstance(match_config, MatchConfig):
+        raise TypeError("match_config must be a MatchConfig")
+    if tuple(sample.sample_id for sample in run.base_samples) != (
+        run.ordered_d_v_sample_ids
+    ):
+        raise RuntimeError("formal Base@B samples are not in manifest order")
+    return BoundDVThresholdProtocol(
+        variant="base_at_budget",
+        manifest_fingerprint=run.access.manifest.fingerprint,
+        ordered_d_v_sample_ids=run.ordered_d_v_sample_ids,
+        sample_tensor_fingerprint=run.base_samples_fingerprint,
+        candidate_threshold_grid=_canonical_candidate_grid(
+            thresholds,
+            allow_empty=False,
+        ),
+        occupancy_config=occupancy_config,
+        match_config=match_config,
         budget=budget,
         selected_threshold=selection.threshold,
         selected_metrics=selection.metrics,
@@ -494,20 +663,26 @@ def select_formal_residual_threshold(
 
 
 def select_formal_base_threshold(
-    run: LoadedDVMethodRun,
+    run: LoadedDVBaseRun,
     thresholds: Iterable[float],
+    occupancy_config: OccupancyConfig,
+    match_config: MatchConfig,
     budget: object,
-) -> FormalDVThresholdReceipt:
+) -> FormalDVBaseThresholdReceipt:
+    """Select Base@B from a verified base run without any decoder artifact."""
+
+    if not isinstance(run, LoadedDVBaseRun):
+        raise TypeError("run must be a LoadedDVBaseRun")
     run.verify_unchanged()
     protocol = select_base_threshold_on_d_v(
         run.access,
         run.base_samples,
         thresholds,
-        run.artifact.config.occupancy_config,
-        run.artifact.config.match_config,
+        occupancy_config,
+        match_config,
         budget,
     )
-    receipt = _formal_receipt(run, protocol)
+    receipt = _formal_base_receipt(run, protocol)
     run.verify_unchanged()
     return receipt
 
@@ -516,7 +691,7 @@ def _verify_receipt(
     run: LoadedDVMethodRun,
     receipt: FormalDVThresholdReceipt,
     *,
-    mode: Literal["residual", "base_at_budget"],
+    mode: Literal["residual"] = "residual",
 ) -> None:
     if not isinstance(run, LoadedDVMethodRun):
         raise TypeError("run must be LoadedDVMethodRun")
@@ -529,6 +704,21 @@ def _verify_receipt(
     expected = _formal_receipt(run, receipt.protocol)
     if expected != receipt:
         raise RuntimeError("formal D_V source differs from the threshold receipt")
+
+
+def _verify_base_receipt(
+    run: LoadedDVBaseRun,
+    receipt: FormalDVBaseThresholdReceipt,
+) -> None:
+    if not isinstance(run, LoadedDVBaseRun):
+        raise TypeError("run must be LoadedDVBaseRun")
+    if not isinstance(receipt, FormalDVBaseThresholdReceipt):
+        raise TypeError("receipt must be FormalDVBaseThresholdReceipt")
+    receipt._verify_source_seal()
+    run.verify_unchanged()
+    expected = _formal_base_receipt(run, receipt.protocol)
+    if expected != receipt:
+        raise RuntimeError("formal Base@B source differs from the threshold receipt")
 
 
 def evaluate_formal_residual_threshold(
@@ -546,10 +736,10 @@ def evaluate_formal_residual_threshold(
 
 
 def evaluate_formal_base_threshold(
-    run: LoadedDVMethodRun,
-    receipt: FormalDVThresholdReceipt,
+    run: LoadedDVBaseRun,
+    receipt: FormalDVBaseThresholdReceipt,
 ) -> AggregateEvaluation:
-    _verify_receipt(run, receipt, mode="base_at_budget")
+    _verify_base_receipt(run, receipt)
     result = evaluate_frozen_base_threshold(
         run.access,
         run.base_samples,
@@ -627,12 +817,51 @@ def _common_training_fingerprint(
     )
 
 
+def _verify_base_run_alignment(
+    base_run: LoadedDVBaseRun,
+    *method_runs: LoadedDVMethodRun,
+) -> None:
+    """Require decoder-free Base@B and residual methods to share exact D_V."""
+
+    if not isinstance(base_run, LoadedDVBaseRun):
+        raise TypeError("base_run must be a LoadedDVBaseRun")
+    base_run.verify_unchanged()
+    provenance_fields = (
+        "split_manifest_fingerprint",
+        "split_manifest_file_sha256",
+        "preprocessing_fingerprint",
+        "base_fingerprint",
+        "base_index_fingerprint",
+        "base_index_sha256",
+        "d_v_image_fingerprint",
+        "d_v_gt_fingerprint",
+    )
+    for method_run in method_runs:
+        if not isinstance(method_run, LoadedDVMethodRun):
+            raise TypeError("method runs must be LoadedDVMethodRun")
+        method_run.verify_unchanged()
+        if any(
+            getattr(method_run.bundle, name) != getattr(base_run.bundle, name)
+            for name in provenance_fields
+        ):
+            raise RuntimeError("Base@B and residual methods use different D_V caches")
+        if (
+            method_run.base_samples_fingerprint
+            != base_run.base_samples_fingerprint
+            or tuple(sample.sample_id for sample in method_run.base_samples)
+            != base_run.ordered_d_v_sample_ids
+        ):
+            raise RuntimeError(
+                "Base@B and residual methods use different D_V base/GT tensors"
+            )
+
+
 @dataclass(frozen=True)
 class PairedGate2Calibration:
     """The complete A/Base@B/F/Fx/U D_V selection with shared contracts."""
 
     anchor: FrozenAnchorReceipt
-    base_at_budget: FormalDVThresholdReceipt
+    base_at_budget: FormalDVBaseThresholdReceipt
     factual_only: FormalDVThresholdReceipt
     factual_exposure_matched: FormalDVThresholdReceipt
     uniform_legal: FormalDVThresholdReceipt
@@ -667,8 +896,9 @@ class PairedGate2Calibration:
         if not isinstance(self.anchor, FrozenAnchorReceipt):
             raise TypeError("anchor must be a decoder-free FrozenAnchorReceipt")
         self.anchor._verify_source_seal()
-        if self.base_at_budget.mode != "base_at_budget":
-            raise ValueError("Base@B receipt has the wrong mode")
+        if not isinstance(self.base_at_budget, FormalDVBaseThresholdReceipt):
+            raise TypeError("Base@B must use a decoder-free formal receipt")
+        self.base_at_budget._verify_source_seal()
         if self.factual_only.mode != "residual":
             raise ValueError("F receipt has the wrong mode")
         if self.factual_exposure_matched.mode != "residual":
@@ -739,18 +969,22 @@ class PairedGate2Calibration:
             for name in provenance_fields
         ):
             raise ValueError("A/Base@B/F/Fx/U provenance differs")
-        formal_receipts = common_protocols_receipts(self)
+        formal_receipts = (
+            self.factual_only,
+            self.factual_exposure_matched,
+            self.uniform_legal,
+        )
         if any(
             receipt.global_seed != formal_receipts[0].global_seed
             for receipt in formal_receipts[1:]
         ):
-            raise ValueError("Base@B/F/Fx/U global seeds differ")
+            raise ValueError("F/Fx/U global seeds differ")
 
     @property
     def receipt_fingerprint(self) -> str:
         return stable_fingerprint(
             {
-                "schema_version": "cure-lite-paired-gate2-calibration-v3",
+                "schema_version": "cure-lite-paired-gate2-calibration-v4",
                 "anchor": self.anchor.receipt_fingerprint,
                 "base_at_budget": self.base_at_budget.receipt_fingerprint,
                 "factual_only": self.factual_only.receipt_fingerprint,
@@ -765,7 +999,10 @@ class PairedGate2Calibration:
 
 def common_protocols_receipts(
     calibration: PairedGate2Calibration,
-) -> tuple[FormalDVThresholdReceipt, ...]:
+) -> tuple[
+    FormalDVBaseThresholdReceipt | FormalDVThresholdReceipt,
+    ...,
+]:
     return (
         calibration.base_at_budget,
         calibration.factual_only,
@@ -777,7 +1014,7 @@ def common_protocols_receipts(
 @dataclass(frozen=True, slots=True)
 class _PairedCalibrationSeal:
     anchor: FrozenAnchorReceipt
-    base_at_budget: FormalDVThresholdReceipt
+    base_at_budget: FormalDVBaseThresholdReceipt
     factual_only: FormalDVThresholdReceipt
     factual_exposure_matched: FormalDVThresholdReceipt
     uniform_legal: FormalDVThresholdReceipt
@@ -795,6 +1032,7 @@ class Gate2DVResults:
 
 
 def calibrate_paired_gate2(
+    base_run: LoadedDVBaseRun,
     factual_run: LoadedDVMethodRun,
     exposure_matched_run: LoadedDVMethodRun,
     uniform_run: LoadedDVMethodRun,
@@ -813,6 +1051,7 @@ def calibrate_paired_gate2(
         raise TypeError("anchor must be a FrozenAnchorReceipt")
     if not isinstance(budget, FalseAlarmBudget):
         raise TypeError("budget must be a FalseAlarmBudget")
+    base_run.verify_unchanged()
     factual_run.verify_unchanged()
     exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
@@ -821,8 +1060,13 @@ def calibrate_paired_gate2(
         exposure_matched_run,
         uniform_run,
     )
-    anchor_run = build_loaded_d_v_base_run(factual_run.bundle)
-    evaluate_frozen_anchor(anchor_run, anchor)
+    _verify_base_run_alignment(
+        base_run,
+        factual_run,
+        exposure_matched_run,
+        uniform_run,
+    )
+    evaluate_frozen_anchor(base_run, anchor)
     if factual_run.artifact.config.occupancy_config != anchor.occupancy_config:
         raise RuntimeError("decoder occupancy config differs from frozen tau_o")
     if factual_run.artifact.config.match_config != anchor.match_config:
@@ -836,7 +1080,7 @@ def calibrate_paired_gate2(
         allow_empty=False,
     )
     context = prepare_calibration_context(
-        factual_run.base_samples,
+        base_run.base_samples,
         anchor.occupancy_config,
         anchor.match_config,
     )
@@ -859,14 +1103,15 @@ def calibrate_paired_gate2(
         mp_context=mp_context,
         progress=progress,
     )
-    base_at_budget = _formal_receipt(
-        factual_run,
-        _protocol_from_ledger_selection(
-            factual_run,
+    base_at_budget = _formal_base_receipt(
+        base_run,
+        _base_protocol_from_ledger_selection(
+            base_run,
             base_grid,
+            anchor.occupancy_config,
+            anchor.match_config,
             budget,
             ledger.select("Base@B", budget),
-            variant="base_at_budget",
         ),
     )
     factual_only = _formal_receipt(
@@ -917,6 +1162,7 @@ def calibrate_paired_gate2(
         common_training_fingerprint=common_fingerprint,
         _verification_token=seal,
     )
+    base_run.verify_unchanged()
     factual_run.verify_unchanged()
     exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
@@ -924,12 +1170,13 @@ def calibrate_paired_gate2(
 
 
 def evaluate_paired_gate2(
+    base_run: LoadedDVBaseRun,
     factual_run: LoadedDVMethodRun,
     exposure_matched_run: LoadedDVMethodRun,
     uniform_run: LoadedDVMethodRun,
     calibration: PairedGate2Calibration,
 ) -> Gate2DVResults:
-    """Materialize results already proven by the sealed shared-grid ledger.
+    """Materialize results already established by the shared-grid ledger.
 
     A serialized Stage-A replay calls :func:`calibrate_paired_gate2` again and
     therefore recomputes the complete ledger.  Re-running four independent
@@ -942,6 +1189,12 @@ def evaluate_paired_gate2(
     calibration._verify_source_seal()
     seal = calibration._verification_token
     assert type(seal) is _PairedCalibrationSeal
+    _verify_base_run_alignment(
+        base_run,
+        factual_run,
+        exposure_matched_run,
+        uniform_run,
+    )
     if (
         _common_training_fingerprint(
             factual_run,
@@ -951,8 +1204,8 @@ def evaluate_paired_gate2(
         != calibration.common_training_fingerprint
     ):
         raise RuntimeError("paired training contract differs from calibration")
+    _verify_base_receipt(base_run, calibration.base_at_budget)
     receipts = (
-        (factual_run, calibration.base_at_budget, "base_at_budget"),
         (factual_run, calibration.factual_only, "residual"),
         (
             exposure_matched_run,
@@ -982,11 +1235,11 @@ def evaluate_paired_gate2(
         raise RuntimeError("paired candidate ledger differs from frozen receipts")
 
     # Independently rebuild fixed anchor/GT state and evaluate only the four
-    # selected points.  The sealed full ledger proves global selection; this
-    # small second pass preserves the former fail-closed fixed-threshold check
-    # without repeating every candidate grid four more times.
+    # selected points.  The complete ledger establishes global selection; this
+    # small second pass retains the independent fixed-threshold consistency
+    # check without repeating every candidate grid four more times.
     verification_context = prepare_calibration_context(
-        factual_run.base_samples,
+        base_run.base_samples,
         calibration.anchor.occupancy_config,
         calibration.anchor.match_config,
     )
@@ -1025,14 +1278,14 @@ def evaluate_paired_gate2(
     ):
         raise RuntimeError("selected-point verification differs from frozen receipts")
 
-    anchor_run = build_loaded_d_v_base_run(factual_run.bundle)
     result = Gate2DVResults(
-        anchor=evaluate_frozen_anchor(anchor_run, calibration.anchor),
+        anchor=evaluate_frozen_anchor(base_run, calibration.anchor),
         base_at_budget=verified["Base@B"].metrics,
         factual_only=verified["F"].metrics,
         factual_exposure_matched=verified["F×"].metrics,
         uniform_legal=verified["U"].metrics,
     )
+    base_run.verify_unchanged()
     factual_run.verify_unchanged()
     exposure_matched_run.verify_unchanged()
     uniform_run.verify_unchanged()
@@ -1040,7 +1293,13 @@ def evaluate_paired_gate2(
 
 
 __all__ = [
+    "FormalDVBaseThresholdReceipt",
+    "FormalDVThresholdReceipt",
     "build_loaded_d_v_method_run",
     "calibrate_paired_gate2",
+    "evaluate_formal_base_threshold",
+    "evaluate_formal_residual_threshold",
     "evaluate_paired_gate2",
+    "select_formal_base_threshold",
+    "select_formal_residual_threshold",
 ]

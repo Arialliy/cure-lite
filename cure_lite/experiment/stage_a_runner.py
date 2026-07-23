@@ -14,7 +14,7 @@ been atomically published; an interrupted directory is not a completed run.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import hashlib
 import json
 import math
@@ -26,7 +26,8 @@ from typing import Any, Iterable, Mapping
 import torch
 
 from ..cache.schema import file_sha256, stable_fingerprint
-from ..calibration import FalseAlarmBudget
+from ..base_identity import VerifiedBaseRunIdentity
+from ..calibration import FalseAlarmBudget, THRESHOLD_SELECTION_RULE
 from ..calibration_ledger import ProgressCallback
 from ..config import (
     DecoderConfig,
@@ -37,8 +38,9 @@ from ..config import (
     config_to_dict,
 )
 from ..data import ManifestImageDataset
-from ..frozen_base import FrozenBaseAdapter
-from ..metrics import AggregateEvaluation
+from ..frozen_base import FrozenBaseAdapter, frozen_base_state_fingerprint
+from ..metrics import AggregateEvaluation, formal_stage_a_metrics_payload
+from ..stage_a import BASE_RUN_IDENTITY_FIELDS, BaseRunIdentity, STAGE_A_METHOD_ORDER
 from .artifacts import LoadedDecoderArtifact, load_decoder_artifact
 from .cache_pipeline import (
     LoadedDRCacheBundle,
@@ -58,6 +60,7 @@ from .formal_anchor import (
     select_frozen_anchor,
 )
 from .formal_evaluation import (
+    FormalDVBaseThresholdReceipt,
     FormalDVThresholdReceipt,
     Gate2DVResults,
     LoadedDVMethodRun,
@@ -66,8 +69,18 @@ from .formal_evaluation import (
     calibrate_paired_gate2,
     evaluate_paired_gate2,
 )
+from .efficiency_evidence import (
+    DEFAULT_REPETITIONS,
+    DEFAULT_WARMUP,
+    EfficiencyBinding,
+    StageAEfficiencyReceipt,
+    measure_stage_a_efficiency,
+    replay_static_efficiency,
+)
 from .formal_training import (
     PairedGate2TrainingConfig,
+    PreparedGate2Training,
+    prepare_gate2_training,
     run_paired_gate2_training,
     save_completed_decoder_run,
     summarize_gate2_training_support,
@@ -75,14 +88,14 @@ from .formal_training import (
 from .training_pipeline import TrainingSupportRequirements, TrainingSupportSummary
 
 
-STAGE_A_RUN_SCHEMA = "cure-lite-stage-a-run-v3"
-STAGE_A_CONFIG_SCHEMA = "cure-lite-stage-a-config-v3"
+STAGE_A_RUN_SCHEMA = "cure-lite-stage-a-run-v7"
+STAGE_A_CONFIG_SCHEMA = "cure-lite-stage-a-config-v4"
 _CONFIG_SCHEMA = "cure-lite-stage-a-config-receipt-v1"
-_ANCHOR_SCHEMA = "cure-lite-stage-a-anchor-receipt-v1"
+_ANCHOR_SCHEMA = "cure-lite-stage-a-anchor-receipt-v2"
 _SUPPORT_SCHEMA = "cure-lite-stage-a-support-receipt-v1"
-_CALIBRATION_SCHEMA = "cure-lite-stage-a-calibration-receipt-v2"
-_RESULTS_SCHEMA = "cure-lite-stage-a-results-receipt-v2"
-_METHOD_ORDER = ("A", "Base@B", "F", "F×", "U")
+_CALIBRATION_SCHEMA = "cure-lite-stage-a-calibration-receipt-v4"
+_RESULTS_SCHEMA = "cure-lite-stage-a-results-receipt-v3"
+_METHOD_ORDER = STAGE_A_METHOD_ORDER
 _INCOMPLETE_NAME = ".incomplete"
 _COMPLETE_NAME = "COMPLETE.json"
 _SOURCE_ROOT = Path(__file__).resolve().parents[1]
@@ -91,7 +104,7 @@ _NON_METHOD_SOURCE_FILES = {"provenance.py"}
 
 
 def _method_contract_payload() -> dict[str, object]:
-    """Return the fixed five-way comparison encoded by config schema v3."""
+    """Return the fixed five-way comparison encoded by config schema v4."""
 
     return {
         "method_order": list(_METHOD_ORDER),
@@ -103,6 +116,7 @@ def _method_contract_payload() -> dict[str, object]:
         "exposure_matched_control": "F×",
         "intervention_method": "U",
         "strict_pd_comparators": ["Base@B", "F", "F×"],
+        "threshold_selection_rule": THRESHOLD_SELECTION_RULE,
     }
 
 
@@ -138,12 +152,73 @@ def _canonical_digest(value: object, *, name: str) -> str:
     return normalized
 
 
+def _verified_base_run_payload(
+    verified: VerifiedBaseRunIdentity,
+    *,
+    expected_base_fingerprint: str | None = None,
+    expected_base_state_fingerprint: str | None = None,
+) -> dict[str, str]:
+    """Verify one provider-owned Base record and return its canonical payload."""
+
+    if not isinstance(verified, VerifiedBaseRunIdentity):
+        raise TypeError(
+            "verified_base_identity must come from a registered Base-run loader"
+        )
+    verified.verify_unchanged()
+    identity = verified.identity
+    if not isinstance(identity, BaseRunIdentity):
+        raise TypeError("verified Base-run identity has an invalid type")
+    payload = identity.to_registry_dict()
+    if tuple(payload) != BASE_RUN_IDENTITY_FIELDS:
+        raise ValueError("verified Base-run identity fields are not canonical")
+    producer_schema = payload["producer_schema"]
+    if not isinstance(producer_schema, str) or not producer_schema:
+        raise ValueError("verified Base-run producer_schema must be non-empty")
+    for name in BASE_RUN_IDENTITY_FIELDS[1:]:
+        payload[name] = _canonical_digest(
+            payload[name],
+            name=f"verified Base-run identity {name}",
+        )
+    if expected_base_fingerprint is not None:
+        expected = _canonical_digest(
+            expected_base_fingerprint,
+            name="expected Base fingerprint",
+        )
+        if payload["base_fingerprint"] != expected:
+            raise RuntimeError("verified Base run differs from the Stage-A Base")
+    if expected_base_state_fingerprint is not None:
+        expected_state = _canonical_digest(
+            expected_base_state_fingerprint,
+            name="expected Base state fingerprint",
+        )
+        if payload["base_state_fingerprint"] != expected_state:
+            raise RuntimeError("verified Base state differs from the Stage-A Base state")
+    return payload
+
+
 def _calibration_worker_count(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise TypeError("calibration_workers must be an integer")
     if value < 1:
         raise ValueError("calibration_workers must be positive")
     return value
+
+
+def _preflight_stage_a_device(device: str) -> None:
+    """Require the configured CUDA device to execute before creating output."""
+
+    resolved = torch.device(device)
+    if resolved.type == "cpu":
+        return
+    try:
+        probe = torch.empty((1,), dtype=torch.float32, device=resolved)
+        probe.fill_(0.0)
+        torch.cuda.synchronize(resolved)
+    except (RuntimeError, AssertionError) as error:
+        raise RuntimeError(
+            f"Stage-A CUDA preflight failed for {resolved} "
+            "before output creation"
+        ) from error
 
 
 def _budget_payload(budget: FalseAlarmBudget) -> dict[str, float | None]:
@@ -313,8 +388,8 @@ class StageARunConfig:
             device = torch.device(self.device)
         except (TypeError, RuntimeError) as error:
             raise ValueError("device is not a valid torch device") from error
-        if device.type == "meta":
-            raise ValueError("Stage-A cannot execute on the meta device")
+        if device.type not in {"cpu", "cuda"}:
+            raise ValueError("Stage-A supports only CPU or CUDA devices")
         object.__setattr__(self, "device", str(device))
 
     def canonical_payload(self) -> dict[str, object]:
@@ -481,18 +556,17 @@ def _config_receipt(config: StageARunConfig, source_digest: str) -> dict[str, ob
 
 
 def _metrics_payload(metrics: AggregateEvaluation) -> dict[str, object]:
-    if not isinstance(metrics, AggregateEvaluation):
-        raise TypeError("Stage-A metrics must be AggregateEvaluation")
-    return asdict(metrics)
+    return formal_stage_a_metrics_payload(metrics)
 
 
 def _protocol_payload(receipt: FormalDVThresholdReceipt) -> dict[str, object]:
     protocol = receipt.protocol
     return {
-        "schema_version": "cure-lite-stage-a-formal-threshold-receipt-v1",
+        "schema_version": "cure-lite-stage-a-formal-threshold-receipt-v3",
         "mode": receipt.mode,
         "protocol": {
             "variant": protocol.variant,
+            "selection_rule": protocol.selection_rule,
             "manifest_fingerprint": protocol.manifest_fingerprint,
             "ordered_d_v_sample_ids": list(protocol.ordered_d_v_sample_ids),
             "sample_tensor_fingerprint": protocol.sample_tensor_fingerprint,
@@ -517,6 +591,43 @@ def _protocol_payload(receipt: FormalDVThresholdReceipt) -> dict[str, object]:
         "decoder_state_fingerprint": receipt.decoder_state_fingerprint,
         "decoder_variant": receipt.decoder_variant,
         "global_seed": receipt.global_seed,
+        "receipt_fingerprint": receipt.receipt_fingerprint,
+    }
+
+
+def _base_protocol_payload(
+    receipt: FormalDVBaseThresholdReceipt,
+) -> dict[str, object]:
+    """Serialize the decoder-free Base@B receipt without decoder fields."""
+
+    if not isinstance(receipt, FormalDVBaseThresholdReceipt):
+        raise TypeError("Base@B must use FormalDVBaseThresholdReceipt")
+    protocol = receipt.protocol
+    return {
+        "schema_version": "cure-lite-stage-a-base-at-budget-receipt-v2",
+        "method": "Base@B",
+        "protocol": {
+            "variant": protocol.variant,
+            "selection_rule": protocol.selection_rule,
+            "manifest_fingerprint": protocol.manifest_fingerprint,
+            "ordered_d_v_sample_ids": list(protocol.ordered_d_v_sample_ids),
+            "sample_tensor_fingerprint": protocol.sample_tensor_fingerprint,
+            "candidate_threshold_grid": list(protocol.candidate_threshold_grid),
+            "occupancy_config": config_to_dict(protocol.occupancy_config),
+            "match_config": config_to_dict(protocol.match_config),
+            "budget": _budget_payload(protocol.budget),
+            "selected_threshold": protocol.selected_threshold,
+            "selected_metrics": _metrics_payload(protocol.selected_metrics),
+            "receipt_fingerprint": protocol.receipt_fingerprint,
+        },
+        "d_v_base_run_fingerprint": receipt.d_v_base_run_fingerprint,
+        "manifest_file_sha256": receipt.manifest_file_sha256,
+        "base_index_fingerprint": receipt.base_index_fingerprint,
+        "base_index_sha256": receipt.base_index_sha256,
+        "d_v_image_fingerprint": receipt.d_v_image_fingerprint,
+        "d_v_gt_fingerprint": receipt.d_v_gt_fingerprint,
+        "preprocessing_fingerprint": receipt.preprocessing_fingerprint,
+        "base_fingerprint": receipt.base_fingerprint,
         "receipt_fingerprint": receipt.receipt_fingerprint,
     }
 
@@ -567,7 +678,7 @@ def _calibration_receipt_payload(
         "method_order": list(_METHOD_ORDER),
         "methods": {
             "A": calibration.anchor.canonical_payload(),
-            "Base@B": _protocol_payload(calibration.base_at_budget),
+            "Base@B": _base_protocol_payload(calibration.base_at_budget),
             "F": _protocol_payload(calibration.factual_only),
             "F×": _protocol_payload(calibration.factual_exposure_matched),
             "U": _protocol_payload(calibration.uniform_legal),
@@ -636,12 +747,19 @@ def _tree_inventory(root: Path) -> tuple[list[str], dict[str, str]]:
 def _complete_receipt(
     state: _StageAState,
     *,
+    verified_base_identity: VerifiedBaseRunIdentity,
+    efficiency: StageAEfficiencyReceipt,
     source_digest: str,
     artifact_directories: list[str],
     artifact_files: dict[str, str],
 ) -> dict[str, object]:
     config_payload = state.config.canonical_payload()
     results_payload = _results_receipt_payload(state.results, state.calibration)
+    base_run_identity = _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=state.d_v_bundle.base_fingerprint,
+        expected_base_state_fingerprint=state.d_v_bundle.base_state_fingerprint,
+    )
     core: dict[str, object] = {
         "schema_version": STAGE_A_RUN_SCHEMA,
         "status": "complete",
@@ -659,11 +777,14 @@ def _complete_receipt(
         )["support_fingerprint"],
         "calibration_receipt_fingerprint": state.calibration.receipt_fingerprint,
         "results_fingerprint": results_payload["results_fingerprint"],
+        "efficiency_receipt_fingerprint": efficiency.receipt_fingerprint,
         "dataset": state.d_v_base_run.access.manifest.dataset,
         "manifest_fingerprint": state.d_v_bundle.split_manifest_fingerprint,
         "manifest_file_sha256": state.d_v_bundle.split_manifest_file_sha256,
         "preprocessing_fingerprint": state.d_v_bundle.preprocessing_fingerprint,
         "base_fingerprint": state.d_v_bundle.base_fingerprint,
+        "base_state_fingerprint": state.d_v_bundle.base_state_fingerprint,
+        "base_run_identity": base_run_identity,
         "d_r_base_index_fingerprint": state.d_r_bundle.base_index_fingerprint,
         "d_r_state_index_fingerprint": state.d_r_bundle.state_index_fingerprint,
         "d_v_base_index_fingerprint": state.d_v_bundle.base_index_fingerprint,
@@ -770,6 +891,16 @@ def _verify_artifact_training_binding(
         raise RuntimeError("decoder artifact differs from Stage-A training config")
 
 
+def _require_same_base_cache_identity(
+    d_r_bundle: LoadedDRCacheBundle,
+    d_v_bundle: LoadedDVCacheBundle,
+) -> None:
+    if d_r_bundle.base_fingerprint != d_v_bundle.base_fingerprint:
+        raise RuntimeError("D_R and D_V caches use different Base identities")
+    if d_r_bundle.base_state_fingerprint != d_v_bundle.base_state_fingerprint:
+        raise RuntimeError("D_R and D_V caches use different Base states")
+
+
 def _build_downstream_state(
     *,
     config: StageARunConfig,
@@ -778,10 +909,12 @@ def _build_downstream_state(
     factual_artifact: LoadedDecoderArtifact,
     factual_exposure_matched_artifact: LoadedDecoderArtifact,
     uniform_artifact: LoadedDecoderArtifact,
+    prepared_training: PreparedGate2Training | None = None,
     calibration_workers: int = 1,
     calibration_progress: ProgressCallback | None = None,
 ) -> _StageAState:
     calibration_workers = _calibration_worker_count(calibration_workers)
+    _require_same_base_cache_identity(d_r_bundle, d_v_bundle)
     d_v_base_run = build_loaded_d_v_base_run(d_v_bundle)
     anchor = select_frozen_anchor(
         d_v_base_run,
@@ -796,7 +929,10 @@ def _build_downstream_state(
         raise RuntimeError("D_R state cache matching config differs from Stage-A")
     if d_r_bundle.intervention_config != config.intervention_config:
         raise RuntimeError("D_R intervention config differs from Stage-A")
-    support_summary = summarize_gate2_training_support(d_r_bundle)
+    support_summary = summarize_gate2_training_support(
+        d_r_bundle,
+        prepared=prepared_training,
+    )
     config.support_requirements.require(support_summary)
     _verify_artifact_training_binding(
         factual_artifact,
@@ -833,6 +969,7 @@ def _build_downstream_state(
     )
     uniform_run = build_loaded_d_v_method_run(d_v_bundle, uniform_artifact)
     calibration = calibrate_paired_gate2(
+        d_v_base_run,
         factual_run,
         factual_exposure_matched_run,
         uniform_run,
@@ -844,6 +981,7 @@ def _build_downstream_state(
         progress=calibration_progress,
     )
     results = evaluate_paired_gate2(
+        d_v_base_run,
         factual_run,
         factual_exposure_matched_run,
         uniform_run,
@@ -867,6 +1005,75 @@ def _build_downstream_state(
     )
 
 
+def _efficiency_shapes(
+    bundle: LoadedDVCacheBundle,
+) -> tuple[tuple[int, int, int, int], tuple[int, int, int, int]]:
+    feature_shapes = {
+        tuple(int(value) for value in row.base_output.feature.shape)
+        for row in bundle.rows
+    }
+    occupancy_shapes = {
+        tuple(int(value) for value in row.base_output.probability.shape)
+        for row in bundle.rows
+    }
+    if len(feature_shapes) != 1 or len(occupancy_shapes) != 1:
+        raise RuntimeError("D_V cache does not have one decoder input-shape contract")
+    feature_shape = next(iter(feature_shapes))
+    occupancy_shape = next(iter(occupancy_shapes))
+    if feature_shape[0] != 1 or occupancy_shape[:2] != (1, 1):
+        raise RuntimeError("D_V cache efficiency shapes must describe one sample")
+    return feature_shape, occupancy_shape
+
+
+def _efficiency_binding(state: _StageAState) -> EfficiencyBinding:
+    artifact = state.uniform_artifact
+    return EfficiencyBinding(
+        decoder_artifact_fingerprint=artifact.artifact_fingerprint,
+        decoder_state_fingerprint=artifact.decoder_state_fingerprint,
+        decoder_receipt_sha256=artifact.receipt_sha256,
+        base_index_fingerprint=state.d_v_bundle.base_index_fingerprint,
+        preprocessing_fingerprint=state.d_v_bundle.preprocessing_fingerprint,
+    )
+
+
+def _measure_stage_a_efficiency(state: _StageAState) -> StageAEfficiencyReceipt:
+    feature_shape, occupancy_shape = _efficiency_shapes(state.d_v_bundle)
+    return measure_stage_a_efficiency(
+        state.uniform_artifact.decoder,
+        decoder_variant=state.uniform_artifact.config.variant,
+        binding=_efficiency_binding(state),
+        feature_shape=feature_shape,
+        occupancy_shape=occupancy_shape,
+        device=state.config.device,
+        warmup=DEFAULT_WARMUP,
+        repetitions=DEFAULT_REPETITIONS,
+    )
+
+
+def _validate_stage_a_efficiency(
+    state: _StageAState,
+    receipt: StageAEfficiencyReceipt,
+) -> None:
+    if not isinstance(receipt, StageAEfficiencyReceipt):
+        raise TypeError("efficiency receipt must be StageAEfficiencyReceipt")
+    feature_shape, occupancy_shape = _efficiency_shapes(state.d_v_bundle)
+    if receipt.binding != _efficiency_binding(state):
+        raise RuntimeError("Stage-A efficiency receipt binds another U artifact/cache")
+    if (
+        receipt.feature_shape != feature_shape
+        or receipt.occupancy_shape != occupancy_shape
+    ):
+        raise RuntimeError("Stage-A efficiency input shape differs from D_V cache")
+    if receipt.requested_device != str(torch.device(state.config.device)):
+        raise RuntimeError("Stage-A efficiency device differs from run config")
+    if (
+        receipt.warmup != DEFAULT_WARMUP
+        or receipt.repetitions != DEFAULT_REPETITIONS
+    ):
+        raise RuntimeError("Stage-A efficiency repetition protocol changed")
+    replay_static_efficiency(receipt, state.uniform_artifact.decoder)
+
+
 def _receipt_paths(root: Path) -> dict[str, Path]:
     receipts = root / "receipts"
     return {
@@ -875,6 +1082,7 @@ def _receipt_paths(root: Path) -> dict[str, Path]:
         "support": receipts / "support.json",
         "calibration": receipts / "calibration.json",
         "results": receipts / "results.json",
+        "efficiency": receipts / "efficiency.json",
     }
 
 
@@ -885,6 +1093,7 @@ def run_stage_a(
     config: StageARunConfig,
     output_dir: str | Path,
     *,
+    verified_base_identity: VerifiedBaseRunIdentity,
     calibration_workers: int = 1,
     calibration_progress: ProgressCallback | None = None,
 ) -> "LoadedStageARun":
@@ -894,17 +1103,24 @@ def run_stage_a(
         raise TypeError("adapter must be FrozenBaseAdapter")
     if not isinstance(config, StageARunConfig):
         raise TypeError("config must be StageARunConfig")
+    requested = Path(output_dir).expanduser()
+    if requested.is_symlink() or requested.exists():
+        raise FileExistsError(f"refusing to overwrite Stage-A run {requested}")
     calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
     if adapter.feature_channels != config.training.decoder_config.feature_channels:
         raise ValueError("adapter feature channels differ from decoder config")
+    _preflight_stage_a_device(config.device)
     base_fingerprint = _canonical_digest(
         adapter.fingerprint, name="adapter.fingerprint"
     )
+    base_state_fingerprint = frozen_base_state_fingerprint(adapter)
+    _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=base_fingerprint,
+        expected_base_state_fingerprint=base_state_fingerprint,
+    )
     source_digest = _source_tree_digest()
-    requested = Path(output_dir).expanduser()
-    if requested.is_symlink() or requested.exists():
-        raise FileExistsError(f"refusing to overwrite Stage-A run {requested}")
     root = requested.resolve(strict=False)
     root.parent.mkdir(parents=True, exist_ok=True)
     root.mkdir(exist_ok=False)
@@ -950,7 +1166,12 @@ def run_stage_a(
         d_r_dataset,
         expected_base_fingerprint=base_fingerprint,
     )
-    support_summary = summarize_gate2_training_support(d_r_bundle)
+    _require_same_base_cache_identity(d_r_bundle, d_v_bundle)
+    prepared_training = prepare_gate2_training(d_r_bundle)
+    support_summary = summarize_gate2_training_support(
+        d_r_bundle,
+        prepared=prepared_training,
+    )
     config.support_requirements.require(support_summary)
     _write_new_json(
         paths["support"],
@@ -963,6 +1184,7 @@ def run_stage_a(
         d_r_bundle,
         config.training,
         device=config.device,
+        prepared=prepared_training,
     )
     factual_directory = root / "decoders" / "factual_only"
     factual_exposure_matched_directory = (
@@ -992,6 +1214,7 @@ def run_stage_a(
         factual_artifact=factual_artifact,
         factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        prepared_training=prepared_training,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
@@ -1003,8 +1226,17 @@ def run_stage_a(
     _write_new_json(paths["results"], _results_receipt_payload(
         state.results, state.calibration
     ))
+    efficiency = _measure_stage_a_efficiency(state)
+    _write_new_json(paths["efficiency"], efficiency.canonical_payload())
     if adapter.fingerprint != base_fingerprint:
         raise RuntimeError("adapter fingerprint changed during Stage-A")
+    if frozen_base_state_fingerprint(adapter) != base_state_fingerprint:
+        raise RuntimeError("adapter registered state changed during Stage-A")
+    _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=base_fingerprint,
+        expected_base_state_fingerprint=base_state_fingerprint,
+    )
     if _source_tree_digest() != source_digest:
         raise RuntimeError("CURE-Lite Python sources changed during Stage-A")
 
@@ -1012,16 +1244,21 @@ def run_stage_a(
     directories, files = _tree_inventory(root)
     complete = _complete_receipt(
         state,
+        verified_base_identity=verified_base_identity,
+        efficiency=efficiency,
         source_digest=source_digest,
         artifact_directories=directories,
         artifact_files=files,
     )
     _write_new_json(root / _COMPLETE_NAME, complete)
-    return load_stage_a_run(
+    return _bind_published_stage_a_run(
         root,
+        state,
+        efficiency,
+        complete,
         d_r_dataset,
         d_v_dataset,
-        expected_base_fingerprint=base_fingerprint,
+        verified_base_identity=verified_base_identity,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
@@ -1035,6 +1272,7 @@ def run_stage_a_from_base_caches(
     config: StageARunConfig,
     output_dir: str | Path,
     *,
+    verified_base_identity: VerifiedBaseRunIdentity,
     calibration_workers: int = 1,
     calibration_progress: ProgressCallback | None = None,
 ) -> "LoadedStageARun":
@@ -1047,8 +1285,12 @@ def run_stage_a_from_base_caches(
 
     if not isinstance(config, StageARunConfig):
         raise TypeError("config must be StageARunConfig")
+    requested = Path(output_dir).expanduser()
+    if requested.is_symlink() or requested.exists():
+        raise FileExistsError(f"refusing to overwrite Stage-A run {requested}")
     calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
+    _preflight_stage_a_device(config.device)
     contract = load_base_cache_pair_contract(
         d_r_base_index,
         d_v_base_index,
@@ -1091,10 +1333,12 @@ def run_stage_a_from_base_caches(
         contract.base_fingerprint,
         name="base cache fingerprint",
     )
+    _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=base_fingerprint,
+        expected_base_state_fingerprint=contract.base_state_fingerprint,
+    )
     source_digest = _source_tree_digest()
-    requested = Path(output_dir).expanduser()
-    if requested.is_symlink() or requested.exists():
-        raise FileExistsError(f"refusing to overwrite Stage-A run {requested}")
     root = requested.resolve(strict=False)
     root.parent.mkdir(parents=True, exist_ok=True)
     root.mkdir(exist_ok=False)
@@ -1148,7 +1392,12 @@ def run_stage_a_from_base_caches(
         d_r_dataset,
         expected_base_fingerprint=base_fingerprint,
     )
-    support_summary = summarize_gate2_training_support(d_r_bundle)
+    _require_same_base_cache_identity(d_r_bundle, d_v_bundle)
+    prepared_training = prepare_gate2_training(d_r_bundle)
+    support_summary = summarize_gate2_training_support(
+        d_r_bundle,
+        prepared=prepared_training,
+    )
     config.support_requirements.require(support_summary)
     _write_new_json(
         paths["support"],
@@ -1161,6 +1410,7 @@ def run_stage_a_from_base_caches(
         d_r_bundle,
         config.training,
         device=config.device,
+        prepared=prepared_training,
     )
     factual_directory = root / "decoders" / "factual_only"
     factual_exposure_matched_directory = (
@@ -1192,6 +1442,7 @@ def run_stage_a_from_base_caches(
         factual_artifact=factual_artifact,
         factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        prepared_training=prepared_training,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
@@ -1205,6 +1456,13 @@ def run_stage_a_from_base_caches(
         paths["results"],
         _results_receipt_payload(state.results, state.calibration),
     )
+    efficiency = _measure_stage_a_efficiency(state)
+    _write_new_json(paths["efficiency"], efficiency.canonical_payload())
+    _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=state.d_v_bundle.base_fingerprint,
+        expected_base_state_fingerprint=state.d_v_bundle.base_state_fingerprint,
+    )
     if _source_tree_digest() != source_digest:
         raise RuntimeError("CURE-Lite Python sources changed during Stage-A")
 
@@ -1212,16 +1470,21 @@ def run_stage_a_from_base_caches(
     directories, files = _tree_inventory(root)
     complete = _complete_receipt(
         state,
+        verified_base_identity=verified_base_identity,
+        efficiency=efficiency,
         source_digest=source_digest,
         artifact_directories=directories,
         artifact_files=files,
     )
     _write_new_json(root / _COMPLETE_NAME, complete)
-    return load_stage_a_run(
+    return _bind_published_stage_a_run(
         root,
+        state,
+        efficiency,
+        complete,
         d_r_dataset,
         d_v_dataset,
-        expected_base_fingerprint=base_fingerprint,
+        verified_base_identity=verified_base_identity,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
@@ -1232,15 +1495,14 @@ def _load_verified_state(
     d_r_dataset: ManifestImageDataset,
     d_v_dataset: ManifestImageDataset,
     *,
-    expected_base_fingerprint: str,
+    verified_base_identity: VerifiedBaseRunIdentity,
     calibration_workers: int = 1,
     calibration_progress: ProgressCallback | None = None,
-) -> tuple[_StageAState, str]:
+) -> tuple[_StageAState, StageAEfficiencyReceipt, str]:
     calibration_workers = _calibration_worker_count(calibration_workers)
     _check_dataset_pair(d_r_dataset, d_v_dataset)
-    base_fingerprint = _canonical_digest(
-        expected_base_fingerprint, name="expected_base_fingerprint"
-    )
+    base_run_identity = _verified_base_run_payload(verified_base_identity)
+    base_fingerprint = base_run_identity["base_fingerprint"]
     if root.is_symlink() or not root.is_dir():
         raise ValueError("Stage-A root must be a regular non-symlink directory")
     if (root / _INCOMPLETE_NAME).exists() or (root / _INCOMPLETE_NAME).is_symlink():
@@ -1261,11 +1523,14 @@ def _load_verified_state(
         "support_receipt_fingerprint",
         "calibration_receipt_fingerprint",
         "results_fingerprint",
+        "efficiency_receipt_fingerprint",
         "dataset",
         "manifest_fingerprint",
         "manifest_file_sha256",
         "preprocessing_fingerprint",
         "base_fingerprint",
+        "base_state_fingerprint",
+        "base_run_identity",
         "d_r_base_index_fingerprint",
         "d_r_state_index_fingerprint",
         "d_v_base_index_fingerprint",
@@ -1288,6 +1553,8 @@ def _load_verified_state(
         or complete["unused_split"] != "D_T"
     ):
         raise ValueError("Stage-A COMPLETE protocol fields are invalid")
+    if complete["base_run_identity"] != base_run_identity:
+        raise RuntimeError("Stage-A COMPLETE binds another verified Base run")
     complete_core = dict(complete)
     complete_fingerprint = _canonical_digest(
         complete_core.pop("complete_fingerprint"), name="complete_fingerprint"
@@ -1333,6 +1600,12 @@ def _load_verified_state(
         d_r_dataset,
         expected_base_fingerprint=base_fingerprint,
     )
+    prepared_training = prepare_gate2_training(d_r_bundle)
+    _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=d_v_bundle.base_fingerprint,
+        expected_base_state_fingerprint=d_v_bundle.base_state_fingerprint,
+    )
     factual_artifact = load_decoder_artifact(root / "decoders" / "factual_only")
     factual_exposure_matched_artifact = load_decoder_artifact(
         root / "decoders" / "factual_exposure_matched"
@@ -1345,9 +1618,16 @@ def _load_verified_state(
         factual_artifact=factual_artifact,
         factual_exposure_matched_artifact=factual_exposure_matched_artifact,
         uniform_artifact=uniform_artifact,
+        prepared_training=prepared_training,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
+    efficiency = StageAEfficiencyReceipt.from_mapping(
+        _strict_json(paths["efficiency"], name="Stage-A efficiency receipt")
+    )
+    _validate_stage_a_efficiency(state, efficiency)
+    if complete["efficiency_receipt_fingerprint"] != efficiency.receipt_fingerprint:
+        raise RuntimeError("Stage-A COMPLETE binds another efficiency receipt")
     expected_receipts = {
         "anchor": _anchor_receipt_payload(state.anchor),
         "support": _support_receipt_payload(
@@ -1362,23 +1642,27 @@ def _load_verified_state(
             raise RuntimeError(f"Stage-A {name} receipt does not reproduce")
     expected_complete = _complete_receipt(
         state,
+        verified_base_identity=verified_base_identity,
+        efficiency=efficiency,
         source_digest=source_digest,
         artifact_directories=directories,
         artifact_files=files,
     )
     if complete != expected_complete:
         raise RuntimeError("Stage-A COMPLETE receipt does not reproduce")
-    return state, complete_fingerprint
+    return state, efficiency, complete_fingerprint
 
 
 @dataclass(frozen=True, slots=True)
 class _LoadedStageABinding:
     root: Path
     state: _StageAState
+    efficiency: StageAEfficiencyReceipt
     complete_fingerprint: str
     d_r_dataset: ManifestImageDataset
     d_v_dataset: ManifestImageDataset
-    expected_base_fingerprint: str
+    verified_base_identity: VerifiedBaseRunIdentity
+    base_run_identity_payload: dict[str, str]
     calibration_workers: int
     calibration_progress: ProgressCallback | None
 
@@ -1398,7 +1682,9 @@ class LoadedStageARun:
     support_summary: TrainingSupportSummary
     calibration: PairedGate2Calibration
     results: Gate2DVResults
+    efficiency: StageAEfficiencyReceipt
     complete_fingerprint: str
+    base_run_identity: BaseRunIdentity
     _verification_token: object
 
     def _verify_binding(self) -> _LoadedStageABinding:
@@ -1419,7 +1705,11 @@ class LoadedStageARun:
             or state.support_summary is not self.support_summary
             or state.calibration is not self.calibration
             or state.results is not self.results
+            or binding.efficiency is not self.efficiency
             or binding.complete_fingerprint != self.complete_fingerprint
+            or binding.verified_base_identity.identity is not self.base_run_identity
+            or binding.base_run_identity_payload
+            != self.base_run_identity.to_registry_dict()
         ):
             raise TypeError("loaded Stage-A fields were replaced")
         return binding
@@ -1430,17 +1720,22 @@ class LoadedStageARun:
         _canonical_digest(
             self.complete_fingerprint, name="complete_fingerprint"
         )
+        _verified_base_run_payload(
+            self._verify_binding().verified_base_identity,
+            expected_base_fingerprint=self.d_v_bundle.base_fingerprint,
+            expected_base_state_fingerprint=self.d_v_bundle.base_state_fingerprint,
+        )
         self._verify_binding()
 
     def verify_unchanged(self) -> None:
         """Replay every cache, artifact, selection, metric, and root receipt."""
 
         binding = self._verify_binding()
-        state, fingerprint = _load_verified_state(
+        state, efficiency, fingerprint = _load_verified_state(
             self.root,
             binding.d_r_dataset,
             binding.d_v_dataset,
-            expected_base_fingerprint=binding.expected_base_fingerprint,
+            verified_base_identity=binding.verified_base_identity,
             calibration_workers=binding.calibration_workers,
             calibration_progress=binding.calibration_progress,
         )
@@ -1455,8 +1750,70 @@ class LoadedStageARun:
             != _calibration_receipt_payload(self.calibration)
             or _results_receipt_payload(state.results, state.calibration)
             != _results_receipt_payload(self.results, self.calibration)
+            or efficiency.canonical_payload() != self.efficiency.canonical_payload()
         ):
             raise RuntimeError("replayed Stage-A result differs from loaded result")
+
+    def verify_published_receipts(self) -> None:
+        """Check the published proof files without recomputing D_V calibration.
+
+        This is the lightweight boundary used when constructing several
+        calibrated inference wrappers from one already fully loaded run.  The
+        full :meth:`verify_unchanged` replay remains available when caches and
+        selected metrics must also be recomputed.
+        """
+
+        self._verify_binding()
+        binding = self._verify_binding()
+        base_run_identity = _verified_base_run_payload(
+            binding.verified_base_identity,
+            expected_base_fingerprint=self.d_v_bundle.base_fingerprint,
+            expected_base_state_fingerprint=self.d_v_bundle.base_state_fingerprint,
+        )
+        if (self.root / _INCOMPLETE_NAME).exists() or (
+            self.root / _INCOMPLETE_NAME
+        ).is_symlink():
+            raise RuntimeError("Stage-A run is incomplete")
+        complete = _strict_json(
+            self.root / _COMPLETE_NAME,
+            name="Stage-A COMPLETE receipt",
+        )
+        complete_core = dict(complete)
+        complete_fingerprint = _canonical_digest(
+            complete_core.pop("complete_fingerprint", None),
+            name="complete_fingerprint",
+        )
+        if stable_fingerprint(complete_core) != complete_fingerprint:
+            raise ValueError("Stage-A COMPLETE fingerprint mismatch")
+        if complete_fingerprint != self.complete_fingerprint:
+            raise RuntimeError("Stage-A COMPLETE fingerprint changed")
+        if complete.get("base_run_identity") != base_run_identity:
+            raise RuntimeError("Stage-A COMPLETE binds another verified Base run")
+        if complete.get("source_tree_digest") != _source_tree_digest():
+            raise RuntimeError("CURE-Lite Python source tree differs from this run")
+        artifact_files = complete.get("artifact_files")
+        if not isinstance(artifact_files, Mapping):
+            raise ValueError("Stage-A COMPLETE artifact files are invalid")
+        for relative in (
+            "receipts/config.json",
+            "receipts/anchor.json",
+            "receipts/support.json",
+            "receipts/calibration.json",
+            "receipts/results.json",
+            "receipts/efficiency.json",
+        ):
+            expected = _canonical_digest(
+                artifact_files.get(relative),
+                name=f"artifact_files.{relative}",
+            )
+            path = self.root / relative
+            if path.is_symlink() or not path.is_file():
+                raise RuntimeError(f"Stage-A proof file changed: {relative}")
+            if file_sha256(path) != expected:
+                raise RuntimeError(f"Stage-A proof file changed: {relative}")
+        self.factual_artifact.verify_unchanged()
+        self.factual_exposure_matched_artifact.verify_unchanged()
+        self.uniform_artifact.verify_unchanged()
 
     def verify(self) -> None:
         """Alias for :meth:`verify_unchanged`."""
@@ -1464,39 +1821,34 @@ class LoadedStageARun:
         self.verify_unchanged()
 
 
-def load_stage_a_run(
-    output_dir: str | Path,
+def _bind_loaded_stage_a_run(
+    root: Path,
+    state: _StageAState,
+    efficiency: StageAEfficiencyReceipt,
+    complete_fingerprint: str,
     d_r_dataset: ManifestImageDataset,
     d_v_dataset: ManifestImageDataset,
     *,
-    expected_base_fingerprint: str,
-    calibration_workers: int = 1,
-    calibration_progress: ProgressCallback | None = None,
+    verified_base_identity: VerifiedBaseRunIdentity,
+    calibration_workers: int,
+    calibration_progress: ProgressCallback | None,
 ) -> LoadedStageARun:
-    """Strictly reload and fully replay a completed Stage-A run."""
+    """Bind an already validated state without repeating D_V computation."""
 
-    requested = Path(output_dir).expanduser()
-    if requested.is_symlink():
-        raise ValueError("Stage-A root may not be addressed through a symlink")
-    root = requested.resolve(strict=True)
-    calibration_workers = _calibration_worker_count(calibration_workers)
-    state, complete_fingerprint = _load_verified_state(
-        root,
-        d_r_dataset,
-        d_v_dataset,
-        expected_base_fingerprint=expected_base_fingerprint,
-        calibration_workers=calibration_workers,
-        calibration_progress=calibration_progress,
+    base_run_identity_payload = _verified_base_run_payload(
+        verified_base_identity,
+        expected_base_fingerprint=state.d_v_bundle.base_fingerprint,
+        expected_base_state_fingerprint=state.d_v_bundle.base_state_fingerprint,
     )
     binding = _LoadedStageABinding(
         root=root,
         state=state,
+        efficiency=efficiency,
         complete_fingerprint=complete_fingerprint,
         d_r_dataset=d_r_dataset,
         d_v_dataset=d_v_dataset,
-        expected_base_fingerprint=_canonical_digest(
-            expected_base_fingerprint, name="expected_base_fingerprint"
-        ),
+        verified_base_identity=verified_base_identity,
+        base_run_identity_payload=base_run_identity_payload,
         calibration_workers=calibration_workers,
         calibration_progress=calibration_progress,
     )
@@ -1514,8 +1866,96 @@ def load_stage_a_run(
         support_summary=state.support_summary,
         calibration=state.calibration,
         results=state.results,
+        efficiency=efficiency,
         complete_fingerprint=complete_fingerprint,
+        base_run_identity=verified_base_identity.identity,
         _verification_token=binding,
+    )
+
+
+def _bind_published_stage_a_run(
+    root: Path,
+    state: _StageAState,
+    efficiency: StageAEfficiencyReceipt,
+    complete: Mapping[str, object],
+    d_r_dataset: ManifestImageDataset,
+    d_v_dataset: ManifestImageDataset,
+    *,
+    verified_base_identity: VerifiedBaseRunIdentity,
+    calibration_workers: int,
+    calibration_progress: ProgressCallback | None,
+) -> LoadedStageARun:
+    """Check the just-published files and reuse the completed in-memory state."""
+
+    published = _strict_json(
+        root / _COMPLETE_NAME,
+        name="Stage-A COMPLETE receipt",
+    )
+    if published != dict(complete):
+        raise RuntimeError("published Stage-A COMPLETE receipt differs")
+    directories, files = _tree_inventory(root)
+    if (
+        published.get("artifact_directories") != directories
+        or published.get("artifact_files") != files
+    ):
+        raise RuntimeError("published Stage-A artifact inventory differs")
+    if published.get("source_tree_digest") != _source_tree_digest():
+        raise RuntimeError("CURE-Lite Python sources changed during publication")
+    complete_fingerprint = _canonical_digest(
+        published.get("complete_fingerprint"),
+        name="complete_fingerprint",
+    )
+    complete_core = dict(published)
+    complete_core.pop("complete_fingerprint")
+    if stable_fingerprint(complete_core) != complete_fingerprint:
+        raise RuntimeError("published Stage-A COMPLETE fingerprint differs")
+    return _bind_loaded_stage_a_run(
+        root,
+        state,
+        efficiency,
+        complete_fingerprint,
+        d_r_dataset,
+        d_v_dataset,
+        verified_base_identity=verified_base_identity,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
+    )
+
+
+def load_stage_a_run(
+    output_dir: str | Path,
+    d_r_dataset: ManifestImageDataset,
+    d_v_dataset: ManifestImageDataset,
+    *,
+    verified_base_identity: VerifiedBaseRunIdentity,
+    calibration_workers: int = 1,
+    calibration_progress: ProgressCallback | None = None,
+) -> LoadedStageARun:
+    """Strictly reload and fully replay a completed Stage-A run."""
+
+    requested = Path(output_dir).expanduser()
+    if requested.is_symlink():
+        raise ValueError("Stage-A root may not be addressed through a symlink")
+    root = requested.resolve(strict=True)
+    calibration_workers = _calibration_worker_count(calibration_workers)
+    state, efficiency, complete_fingerprint = _load_verified_state(
+        root,
+        d_r_dataset,
+        d_v_dataset,
+        verified_base_identity=verified_base_identity,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
+    )
+    return _bind_loaded_stage_a_run(
+        root,
+        state,
+        efficiency,
+        complete_fingerprint,
+        d_r_dataset,
+        d_v_dataset,
+        verified_base_identity=verified_base_identity,
+        calibration_workers=calibration_workers,
+        calibration_progress=calibration_progress,
     )
 
 

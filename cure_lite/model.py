@@ -11,6 +11,7 @@ from torch import Tensor, nn
 from .config import OccupancyConfig
 from .decoder import CURELiteDecoder
 from .frozen_base import FrozenBaseAdapter
+from .types import FrozenBaseOutput
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,21 @@ class CURELiteModel(nn.Module):
         self._freeze_base()
         with torch.no_grad():
             base_output = self.base.extract(images)
+        return self._compose_from_base_output(
+            images,
+            base_output,
+            residual_threshold=residual_threshold,
+        )
+
+    def _compose_from_base_output(
+        self,
+        images: Tensor,
+        base_output: FrozenBaseOutput,
+        *,
+        residual_threshold: float | None,
+    ) -> CURELiteOutput:
+        """Compose one already-computed frozen output without rerunning Base."""
+
         self.base.validate_output(base_output, images)
         base_probability = base_output.probability.detach()
         feature = base_output.feature.detach()

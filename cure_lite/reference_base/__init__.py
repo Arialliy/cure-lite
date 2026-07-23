@@ -12,6 +12,8 @@ from .config import (
     ReferenceBaseTrainingConfig,
 )
 from .model import ReferenceBaseNetwork, ReferenceBaseNetworkOutput
+from ..base_identity import VerifiedBaseRunIdentity
+from .identity import load_verified_reference_base_run_identity
 from .partition import DBPartition, build_d_b_partition
 from .training import (
     LoadedReferenceBaseRun,
@@ -29,9 +31,11 @@ __all__ = [
     "ReferenceBaseNetwork",
     "ReferenceBaseNetworkOutput",
     "ReferenceBaseTrainingConfig",
+    "VerifiedBaseRunIdentity",
     "build_d_b_partition",
     "load_reference_base_adapter",
     "load_reference_base_run",
+    "load_verified_reference_base_run_identity",
     "reference_base_loss",
     "train_reference_base",
 ]

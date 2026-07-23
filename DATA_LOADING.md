@@ -56,18 +56,25 @@ Each Base-cache record contains the detector evidence required by CURE-Lite:
 --manifest
 --d-r-base-index
 --d-v-base-index
+--reference-base-run
 --config
 --output
+--calibration-workers
 ```
 
-It has no detector-name, detector-repository, checkpoint-training, or `D_T`
-argument. Consequently, the active Stage-A algorithm cannot switch behavior
-based on MSHNet or any other architecture.
+The required arguments bind the v4 scientific inputs, the provider-verified
+Base training run, and the output. The optional
+`--calibration-workers` argument changes only candidate-evaluation parallelism;
+it must not change candidate metrics, selection, or receipts. The command has
+no detector-name, detector-repository, checkpoint-selection, or `D_T` argument.
+Consequently, the active Stage-A core cannot switch behavior based on MSHNet or
+any other architecture, although a compatible detector-specific cache producer
+is still required upstream.
 
 At decoder time, the source-grid occupancy is projected to the feature grid by
 adaptive max pooling. Cache preprocessing and grid metadata must therefore be
 consistent with the probability and feature tensors. Synthetic training uses
-only legal deletions that remain visible after this projection. Stage-A v2
+only legal deletions that remain visible after this projection. Stage-A v4
 checks the amount of such support before training and records it in
 `receipts/support.json`.
 
@@ -98,3 +105,6 @@ to dataset naming or Stage-A membership.
 
 Cross-backbone validation is a later CURE experiment. It does not begin before
 the current reference-Base CURE-Lite gate has produced an interpretable result.
+Until the adapters and those experiments exist, this cache contract establishes
+a detector-neutral software boundary, not arbitrary-IRSTD plug-and-play
+support.

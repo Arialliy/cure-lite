@@ -22,7 +22,7 @@ from ..calibration import (
     select_anchor_threshold_by_miou,
 )
 from ..config import MatchConfig, OccupancyConfig
-from ..metrics import AggregateEvaluation
+from ..metrics import AggregateEvaluation, formal_stage_a_metrics_payload
 from ..splits import SplitManifest
 from .cache_pipeline import LoadedDVCacheBundle
 from .evaluation_pipeline import (
@@ -316,13 +316,15 @@ class FrozenAnchorReceipt:
 
         self._verify_source_seal()
         return {
-            "schema_version": "cure-lite-frozen-anchor-receipt-v1",
+            "schema_version": "cure-lite-frozen-anchor-receipt-v2",
             "selection_rule": self.selection_rule,
             "candidate_threshold_grid": list(self.candidate_threshold_grid),
             "occupancy_config": asdict(self.occupancy_config),
             "match_config": asdict(self.match_config),
             "selected_threshold": self.selected_threshold,
-            "selected_metrics": asdict(self.selected_metrics),
+            "selected_metrics": formal_stage_a_metrics_payload(
+                self.selected_metrics
+            ),
             "d_v_run_fingerprint": self.d_v_run_fingerprint,
             "ordered_d_v_sample_ids": list(self.ordered_d_v_sample_ids),
             "base_samples_fingerprint": self.base_samples_fingerprint,

@@ -71,6 +71,30 @@ def _full_gt_recoverable_validated(
     )
 
 
+def _factual_reachability_catalog_validated(
+    occupancy: Tensor,
+    gt: InstanceMap,
+    match: MatchResult,
+    match_config: MatchConfig,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Catalog factual reachability after the caller validated the base state."""
+
+    reachable_ids: list[int] = []
+    unreachable_ids: list[int] = []
+    for gt_id in sorted(match.unmatched_gt_ids):
+        if _full_gt_recoverable_validated(
+            occupancy,
+            gt,
+            gt_id,
+            match,
+            match_config,
+        ):
+            reachable_ids.append(gt_id)
+        else:
+            unreachable_ids.append(gt_id)
+    return tuple(reachable_ids), tuple(unreachable_ids)
+
+
 def full_gt_recoverable(
     occupancy: Tensor,
     gt: InstanceMap,
@@ -140,19 +164,12 @@ def build_factual_supervision(
     """
 
     occupied = _validate_factual_state(occupancy, gt, match, match_config)
-    reachable_ids: list[int] = []
-    unreachable_ids: list[int] = []
-    for gt_id in sorted(match.unmatched_gt_ids):
-        if _full_gt_recoverable_validated(
-            occupied,
-            gt,
-            gt_id,
-            match,
-            match_config,
-        ):
-            reachable_ids.append(gt_id)
-        else:
-            unreachable_ids.append(gt_id)
+    reachable_ids, _ = _factual_reachability_catalog_validated(
+        occupied,
+        gt,
+        match,
+        match_config,
+    )
 
     selected = (
         reachable_ids[0]
@@ -163,7 +180,7 @@ def build_factual_supervision(
         occupied,
         gt,
         real_miss_ids=tuple(sorted(match.unmatched_gt_ids)),
-        reachable_gt_ids=tuple(reachable_ids),
+        reachable_gt_ids=reachable_ids,
         selected_gt_id=selected,
     )
 
@@ -318,6 +335,33 @@ def build_synthetic_supervision(
     if not torch.equal(occupied, deletion.pred_after.occupancy):
         raise ValueError("deletion occupancy is inconsistent with pred_after")
 
+    return build_synthetic_supervision_from_catalog(
+        occupied,
+        gt,
+        gt_id=deletion.gt_id,
+    )
+
+
+def build_synthetic_supervision_from_catalog(
+    occupancy_after: Tensor,
+    gt: InstanceMap,
+    *,
+    gt_id: int,
+) -> BranchSupervision:
+    """Materialize a synthetic state from one verified compact candidate.
+
+    Catalog preparation is responsible for proving deletion legality and
+    consistency with its post-deletion prediction.  Epoch materialization only
+    needs the selected GT identity and resulting occupancy mask.
+    """
+
+    if not isinstance(gt, InstanceMap):
+        raise TypeError("gt must be an InstanceMap")
+    if isinstance(gt_id, bool) or not isinstance(gt_id, int) or gt_id < 1:
+        raise ValueError("gt_id must be a positive integer")
+    selected = gt.by_id(gt_id).mask
+    occupied = _occupancy_2d(occupancy_after, gt.shape)
+
     background = ~_gt_union(gt)
     writable = ~occupied
     target = selected & writable
@@ -327,7 +371,7 @@ def build_synthetic_supervision(
         target=target.to(torch.float32).unsqueeze(0),
         valid_mask=valid.unsqueeze(0),
         branch="synthetic",
-        positive_gt_ids=(deletion.gt_id,),
+        positive_gt_ids=(gt_id,),
         unreachable_gt_ids=(),
     )
 
@@ -337,6 +381,7 @@ __all__ = [
     "build_factual_supervision",
     "build_factual_supervision_from_catalog",
     "build_synthetic_supervision",
+    "build_synthetic_supervision_from_catalog",
     "factual_oracle_reachable",
     "full_gt_recoverable",
 ]

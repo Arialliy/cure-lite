@@ -2,8 +2,9 @@
 
 ## One project, two design stages
 
-The research target is **CURE**: a general correction framework placed after a
-frozen IRSTD detector through a thin adapter. **CURE-Lite is Stage 1 of CURE.**
+The research target is **CURE**: a general correction framework intended to be
+placed after a frozen IRSTD detector through a thin adapter. **CURE-Lite is
+Stage 1 of CURE.**
 It is a deliberately minimal mechanism test, not a separate final project and
 not a reduced substitute for the intended CURE method.
 
@@ -27,8 +28,10 @@ orchestration lives under `cure_lite.experiment` and does not change the method
 definition.
 
 The Base is required as an experimental input, but no detector architecture is
-part of CURE-Lite. The formal Stage-A runner starts from two generic cache
-indexes. Every record supplies:
+part of the CURE-Lite core. The formal Stage-A runner starts from two generic
+cache indexes. This boundary still requires a detector-specific cache producer
+or adapter and does not by itself prove plug-and-play compatibility. Every
+record supplies:
 
 - the frozen Base probability map `p_b`;
 - one detached feature map `F_b`;
@@ -40,7 +43,7 @@ not a claimed innovation, and not imported by the Stage-A core or CLI.
 
 The occupancy-to-feature projection uses adaptive max pooling. A source-grid
 legal deletion is eligible for synthetic training only if the projected
-occupancy seen by the decoder changes. The five-way Stage-A config v3 also
+occupancy seen by the decoder changes. The five-way Stage-A config v4 also
 performs two checks
 before any decoder update:
 
@@ -52,6 +55,13 @@ before any decoder update:
 
 The observed support is recorded in `receipts/support.json`.
 
+The Base binding has two complementary identities. The provider declares the
+semantic Base fingerprint (weights, preprocessing, and extraction choices),
+while CURE-Lite independently hashes the registered adapter topology and exact
+tensor state. The latter state fingerprint must remain identical across the
+`D_R/D_V` caches, the Stage-A v7 completion record, the verified Base-run
+identity, and any calibrated deployment model.
+
 ## Stage 1 evidence sequence
 
 1. Validate the method semantics and software path.
@@ -60,13 +70,29 @@ The observed support is recorded in `receipts/support.json`.
    `D_B-fit / D_B-select` for reference-Base training and checkpoint choice.
 4. Train the project-owned reference U-Net for the configured 800 epochs.
 5. Export model-independent `D_R / D_V` `(p_b, F_b)` caches.
-6. Run the single-seed `A / Base@B / F / F× / U` real Stage-A mechanism gate.
-7. Treat all `D_V` numbers only as development selection scores and decide
+6. Train the F/F×/U decoders with the current configured schedule of 20 epochs
+   and 40 steps per epoch, then run the single-seed
+   `A / Base@B / F / F× / U` real Stage-A mechanism gate.
+7. Record incremental `U`-decoder parameters, Conv2d MACs/FLOPs, and
+   environment-specific latency in `receipts/efficiency.json`; do not use
+   efficiency as a scientific gate metric.
+8. Treat all `D_V` numbers only as development selection scores and decide
    whether the minimal mechanism has enough support to continue.
+9. Build the detector-neutral single-seed registry v6 directly from the loaded
+   completed run and a provider-verified Base-run identity. Build a master
+   registry only after at least five independent seed registries exist.
 
-The latest complete software run reports `160 passed`. This closes the tested
-software path but does not replace steps 4–7 and does not prove a real-data
-gain.
+Registry v6 deliberately contains no caller-supplied post-run success
+thresholds. The actual pilot rule is already fixed by the pre-run config v4
+method contract, decision-rule v3, and protocol-freeze v2: all methods remain
+within the configured budget and `Pd(U)` must be strictly greater than each of
+`Pd(Base@B)`, `Pd(F)`, and `Pd(F×)`. Statistical claims are deferred until the
+required paired multi-seed evidence exists.
+
+The latest recorded active software run reports `268 passed` with the
+historical MSHNet-adapter test excluded. This supports the tested software path
+but does not replace steps 4–9 and does not prove a real-data gain. The five-way
+protocol has a final freeze-v2 but no completed formal result.
 
 The five-way gate answers four distinct questions:
 
@@ -77,12 +103,18 @@ The five-way gate answers four distinct questions:
 - `U > F×`: does the intervention add evidence beyond an exposure-matched
   factual-positive control?
 
+`A` and `Base@B` are intentionally decoder-free reference conditions for the
+frozen Base and threshold relaxation. Only `F`, `F×`, and `U` own decoder
+artifacts, and those three decoders have the same topology and paired
+initialization contract.
+
 `F×` uses the same initialization, optimizer updates, state-forwards, third
 loss slot, batch size, loss weight, threshold grid, and evaluation path as
 `U`, but fills that slot with independently sampled factual-positive states
-instead of deletion interventions. The old frozen four-way seed-42 run may
-finish unchanged as a diagnostic; it is not retroactively upgraded to the new
-five-way protocol.
+instead of deletion interventions. It matches update/state exposure, not the
+full target-area, positive-pixel, difficulty, or feature distribution. The old
+four-way seed-42 run was terminated and remains incomplete; it must not be
+resumed, retroactively upgraded, or treated as current evidence.
 
 The formal calibrator prepares fixed per-image anchor and GT state once, then
 evaluates an exact candidate ledger serially or with CUDA-safe spawned worker
@@ -106,11 +138,13 @@ CURE-Lite success is the entry condition for Full CURE design:
   characterize the remaining synthetic-to-factual or cross-detector mismatch.
   That measured mismatch becomes the design requirement for Full CURE.
 
-Full CURE will retain the common Base-evidence interface and behave as a
-post-detector plugin. Thin adapters for DNANet, UIUNet, MSHNet, and SCTransNet
-will translate native preprocessing/output/features to the shared contract;
-the CURE core must not be rewritten per detector. Multi-backbone validation
-starts only after the Full CURE mechanism is defined.
+Full CURE has not been implemented. Its intended design should retain the
+common Base-evidence interface and be evaluated through thin adapters. Future
+adapters for DNANet, UIUNet, MSHNet, and SCTransNet would translate native
+preprocessing/output/features to the shared contract; the CURE core should not
+be rewritten per detector. Multi-backbone validation starts only after the
+Full CURE mechanism is defined, and only that evidence can support a general
+plugin claim.
 
 Historical MSHNet-specific files document an earlier integration attempt. They
 do not define the active Base, formal Stage-A path, or current project stage.

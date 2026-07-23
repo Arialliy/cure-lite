@@ -26,11 +26,15 @@ from cure_lite.experiment.stage_a_runner import (  # noqa: E402
     StageARunConfig,
     run_stage_a_from_base_caches,
 )
+from cure_lite.reference_base import (  # noqa: E402
+    load_verified_reference_base_run_identity,
+)
+from cure_lite.stage_a import STAGE_A_METHOD_ORDER  # noqa: E402
 from cure_lite.splits import load_and_validate_manifest  # noqa: E402
 
 
-SUMMARY_SCHEMA = "cure-lite-stage-a-summary-v3"
-METHOD_ORDER = ("A", "Base@B", "F", "F×", "U")
+SUMMARY_SCHEMA = "cure-lite-stage-a-summary-v4"
+METHOD_ORDER = STAGE_A_METHOD_ORDER
 _RESULT_FIELDS = (
     "pd",
     "miou",
@@ -38,8 +42,6 @@ _RESULT_FIELDS = (
     "pixel_fa",
     "fp_components_per_mp",
     "raw_background_fa",
-    "gross_rmr",
-    "net_rmr",
     "retention",
     "budget_violation",
 )
@@ -80,6 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--d-r-base-index", type=Path, required=True)
     parser.add_argument("--d-v-base-index", type=Path, required=True)
+    parser.add_argument("--reference-base-run", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
@@ -225,6 +228,7 @@ def _summary_payload(completed: object, manifest: object) -> dict[str, object]:
         "manifest_fingerprint": manifest.fingerprint,
         "complete_fingerprint": completed.complete_fingerprint,
         "training_support": completed.support_summary.canonical_payload(),
+        "efficiency": completed.efficiency.canonical_payload(),
         "development_mechanism_screen": _development_mechanism_screen(results),
         "method_order": list(METHOD_ORDER),
         "methods": {
@@ -258,6 +262,9 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
 
     config = load_stage_a_config(args.config)
+    verified_base_identity = load_verified_reference_base_run_identity(
+        args.reference_base_run
+    )
     completed = run_stage_a_from_base_caches(
         cache_contract.d_r_index_path,
         cache_contract.d_v_index_path,
@@ -265,6 +272,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         d_v_dataset,
         config,
         output,
+        verified_base_identity=verified_base_identity,
         calibration_workers=args.calibration_workers,
         calibration_progress=_calibration_progress,
     )

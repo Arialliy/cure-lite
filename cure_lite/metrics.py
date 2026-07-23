@@ -79,7 +79,7 @@ def full_pipeline_reachable_anchor_miss_ids_from_instances(
     """Evaluate reachability with exact, already decomposed anchor/GT masks.
 
     The explicit occupancy checks make this a safe package API: stale or
-    mismatched precomputed components fail closed.  This lets calibration build
+    mismatched precomputed components are rejected.  This lets calibration build
     fixed components once without changing the public metric semantics.
     """
 
@@ -221,7 +221,8 @@ class AggregateEvaluation:
 
     ``miou`` is the global intersection divided by global union.  ``niou`` is
     the unweighted mean of image IoUs.  ``rmr`` is retained only as the legacy
-    spelling of ``gross_rmr``; calibration decisions use ``net_rmr``.
+    spelling of ``gross_rmr``; recovery-ratio fields are diagnostics and do not
+    participate in calibration selection.
     """
 
     pd: float
@@ -256,6 +257,30 @@ class AggregateEvaluation:
         """Conservative diagnostic; ``oracle_upper_bound`` is a legacy field."""
 
         return self.oracle_upper_bound
+
+
+FORMAL_STAGE_A_METRIC_FIELDS = (
+    "pd",
+    "miou",
+    "niou",
+    "pixel_fa",
+    "fp_components_per_mp",
+    "raw_background_fa",
+    "retention",
+    "budget_violation",
+)
+
+
+def formal_stage_a_metrics_payload(
+    metrics: AggregateEvaluation,
+) -> dict[str, float | bool]:
+    """Return only the predeclared metrics allowed in formal Stage-A records."""
+
+    if not isinstance(metrics, AggregateEvaluation):
+        raise TypeError("formal Stage-A metrics must be AggregateEvaluation")
+    return {
+        field: getattr(metrics, field) for field in FORMAL_STAGE_A_METRIC_FIELDS
+    }
 
 
 def evaluate_binary_prediction(
@@ -310,8 +335,8 @@ def evaluate_binary_prediction_from_instances(
     """Evaluate with exact, already decomposed prediction and GT masks.
 
     The public evaluator and the accelerated calibration ledger both delegate
-    here.  Explicit occupancy checks make a stale or mismatched component map
-    fail closed rather than silently changing metric semantics.
+    here.  Explicit occupancy checks reject a stale or mismatched component map
+    rather than silently changing metric semantics.
     """
 
     pred_bool = _as_2d_bool(prediction, name="prediction")

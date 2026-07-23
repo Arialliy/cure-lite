@@ -35,7 +35,7 @@ from ..config import (
     config_to_dict,
 )
 from ..data import LoadedSample, ManifestImageDataset, PreprocessConfig
-from ..frozen_base import FrozenBaseAdapter
+from ..frozen_base import FrozenBaseAdapter, frozen_base_state_fingerprint
 from ..instances import instances_from_binary_mask
 from ..intervention import enumerate_legal_deletions
 from ..matching import match_components
@@ -45,8 +45,8 @@ from ..supervision import full_gt_recoverable
 from ..types import FrozenBaseOutput
 
 
-MANIFEST_BASE_CACHE_INDEX_SCHEMA = "cure-lite-manifest-base-cache-index-v1"
-MANIFEST_STATE_CACHE_INDEX_SCHEMA = "cure-lite-manifest-state-cache-index-v1"
+MANIFEST_BASE_CACHE_INDEX_SCHEMA = "cure-lite-manifest-base-cache-index-v2"
+MANIFEST_STATE_CACHE_INDEX_SCHEMA = "cure-lite-manifest-state-cache-index-v2"
 
 _BASE_INDEX_KEYS = {
     "schema_version",
@@ -57,6 +57,7 @@ _BASE_INDEX_KEYS = {
     "split_manifest_fingerprint",
     "split_manifest_file_sha256",
     "base_fingerprint",
+    "base_state_fingerprint",
     "preprocessing",
     "preprocessing_fingerprint",
     "records",
@@ -81,6 +82,7 @@ _STATE_INDEX_KEYS = {
     "split_manifest_fingerprint",
     "split_manifest_file_sha256",
     "base_fingerprint",
+    "base_state_fingerprint",
     "base_index",
     "preprocessing",
     "preprocessing_fingerprint",
@@ -123,6 +125,7 @@ class BaseCachePairContract:
     split_manifest_fingerprint: str
     split_manifest_file_sha256: str
     base_fingerprint: str
+    base_state_fingerprint: str
     preprocessing: PreprocessConfig
     preprocessing_fingerprint: str
     feature_channels: int
@@ -224,6 +227,7 @@ class LoadedDRCacheBundle:
     split_manifest_file_sha256: str
     preprocessing_fingerprint: str
     base_fingerprint: str
+    base_state_fingerprint: str
     state_fingerprint: str
     gt_fingerprint: str
     base_index_fingerprint: str
@@ -256,6 +260,7 @@ class LoadedDRCacheBundle:
             self.split_manifest_file_sha256,
             self.preprocessing_fingerprint,
             self.base_fingerprint,
+            self.base_state_fingerprint,
             self.state_fingerprint,
             self.gt_fingerprint,
             self.base_index_fingerprint,
@@ -291,6 +296,7 @@ class LoadedDRCacheBundle:
             "split_manifest_file_sha256",
             "preprocessing_fingerprint",
             "base_fingerprint",
+            "base_state_fingerprint",
             "state_fingerprint",
             "gt_fingerprint",
             "base_index_fingerprint",
@@ -416,6 +422,7 @@ class LoadedDVCacheBundle:
     split_manifest_file_sha256: str
     preprocessing_fingerprint: str
     base_fingerprint: str
+    base_state_fingerprint: str
     base_index_fingerprint: str
     base_index_sha256: str
     d_v_image_fingerprint: str
@@ -436,6 +443,7 @@ class LoadedDVCacheBundle:
             self.split_manifest_file_sha256,
             self.preprocessing_fingerprint,
             self.base_fingerprint,
+            self.base_state_fingerprint,
             self.base_index_fingerprint,
             self.base_index_sha256,
             self.d_v_image_fingerprint,
@@ -463,6 +471,7 @@ class LoadedDVCacheBundle:
             "split_manifest_file_sha256",
             "preprocessing_fingerprint",
             "base_fingerprint",
+            "base_state_fingerprint",
             "base_index_fingerprint",
             "base_index_sha256",
             "d_v_image_fingerprint",
@@ -860,6 +869,7 @@ def cache_manifest_split(
         adapter.fingerprint,
         name="adapter.fingerprint",
     )
+    base_state_fingerprint = frozen_base_state_fingerprint(adapter)
     device = _adapter_device(adapter)
 
     output = _prepare_empty_output(output_dir)
@@ -924,6 +934,8 @@ def cache_manifest_split(
         raise RuntimeError("split-manifest file changed during cache extraction")
     if adapter.fingerprint != base_fingerprint:
         raise RuntimeError("adapter fingerprint changed during cache extraction")
+    if frozen_base_state_fingerprint(adapter) != base_state_fingerprint:
+        raise RuntimeError("adapter registered state changed during cache extraction")
     payload: dict[str, Any] = {
         "schema_version": MANIFEST_BASE_CACHE_INDEX_SCHEMA,
         "base_cache_schema": BASE_CACHE_SCHEMA,
@@ -933,6 +945,7 @@ def cache_manifest_split(
         "split_manifest_fingerprint": manifest_fingerprint,
         "split_manifest_file_sha256": manifest_file_sha256,
         "base_fingerprint": base_fingerprint,
+        "base_state_fingerprint": base_state_fingerprint,
         "preprocessing": preprocessing,
         "preprocessing_fingerprint": preprocessing_fingerprint,
         "records": rows,
@@ -1058,6 +1071,9 @@ def _read_base_index_contract(
     base_fingerprint = _canonical_sha256(
         payload["base_fingerprint"], name="base fingerprint"
     )
+    _canonical_sha256(
+        payload["base_state_fingerprint"], name="base state fingerprint"
+    )
     preprocessing = PreprocessConfig.from_fingerprint_payload(
         payload["preprocessing"]
     )
@@ -1181,6 +1197,7 @@ def load_base_cache_pair_contract(
         "split_manifest_fingerprint",
         "split_manifest_file_sha256",
         "base_fingerprint",
+        "base_state_fingerprint",
         "preprocessing",
         "preprocessing_fingerprint",
     )
@@ -1200,6 +1217,7 @@ def load_base_cache_pair_contract(
             "split_manifest_file_sha256"
         ],
         base_fingerprint=d_r.payload["base_fingerprint"],
+        base_state_fingerprint=d_r.payload["base_state_fingerprint"],
         preprocessing=d_r.preprocessing,
         preprocessing_fingerprint=d_r.payload[
             "preprocessing_fingerprint"
@@ -1381,6 +1399,10 @@ def cache_d_r_states(
         raise ValueError("base cache index dataset mismatch")
     if base_index["base_fingerprint"] != declared_base_fingerprint:
         raise ValueError("base cache index uses a different base fingerprint")
+    base_state_fingerprint = _canonical_sha256(
+        base_index["base_state_fingerprint"],
+        name="base state fingerprint",
+    )
 
     manifest_path = _frozen_manifest_file(dataset)
     manifest_file_sha256 = file_sha256(manifest_path)
@@ -1584,6 +1606,7 @@ def cache_d_r_states(
         "split_manifest_fingerprint": manifest_fingerprint,
         "split_manifest_file_sha256": manifest_file_sha256,
         "base_fingerprint": declared_base_fingerprint,
+        "base_state_fingerprint": base_state_fingerprint,
         "base_index": {
             "path": str(base_index_file),
             "sha256": base_index_sha256,
@@ -1673,6 +1696,10 @@ def load_d_r_cache_bundle(
         raise ValueError("state cache index dataset mismatch")
     if state_index["base_fingerprint"] != base_fingerprint:
         raise ValueError("state cache index uses a different base fingerprint")
+    base_state_fingerprint = _canonical_sha256(
+        state_index["base_state_fingerprint"],
+        name="state index base state fingerprint",
+    )
 
     manifest_path = _frozen_manifest_file(dataset)
     manifest_file_sha256 = file_sha256(manifest_path)
@@ -1742,6 +1769,12 @@ def load_d_r_cache_bundle(
         base_index["index_fingerprint"],
         name="base index fingerprint",
     )
+    base_index_state_fingerprint = _canonical_sha256(
+        base_index["base_state_fingerprint"],
+        name="base index state fingerprint",
+    )
+    if base_index_state_fingerprint != base_state_fingerprint:
+        raise ValueError("state/base cache indexes use different Base states")
     base_fingerprint_payload = dict(base_index)
     base_fingerprint_payload.pop("index_fingerprint")
     if (
@@ -1757,6 +1790,7 @@ def load_d_r_cache_bundle(
         "split_manifest_fingerprint": manifest_fingerprint,
         "split_manifest_file_sha256": manifest_file_sha256,
         "base_fingerprint": base_fingerprint,
+        "base_state_fingerprint": base_state_fingerprint,
         "preprocessing": preprocessing,
         "preprocessing_fingerprint": preprocessing_fingerprint,
     }
@@ -2009,6 +2043,7 @@ def load_d_r_cache_bundle(
             manifest_file_sha256,
             preprocessing_fingerprint,
             base_fingerprint,
+            base_state_fingerprint,
             expected_state_fingerprint,
             gt_fingerprint,
             base_index_fingerprint,
@@ -2030,6 +2065,7 @@ def load_d_r_cache_bundle(
         split_manifest_file_sha256=manifest_file_sha256,
         preprocessing_fingerprint=preprocessing_fingerprint,
         base_fingerprint=base_fingerprint,
+        base_state_fingerprint=base_state_fingerprint,
         state_fingerprint=expected_state_fingerprint,
         gt_fingerprint=gt_fingerprint,
         base_index_fingerprint=base_index_fingerprint,
@@ -2094,6 +2130,10 @@ def load_d_v_cache_bundle(
         raise ValueError("D_V base cache index dataset mismatch")
     if index["base_fingerprint"] != base_fingerprint:
         raise ValueError("D_V base cache index uses a different base fingerprint")
+    base_state_fingerprint = _canonical_sha256(
+        index["base_state_fingerprint"],
+        name="D_V base state fingerprint",
+    )
 
     manifest_path = _frozen_manifest_file(dataset)
     manifest_file_sha256 = file_sha256(manifest_path)
@@ -2272,6 +2312,7 @@ def load_d_v_cache_bundle(
             manifest_file_sha256,
             preprocessing_fingerprint,
             base_fingerprint,
+            base_state_fingerprint,
             index_fingerprint,
             index_sha256,
             d_v_image_fingerprint,
@@ -2287,6 +2328,7 @@ def load_d_v_cache_bundle(
         split_manifest_file_sha256=manifest_file_sha256,
         preprocessing_fingerprint=preprocessing_fingerprint,
         base_fingerprint=base_fingerprint,
+        base_state_fingerprint=base_state_fingerprint,
         base_index_fingerprint=index_fingerprint,
         base_index_sha256=index_sha256,
         d_v_image_fingerprint=d_v_image_fingerprint,

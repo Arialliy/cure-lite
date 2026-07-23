@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,6 +8,22 @@ from types import SimpleNamespace
 import pytest
 
 from tools import assess_stage_a as cli
+
+
+_ABORTED_FX_V1_SHA256 = {
+    "protocol_freeze.json": (
+        "998c1e51c1e69c6ea9ed0bd0635c8e90"
+        "f6956b47d455a988fa27f74ee5f9e912"
+    ),
+    "stage_a_config.json": (
+        "b904de307f209fec148cd0c69da49459"
+        "cf03daa1ecfa73467ff1ec3b795447d1"
+    ),
+    "stage_a_decision_rule.json": (
+        "3f9ed6d8b6a33541dfdc4399f4d8a752"
+        "5139d6fdc2ded796977da9154b0dd4e0"
+    ),
+}
 
 
 def _metrics(
@@ -23,8 +40,6 @@ def _metrics(
         pixel_fa=0.0,
         fp_components_per_mp=0.0,
         raw_background_fa=0.0,
-        gross_rmr=0.0,
-        net_rmr=0.0,
         retention=1.0,
         budget_violation=budget_violation,
     )
@@ -37,6 +52,7 @@ def test_parser_has_no_d_t_or_detector_specific_option() -> None:
         for option in action.option_strings
     }
     assert "--stage-run" in options
+    assert "--reference-base-run" in options
     assert "--decision-rule" in options
     assert "--protocol-freeze" in options
     assert not any("d-t" in option or "d_t" in option for option in options)
@@ -57,6 +73,12 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
         complete_fingerprint="1" * 64,
         support_summary=SimpleNamespace(
             canonical_payload=lambda: {"source_images": 160}
+        ),
+        efficiency=SimpleNamespace(
+            canonical_payload=lambda: {
+                "deployed_method": "U",
+                "efficiency_is_scientific_gate_metric": False,
+            }
         ),
         anchor=SimpleNamespace(selected_threshold=0.5),
         calibration=SimpleNamespace(
@@ -85,6 +107,8 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
 
     assert payload["verified_full_replay"] is True
     assert payload["unused_split"] == "D_T"
+    assert payload["efficiency"]["deployed_method"] == "U"
+    assert payload["efficiency"]["efficiency_is_scientific_gate_metric"] is False
     assert payload["development_mechanism_screen"]["mechanism_signal"] is True
     assert payload["conclusion"] == "positive_pd_signal_with_secondary_iou_tradeoff"
     assert payload["selected_thresholds"] == {
@@ -93,6 +117,16 @@ def test_assessment_payload_uses_strict_pd_rule_and_records_thresholds() -> None
         "F": 0.8,
         "F×": 0.75,
         "U": 0.7,
+    }
+    assert set(payload["methods"]["U"]) == {
+        "pd",
+        "miou",
+        "niou",
+        "pixel_fa",
+        "fp_components_per_mp",
+        "raw_background_fa",
+        "retention",
+        "budget_violation",
     }
 
 
@@ -150,3 +184,41 @@ def test_v2_protocol_freeze_binds_run_and_assessment_tools() -> None:
     freeze["run_tool_sha256"] = "0" * 64
     with pytest.raises(RuntimeError, match="run_tool_sha256"):
         cli.validate_protocol_freeze(freeze, **arguments)
+
+
+def test_current_five_way_protocol_freeze_is_self_consistent() -> None:
+    manifest_protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
+    )
+    stage_protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
+    )
+    freeze = json.loads(
+        (stage_protocol / "protocol_freeze.json").read_text("utf-8")
+    )
+    cache = (
+        cli._ROOT
+        / "runs/irstd1k_stage_a_seed42/reference_base_cache_fx_v2"
+    )
+    stage_run = (
+        cli._ROOT / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v2"
+    )
+    cli.validate_protocol_freeze(
+        freeze,
+        manifest_path=manifest_protocol / "manifest.json",
+        stage_config_path=stage_protocol / "stage_a_config.json",
+        decision_rule_path=stage_protocol / "stage_a_decision_rule.json",
+        d_r_index_path=cache / "D_R" / "index.json",
+        d_v_index_path=cache / "D_V" / "index.json",
+        stage_run_path=stage_run,
+    )
+
+
+def test_aborted_fx_v1_protocol_is_immutable_history() -> None:
+    protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v1"
+    )
+    assert {
+        name: hashlib.sha256((protocol / name).read_bytes()).hexdigest()
+        for name in _ABORTED_FX_V1_SHA256
+    } == _ABORTED_FX_V1_SHA256

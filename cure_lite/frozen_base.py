@@ -3,11 +3,59 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import hashlib
+import json
 
 import torch
 from torch import Tensor, nn
 
 from .types import FrozenBaseOutput
+
+
+MODULE_STATE_FINGERPRINT_SCHEMA = "cure-lite-runtime-module-state-v1"
+
+
+def _update_digest(digest: object, value: bytes) -> None:
+    if not hasattr(digest, "update"):
+        raise TypeError("digest must provide update()")
+    digest.update(len(value).to_bytes(8, byteorder="big", signed=False))
+    digest.update(value)
+
+
+def module_state_fingerprint(module: nn.Module) -> str:
+    """Hash registered module topology and exact tensor state.
+
+    This is a library-owned computation rather than an adapter declaration.
+    Device placement is deliberately excluded so an identical frozen model can
+    be cached and deployed on different devices.  Tensor names, dtypes, shapes,
+    and exact values remain part of the identity.
+    """
+
+    if not isinstance(module, nn.Module):
+        raise TypeError("module must be a torch.nn.Module")
+    digest = hashlib.sha256()
+    digest.update(MODULE_STATE_FINGERPRINT_SCHEMA.encode("ascii"))
+    for name, child in module.named_modules():
+        _update_digest(digest, name.encode("utf-8"))
+        _update_digest(
+            digest,
+            f"{type(child).__module__}.{type(child).__qualname__}".encode("utf-8"),
+        )
+    for name, value in sorted(module.state_dict().items()):
+        if not isinstance(value, Tensor):
+            raise TypeError(f"module state {name!r} is not a tensor")
+        tensor = value.detach().to(device="cpu").contiguous()
+        _update_digest(digest, name.encode("utf-8"))
+        _update_digest(digest, str(tensor.dtype).encode("ascii"))
+        _update_digest(
+            digest,
+            json.dumps(list(tensor.shape), separators=(",", ":")).encode("ascii"),
+        )
+        _update_digest(
+            digest,
+            tensor.view(torch.uint8).numpy().tobytes() if tensor.numel() else b"",
+        )
+    return digest.hexdigest()
 
 
 class FrozenBaseAdapter(nn.Module, ABC):
@@ -127,4 +175,17 @@ class FrozenBaseAdapter(nn.Module, ABC):
         return self
 
 
-__all__ = ["FrozenBaseAdapter"]
+def frozen_base_state_fingerprint(adapter: FrozenBaseAdapter) -> str:
+    """Independently fingerprint all registered state used by a Base adapter."""
+
+    if not isinstance(adapter, FrozenBaseAdapter):
+        raise TypeError("adapter must be a FrozenBaseAdapter")
+    return module_state_fingerprint(adapter)
+
+
+__all__ = [
+    "FrozenBaseAdapter",
+    "MODULE_STATE_FINGERPRINT_SCHEMA",
+    "frozen_base_state_fingerprint",
+    "module_state_fingerprint",
+]

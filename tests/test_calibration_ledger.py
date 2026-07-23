@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import multiprocessing as mp
 
 import pytest
@@ -10,10 +11,126 @@ import cure_lite.calibration_ledger as ledger_module
 from cure_lite.calibration import CalibrationSample, FalseAlarmBudget
 from cure_lite.calibration_ledger import (
     CalibrationCandidateLedger,
+    CandidateEvaluation,
     evaluate_candidate_ledger,
     prepare_calibration_context,
 )
 from cure_lite.config import MatchConfig, OccupancyConfig
+from cure_lite.metrics import AggregateEvaluation
+
+
+def _aggregate(**changes: object) -> AggregateEvaluation:
+    payload: dict[str, object] = {
+        "pd": 0.5,
+        "rmr": 0.0,
+        "gross_rmr": 0.0,
+        "net_rmr": 0.0,
+        "retention": 1.0,
+        "reachable_rmr": 0.0,
+        "oracle_upper_bound": 0.0,
+        "overlap_supported_rmr": 0.0,
+        "pixel_fa": 0.0,
+        "raw_background_fa": 0.0,
+        "fp_components_per_mp": 0.0,
+        "miou": 0.5,
+        "niou": 0.5,
+        "images": 1,
+        "recovered_anchor_misses": 0,
+        "net_recovered_anchor_misses": 0,
+        "total_anchor_misses": 1,
+        "retained_anchor_covered": 1,
+        "total_anchor_covered": 1,
+        "recovered_reachable_anchor_misses": 0,
+        "total_reachable_anchor_misses": 1,
+        "budget_violation": False,
+    }
+    payload.update(changes)
+    return AggregateEvaluation(**payload)  # type: ignore[arg-type]
+
+
+def _selection_from_pair(
+    lower_threshold_metrics: AggregateEvaluation,
+    higher_threshold_metrics: AggregateEvaluation,
+) -> float | None:
+    anchor = replace(lower_threshold_metrics, pd=0.0)
+    ledger = CalibrationCandidateLedger(
+        base_method="Base@B",
+        anchor_threshold=0.5,
+        anchor_metrics=anchor,
+        entries=(
+            CandidateEvaluation("Base@B", "base", 0.5, anchor),
+            CandidateEvaluation("F", "residual", None, anchor),
+            CandidateEvaluation("F", "residual", 0.4, lower_threshold_metrics),
+            CandidateEvaluation("F", "residual", 0.6, higher_threshold_metrics),
+        ),
+    )
+    selection = ledger.select(
+        "F",
+        FalseAlarmBudget(
+            pixel_fa_budget=1.0,
+            component_fa_per_mp_budget=float("inf"),
+            raw_background_fa_budget=1.0,
+            minimum_retention=0.0,
+        ),
+    )
+    return selection.threshold
+
+
+@pytest.mark.parametrize(
+    ("lower", "higher", "expected"),
+    [
+        (_aggregate(pd=0.6), _aggregate(pd=0.7), 0.6),
+        (_aggregate(retention=0.8), _aggregate(retention=0.9), 0.6),
+        (_aggregate(pixel_fa=0.2), _aggregate(pixel_fa=0.1), 0.6),
+        (
+            _aggregate(pixel_fa=0.1, raw_background_fa=0.2),
+            _aggregate(pixel_fa=0.1, raw_background_fa=0.1),
+            0.6,
+        ),
+        (
+            _aggregate(fp_components_per_mp=2.0),
+            _aggregate(fp_components_per_mp=1.0),
+            0.6,
+        ),
+        # Recovery-ratio diagnostics deliberately point the other way; the
+        # final conservative higher-threshold tie-break must still win.
+        (
+            _aggregate(net_rmr=1.0, gross_rmr=1.0),
+            _aggregate(net_rmr=-1.0, gross_rmr=0.0),
+            0.6,
+        ),
+    ],
+)
+def test_selection_rule_uses_only_predeclared_standard_metrics(
+    lower: AggregateEvaluation,
+    higher: AggregateEvaluation,
+    expected: float,
+) -> None:
+    assert _selection_from_pair(lower, higher) == expected
+
+
+def test_exact_tie_prefers_explicit_residual_off_null() -> None:
+    anchor = _aggregate(pd=0.7)
+    ledger = CalibrationCandidateLedger(
+        base_method="Base@B",
+        anchor_threshold=0.5,
+        anchor_metrics=anchor,
+        entries=(
+            CandidateEvaluation("Base@B", "base", 0.5, anchor),
+            CandidateEvaluation("F", "residual", None, anchor),
+            CandidateEvaluation("F", "residual", 1.0, anchor),
+        ),
+    )
+    selected = ledger.select(
+        "F",
+        FalseAlarmBudget(
+            pixel_fa_budget=1.0,
+            component_fa_per_mp_budget=float("inf"),
+            raw_background_fa_budget=1.0,
+            minimum_retention=0.0,
+        ),
+    )
+    assert selected.threshold is None
 
 
 def _samples() -> tuple[

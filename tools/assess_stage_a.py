@@ -17,6 +17,7 @@ from typing import Any, Mapping, Sequence
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from cure_lite.calibration import THRESHOLD_SELECTION_RULE  # noqa: E402
 from cure_lite.data import ManifestImageDataset, PreprocessConfig  # noqa: E402
 from cure_lite.experiment.cache_pipeline import (  # noqa: E402
     load_base_cache_pair_contract,
@@ -24,6 +25,9 @@ from cure_lite.experiment.cache_pipeline import (  # noqa: E402
 from cure_lite.experiment.stage_a_runner import (  # noqa: E402
     _source_tree_digest,
     load_stage_a_run,
+)
+from cure_lite.reference_base import (  # noqa: E402
+    load_verified_reference_base_run_identity,
 )
 from cure_lite.splits import load_and_validate_manifest  # noqa: E402
 from tools.run_stage_a import (  # noqa: E402
@@ -38,8 +42,8 @@ from tools.run_stage_a import (  # noqa: E402
 )
 
 
-ASSESSMENT_SCHEMA = "cure-lite-stage-a-assessment-v2"
-DECISION_RULE_SCHEMA = "cure-lite-stage-a-decision-rule-v2"
+ASSESSMENT_SCHEMA = "cure-lite-stage-a-assessment-v3"
+DECISION_RULE_SCHEMA = "cure-lite-stage-a-decision-rule-v3"
 FREEZE_SCHEMA = "cure-lite-stage-a-protocol-freeze-v2"
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--d-r-base-index", type=Path, required=True)
     parser.add_argument("--d-v-base-index", type=Path, required=True)
+    parser.add_argument("--reference-base-run", type=Path, required=True)
     parser.add_argument("--stage-config", type=Path, required=True)
     parser.add_argument("--decision-rule", type=Path, required=True)
     parser.add_argument("--protocol-freeze", type=Path, required=True)
@@ -106,6 +111,7 @@ def _validate_decision_rule(
         "seed",
         "stage_a_config_sha256",
         "strict_improvement_required",
+        "threshold_selection_rule",
     }
     if set(rule) != expected_keys:
         raise ValueError("Stage-A decision-rule fields are not canonical")
@@ -147,6 +153,7 @@ def stage_a_decision_rule_payload(
         "primary_metric": "total_object_level_pd",
         "comparators": ["Base@B", "F", "F×"],
         "strict_improvement_required": True,
+        "threshold_selection_rule": THRESHOLD_SELECTION_RULE,
         "positive_signal_requires_all": [
             "Pd(U) > Pd(Base@B)",
             "Pd(U) > Pd(F)",
@@ -280,6 +287,7 @@ def _assessment_payload(
         "decision_rule_sha256": decision_rule_sha256,
         "protocol_freeze_sha256": protocol_freeze_sha256,
         "training_support": completed.support_summary.canonical_payload(),
+        "efficiency": completed.efficiency.canonical_payload(),
         "selected_thresholds": {
             "A": completed.anchor.selected_threshold,
             "Base@B": calibration.base_at_budget.protocol.selected_threshold,
@@ -360,11 +368,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         preprocess,
         manifest_path=manifest_path,
     )
+    verified_base_identity = load_verified_reference_base_run_identity(
+        args.reference_base_run
+    )
     completed = load_stage_a_run(
         stage_run_path,
         d_r_dataset,
         d_v_dataset,
-        expected_base_fingerprint=contract.base_fingerprint,
+        verified_base_identity=verified_base_identity,
         calibration_workers=args.calibration_workers,
         calibration_progress=_calibration_progress,
     )

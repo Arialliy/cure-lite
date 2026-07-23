@@ -30,6 +30,64 @@ def stable_hash(*parts: object) -> int:
     return int.from_bytes(digest.digest()[:8], byteorder="big", signed=False)
 
 
+def _identity_schedule(
+    identities: tuple[tuple[int, ...], ...],
+    *,
+    namespace: str,
+    sample_id: str,
+    global_seed: int,
+) -> tuple[tuple[int, ...], ...]:
+    """Return the canonical seed-specific order of immutable identities."""
+
+    return tuple(
+        sorted(
+            identities,
+            key=lambda identity: (
+                stable_hash(namespace, sample_id, global_seed, *identity),
+                *identity,
+            ),
+        )
+    )
+
+
+def choose_uniform_legal_identity(
+    legal_identities: tuple[tuple[int, int], ...],
+    *,
+    sample_id: str,
+    epoch: int,
+    global_seed: int,
+) -> tuple[int, int] | None:
+    """Choose one compact legal-deletion identity on the original v2 cycle."""
+
+    if not isinstance(legal_identities, tuple):
+        raise TypeError("legal_identities must be a tuple")
+    if any(
+        not isinstance(identity, tuple)
+        or len(identity) != 2
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in identity
+        )
+        for identity in legal_identities
+    ):
+        raise ValueError(
+            "legal_identities must contain positive integer (gt_id, pred_id) pairs"
+        )
+    if len(legal_identities) != len(set(legal_identities)):
+        raise ValueError("legal_identities must be unique")
+    _validate_key(sample_id=sample_id, epoch=epoch, global_seed=global_seed)
+    if not legal_identities:
+        return None
+    schedule = _identity_schedule(
+        legal_identities,
+        namespace="legal-deletion-cycle-v2",
+        sample_id=sample_id,
+        global_seed=global_seed,
+    )
+    selected = schedule[epoch % len(schedule)]
+    return selected[0], selected[1]
+
+
 def choose_uniform_legal_deletion(
     legal_candidates: tuple[LegalDeletion, ...],
     *,
@@ -55,23 +113,19 @@ def choose_uniform_legal_deletion(
     identities = tuple((item.gt_id, item.pred_id) for item in legal_candidates)
     if len(identities) != len(set(identities)):
         raise ValueError("legal_candidates must have unique (gt_id, pred_id) identities")
-    schedule = tuple(
-        sorted(
-            legal_candidates,
-            key=lambda item: (
-                stable_hash(
-                    "legal-deletion-cycle-v2",
-                    sample_id,
-                    global_seed,
-                    item.gt_id,
-                    item.pred_id,
-                ),
-                item.gt_id,
-                item.pred_id,
-            ),
-        )
+    selected_identity = choose_uniform_legal_identity(
+        identities,
+        sample_id=sample_id,
+        epoch=epoch,
+        global_seed=global_seed,
     )
-    return schedule[epoch % len(schedule)]
+    if selected_identity is None:
+        raise AssertionError("a non-empty legal catalog must select one identity")
+    return next(
+        item
+        for item in legal_candidates
+        if (item.gt_id, item.pred_id) == selected_identity
+    )
 
 
 def choose_uniform_factual_gt_id(
@@ -105,25 +159,18 @@ def choose_uniform_factual_gt_id(
     _validate_key(sample_id=sample_id, epoch=epoch, global_seed=global_seed)
     if not reachable_gt_ids:
         return None
-    schedule = tuple(
-        sorted(
-            reachable_gt_ids,
-            key=lambda gt_id: (
-                stable_hash(
-                    "factual-target-cycle-v2",
-                    sample_id,
-                    global_seed,
-                    gt_id,
-                ),
-                gt_id,
-            ),
-        )
+    schedule = _identity_schedule(
+        tuple((gt_id,) for gt_id in reachable_gt_ids),
+        namespace="factual-target-cycle-v2",
+        sample_id=sample_id,
+        global_seed=global_seed,
     )
-    return schedule[epoch % len(schedule)]
+    return schedule[epoch % len(schedule)][0]
 
 
 __all__ = [
     "choose_uniform_factual_gt_id",
     "choose_uniform_legal_deletion",
+    "choose_uniform_legal_identity",
     "stable_hash",
 ]

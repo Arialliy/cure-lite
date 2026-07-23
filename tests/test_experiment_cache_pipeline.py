@@ -19,9 +19,11 @@ from cure_lite.experiment.cache_pipeline import (
     build_state_record,
     cache_d_r_states,
     cache_manifest_split,
+    load_base_cache_pair_contract,
     load_d_r_cache_bundle,
     load_d_v_cache_bundle,
 )
+from cure_lite.frozen_base import frozen_base_state_fingerprint
 from cure_lite.splits import SplitManifest, SplitRecord
 from cure_lite.toy import ToyFrozenBaseAdapter
 from cure_lite.types import FrozenBaseOutput
@@ -225,6 +227,7 @@ def test_cache_manifest_split_writes_bound_per_sample_caches_and_strict_index(
         "split_manifest_fingerprint",
         "split_manifest_file_sha256",
         "base_fingerprint",
+        "base_state_fingerprint",
         "preprocessing",
         "preprocessing_fingerprint",
         "records",
@@ -236,6 +239,9 @@ def test_cache_manifest_split_writes_bound_per_sample_caches_and_strict_index(
     assert persisted["split_manifest_fingerprint"] == manifest.fingerprint
     assert persisted["split_manifest_file_sha256"] == file_sha256(manifest_path)
     assert persisted["base_fingerprint"] == adapter.fingerprint
+    assert persisted["base_state_fingerprint"] == frozen_base_state_fingerprint(
+        adapter
+    )
     assert persisted["preprocessing_fingerprint"] == stable_fingerprint(
         dataset.preprocess.fingerprint_payload()
     )
@@ -266,6 +272,78 @@ def test_cache_manifest_split_writes_bound_per_sample_caches_and_strict_index(
         )
         assert list(cached.probability.shape) == row["probability_shape"]
         assert list(cached.feature.shape) == row["feature_shape"]
+
+
+def test_library_base_state_fingerprint_is_independent_of_reported_identity() -> None:
+    first = ToyFrozenBaseAdapter()
+    second = ToyFrozenBaseAdapter()
+    declared = first.fingerprint
+
+    assert second.fingerprint == declared
+    assert frozen_base_state_fingerprint(second) == frozen_base_state_fingerprint(
+        first
+    )
+    with torch.no_grad():
+        next(second.base.parameters()).data.add_(1.0)
+
+    assert second.fingerprint == declared
+    assert frozen_base_state_fingerprint(second) != frozen_base_state_fingerprint(
+        first
+    )
+
+
+def test_base_cache_pair_rejects_same_reported_identity_with_different_state(
+    tmp_path: Path,
+) -> None:
+    manifest_path, manifest = _manifest_dataset_root(tmp_path)
+    first = ToyFrozenBaseAdapter()
+    second = ToyFrozenBaseAdapter()
+    with torch.no_grad():
+        next(second.base.parameters()).data.add_(1.0)
+    assert second.fingerprint == first.fingerprint
+
+    d_r_root = tmp_path / "d-r-base"
+    d_v_root = tmp_path / "d-v-base"
+    cache_manifest_split(
+        first,
+        _dataset(manifest_path, manifest, "D_R"),
+        "D_R",
+        d_r_root,
+    )
+    cache_manifest_split(
+        second,
+        _dataset(manifest_path, manifest, "D_V"),
+        "D_V",
+        d_v_root,
+    )
+
+    with pytest.raises(ValueError, match="base_state_fingerprint"):
+        load_base_cache_pair_contract(
+            d_r_root / "index.json",
+            d_v_root / "index.json",
+        )
+
+
+def test_cache_manifest_split_rejects_registered_state_change(
+    tmp_path: Path,
+) -> None:
+    class MutatingToyAdapter(ToyFrozenBaseAdapter):
+        def extract(self, images: torch.Tensor) -> FrozenBaseOutput:
+            output = super().extract(images)
+            with torch.no_grad():
+                next(self.base.parameters()).data.add_(1.0)
+            return output
+
+    manifest_path, manifest = _manifest_dataset_root(tmp_path)
+    output = tmp_path / "changed-base"
+    with pytest.raises(RuntimeError, match="registered state changed"):
+        cache_manifest_split(
+            MutatingToyAdapter(),
+            _dataset(manifest_path, manifest, "D_R"),
+            "D_R",
+            output,
+        )
+    assert not (output / "index.json").exists()
 
 
 def test_cache_manifest_split_rejects_adapter_preprocessing_mismatch(
@@ -377,6 +455,9 @@ def test_cache_d_r_states_writes_complete_bound_state_index(tmp_path: Path) -> N
     assert persisted["split"] == "D_R"
     assert persisted["sample_count"] == 2
     assert persisted["base_fingerprint"] == adapter.fingerprint
+    assert persisted["base_state_fingerprint"] == frozen_base_state_fingerprint(
+        adapter
+    )
     assert persisted["base_index"]["sha256"] == file_sha256(
         base_output / "index.json"
     )
@@ -422,12 +503,47 @@ def test_cache_d_r_states_writes_complete_bound_state_index(tmp_path: Path) -> N
     assert bundle.base_index_path == (base_output / "index.json").resolve()
     assert bundle.state_index_path == (state_output / "index.json").resolve()
     assert bundle.base_fingerprint == adapter.fingerprint
+    assert bundle.base_state_fingerprint == persisted["base_state_fingerprint"]
     assert bundle.state_fingerprint == persisted["state_fingerprint"]
     assert bundle.state_index_fingerprint == persisted["index_fingerprint"]
     assert tuple(row.sample_id for row in bundle.rows) == ("a-dr", "z-dr")
     assert all(row.base_output.probability.shape[0] == 1 for row in bundle.rows)
     assert all(row.state.sample_id == row.sample_id for row in bundle.rows)
     bundle.verify_unchanged()
+
+
+def test_load_d_r_bundle_rejects_state_index_base_state_disagreement(
+    tmp_path: Path,
+) -> None:
+    manifest_path, manifest = _manifest_dataset_root(tmp_path)
+    dataset = _dataset(manifest_path, manifest, "D_R")
+    adapter = ToyFrozenBaseAdapter()
+    base_output = tmp_path / "base-output"
+    state_output = tmp_path / "state-output"
+    cache_manifest_split(adapter, dataset, "D_R", base_output)
+    cache_d_r_states(
+        base_output / "index.json",
+        dataset,
+        state_output,
+        expected_base_fingerprint=adapter.fingerprint,
+    )
+    index_path = state_output / "index.json"
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+    payload["base_state_fingerprint"] = "0" * 64
+    fingerprint_payload = dict(payload)
+    fingerprint_payload.pop("index_fingerprint")
+    payload["index_fingerprint"] = stable_fingerprint(fingerprint_payload)
+    index_path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="different Base states"):
+        load_d_r_cache_bundle(
+            index_path,
+            dataset,
+            expected_base_fingerprint=adapter.fingerprint,
+        )
 
 
 def test_cache_d_r_states_rejects_tampered_base_index_and_cache(tmp_path: Path) -> None:
@@ -619,6 +735,7 @@ def test_load_d_v_cache_bundle_is_exact_sorted_and_fully_bound(tmp_path: Path) -
     assert bundle.base_index_fingerprint == base_index["index_fingerprint"]
     assert bundle.base_index_sha256 == file_sha256(base_output / "index.json")
     assert bundle.base_fingerprint == adapter.fingerprint
+    assert bundle.base_state_fingerprint == base_index["base_state_fingerprint"]
     assert len(bundle.d_v_image_fingerprint) == 64
     assert len(bundle.d_v_gt_fingerprint) == 64
     for row in bundle.rows:

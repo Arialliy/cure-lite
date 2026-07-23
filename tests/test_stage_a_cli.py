@@ -18,8 +18,6 @@ def _metrics(**overrides: object) -> SimpleNamespace:
         "pixel_fa": 0.001,
         "fp_components_per_mp": 2.0,
         "raw_background_fa": 0.002,
-        "gross_rmr": 0.25,
-        "net_rmr": 0.2,
         "retention": 1.0,
         "budget_violation": False,
     }
@@ -38,6 +36,7 @@ def test_parser_is_model_independent_and_has_no_d_t_option() -> None:
         "--manifest",
         "--d-r-base-index",
         "--d-v-base-index",
+        "--reference-base-run",
         "--config",
         "--output",
     } <= options
@@ -65,6 +64,8 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
     output = tmp_path / "stage-a"
     d_r_index = tmp_path / "cache" / "d_r" / "index.json"
     d_v_index = tmp_path / "cache" / "d_v" / "index.json"
+    reference_base_run = tmp_path / "reference-base-run"
+    expected_verified_identity = object()
     preprocess = PreprocessConfig(
         height=96,
         width=80,
@@ -117,6 +118,11 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
             assert payload == config_payload
             return FakeConfig()
 
+    def fake_load_verified_base_identity(path: Path) -> object:
+        events.append(("base-identity", path))
+        assert path == reference_base_run
+        return expected_verified_identity
+
     def fake_run(
         received_d_r: Path,
         received_d_v: Path,
@@ -125,6 +131,7 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
         config: object,
         output_dir: Path,
         *,
+        verified_base_identity: object,
         calibration_workers: int,
         calibration_progress: object,
     ) -> object:
@@ -135,6 +142,7 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
         assert d_v_dataset.split == "D_V"
         assert config.canonical_payload() == config_payload
         assert output_dir == output
+        assert verified_base_identity is expected_verified_identity
         assert calibration_workers == cli.DEFAULT_CALIBRATION_WORKERS
         assert calibration_progress is cli._calibration_progress
         return SimpleNamespace(
@@ -151,6 +159,12 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
                     "decoder_visible_legal_candidates": 25,
                 }
             ),
+            efficiency=SimpleNamespace(
+                canonical_payload=lambda: {
+                    "deployed_method": "U",
+                    "efficiency_is_scientific_gate_metric": False,
+                }
+            ),
             complete_fingerprint="5" * 64,
         )
 
@@ -158,6 +172,11 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
     monkeypatch.setattr(cli, "load_base_cache_pair_contract", fake_pair)
     monkeypatch.setattr(cli, "ManifestImageDataset", fake_dataset)
     monkeypatch.setattr(cli, "StageARunConfig", FakeStageARunConfig)
+    monkeypatch.setattr(
+        cli,
+        "load_verified_reference_base_run_identity",
+        fake_load_verified_base_identity,
+    )
     monkeypatch.setattr(cli, "run_stage_a_from_base_caches", fake_run)
 
     cli.main(
@@ -168,6 +187,8 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
             str(d_r_index),
             "--d-v-base-index",
             str(d_v_index),
+            "--reference-base-run",
+            str(reference_base_run),
             "--config",
             str(config_path),
             "--output",
@@ -181,6 +202,7 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
         ("dataset", "D_R"),
         ("dataset", "D_V"),
         "config",
+        ("base-identity", reference_base_run),
         "run",
     ]
     summary = json.loads(capsys.readouterr().out)
@@ -188,6 +210,10 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
     assert summary["evaluation_split"] == "D_V"
     assert summary["independent_generalization_result"] is False
     assert summary["training_support"]["source_images"] == 160
+    assert summary["efficiency"] == {
+        "deployed_method": "U",
+        "efficiency_is_scientific_gate_metric": False,
+    }
     screen = summary["development_mechanism_screen"]
     assert screen["primary_metric"] == "total_pd"
     assert screen["u_minus_base_at_budget_pd"] == pytest.approx(0.1)
@@ -199,6 +225,16 @@ def test_main_consumes_only_generic_d_r_d_v_base_caches(
     assert list(summary["methods"]) == ["A", "Base@B", "F", "F×", "U"]
     assert summary["methods"]["F"]["pd"] == 0.7
     assert summary["methods"]["F×"]["pd"] == 0.72
+    assert set(summary["methods"]["U"]) == {
+        "pd",
+        "miou",
+        "niou",
+        "pixel_fa",
+        "fp_components_per_mp",
+        "raw_background_fa",
+        "retention",
+        "budget_violation",
+    }
     assert not output.exists()
 
 
@@ -214,6 +250,8 @@ def test_existing_output_is_rejected_before_cache_access(tmp_path: Path) -> None
                 str(tmp_path / "d-r-index.json"),
                 "--d-v-base-index",
                 str(tmp_path / "d-v-index.json"),
+                "--reference-base-run",
+                str(tmp_path / "reference-base-run"),
                 "--config",
                 str(tmp_path / "config.json"),
                 "--output",

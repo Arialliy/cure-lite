@@ -16,6 +16,7 @@ from cure_lite.reference_base import (
     ReferenceBaseTrainingConfig,
     build_d_b_partition,
     load_reference_base_run,
+    load_verified_reference_base_run_identity,
     train_reference_base,
 )
 from cure_lite.splits import SplitManifest, SplitRecord
@@ -166,6 +167,11 @@ def test_one_epoch_reference_run_and_cache_never_read_d_t(tmp_path: Path) -> Non
     assert len((run_root / "metrics.jsonl").read_text(encoding="utf-8").splitlines()) == 1
     loaded = load_reference_base_run(run_root, device="cpu")
     assert loaded.base_fingerprint == completed.base_fingerprint
+    identity = load_verified_reference_base_run_identity(run_root)
+    identity.verify_unchanged()
+    assert identity.identity.base_fingerprint == loaded.base_fingerprint
+    assert identity.identity.checkpoint_sha256 == loaded.checkpoint_sha256
+    assert identity.identity.producer_schema == "cure-lite-reference-base-run-v1"
 
     cache_root = tmp_path / "base-caches"
     cache_cli.main(
@@ -185,6 +191,7 @@ def test_one_epoch_reference_run_and_cache_never_read_d_t(tmp_path: Path) -> Non
         cache_root / "D_V/index.json",
     )
     assert pair.base_fingerprint == loaded.base_fingerprint
+    assert pair.base_state_fingerprint == identity.identity.base_state_fingerprint
     assert pair.feature_channels == 8
     persisted = "\n".join(
         path.read_text(encoding="utf-8")

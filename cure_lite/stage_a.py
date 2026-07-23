@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 from typing import Any, Callable, Mapping, TypeVar
 
+from .calibration import THRESHOLD_SELECTION_RULE
 from .config import (
     DecoderConfig,
     InterventionConfig,
@@ -30,38 +31,64 @@ from .data import PreprocessConfig
 
 
 METHOD_VERSION = "cure-lite-v0.1"
-SEED_REGISTRY_SCHEMA_VERSION = "stage-a-frozen-registry-v2"
-MASTER_REGISTRY_SCHEMA_VERSION = "stage-a-master-registry-v2"
+SEED_REGISTRY_SCHEMA_VERSION = "stage-a-frozen-registry-v6"
+MASTER_REGISTRY_SCHEMA_VERSION = "stage-a-master-registry-v6"
 MINIMUM_FULL_PIPELINE_SEEDS = 5
 
-STAGE_A_VARIANTS = {
-    "P": "parallel_all_gt",
+STAGE_A_METHOD_ORDER = ("A", "Base@B", "F", "F×", "U")
+STAGE_A_DECODER_VARIANTS = {
     "F": "factual_only",
     "F×": "factual_exposure_matched",
     "U": "uniform_legal",
-    "S": "score_hard",
+}
+STAGE_A_VARIANTS: dict[str, str | None] = {
+    "A": None,
+    "Base@B": None,
+    **STAGE_A_DECODER_VARIANTS,
+}
+STAGE_A_EVALUATION_MODES = {
+    "A": "anchor",
+    "Base@B": "base_at_budget",
+    "F": "residual",
+    "F×": "residual",
+    "U": "residual",
 }
 
-BASE_TRAINING_IDENTITY_FIELDS = (
-    "base_training_provenance_fingerprint",
-    "base_training_provenance_sha256",
-    "base_training_final_receipt_sha256",
-    "base_training_preflight_receipt_sha256",
+BASE_RUN_IDENTITY_FIELDS = (
+    "producer_schema",
+    "base_fingerprint",
+    "base_state_fingerprint",
+    "training_run_fingerprint",
+    "completion_receipt_sha256",
+    "checkpoint_sha256",
+    "selection_fingerprint",
+    "source_fingerprint",
+)
+BASE_RUN_UNIQUE_IDENTITY_FIELDS = (
+    "training_run_fingerprint",
+    "completion_receipt_sha256",
+    "checkpoint_sha256",
+    "selection_fingerprint",
 )
 
 # This is an exact schema, not merely a list of keys that happen to be compared
-# by the current evaluator.  New provenance and grid fields are required so a
+# by the current evaluator.  Base/cache identities and grid fields ensure a
 # five-seed freeze cannot silently combine calibrations over different D_V
 # bytes or different candidate sets.
 COMMON_FIELDS = (
     "manifest_fingerprint",
     "base_fingerprint",
-    *BASE_TRAINING_IDENTITY_FIELDS,
+    "base_state_fingerprint",
+    "base_run_identity",
+    "stage_a_complete_fingerprint",
     "d_v_image_fingerprint",
     "d_v_gt_fingerprint",
-    "d_v_base_cache_provenance_sha256",
-    "d_r_base_cache_provenance_sha256",
-    "d_r_state_cache_provenance_sha256",
+    "d_v_base_cache_index_fingerprint",
+    "d_v_base_cache_index_sha256",
+    "d_r_base_cache_index_fingerprint",
+    "d_r_base_cache_index_sha256",
+    "d_r_state_cache_index_fingerprint",
+    "d_r_state_cache_index_sha256",
     "anchor_protocol_sha256",
     "state_fingerprint",
     "tau_o",
@@ -71,6 +98,7 @@ COMMON_FIELDS = (
     "raw_background_fa_budget",
     "minimum_retention",
     "null_residual_candidate",
+    "threshold_selection_rule",
     "anchor_threshold_grid",
     "anchor_threshold_grid_fingerprint",
     "residual_threshold_grid",
@@ -91,30 +119,25 @@ COMMON_FIELDS = (
     "global_seed",
     "steps_per_epoch",
     "trained_epochs",
-)
-
-GATE_FIELDS = (
-    "minimum_net_rmr_gain",
-    "minimum_pd_gain",
-    "maximum_miou_drop",
-    "maximum_niou_drop",
-    "maximum_incremental_parameters",
-    "maximum_incremental_latency_ms",
-    "bootstrap_replicates",
-    "confidence",
+    "efficiency_device_type",
+    "efficiency_warmup",
+    "efficiency_repetitions",
+    "efficiency_static_fingerprint",
+    "efficiency_receipt_fingerprint",
 )
 
 PROTOCOL_ENTRY_FIELDS = (
+    "evaluation_mode",
     "decoder_variant",
-    "protocol_sha256",
-    "decoder_checkpoint_sha256",
-    "tau_r",
+    "protocol_fingerprint",
+    "decoder_artifact_fingerprint",
+    "selected_threshold",
 )
 
 # These fields define the paired experiment and therefore may not drift across
 # full-pipeline seeds.  Seed-derived identities and calibrated thresholds are
 # intentionally absent: base/state/anchor/tau_o/tau_B/occupancy/global_seed and
-# the per-seed D_V base-cache provenance are allowed to vary.
+# the per-seed cache identities are allowed to vary.
 CROSS_SEED_FIXED_FIELDS = (
     "manifest_fingerprint",
     "d_v_image_fingerprint",
@@ -124,6 +147,7 @@ CROSS_SEED_FIXED_FIELDS = (
     "raw_background_fa_budget",
     "minimum_retention",
     "null_residual_candidate",
+    "threshold_selection_rule",
     "matching_config",
     "intervention_config",
     "preprocessing",
@@ -136,6 +160,9 @@ CROSS_SEED_FIXED_FIELDS = (
     "fixed_stopping_rule",
     "steps_per_epoch",
     "trained_epochs",
+    "efficiency_device_type",
+    "efficiency_warmup",
+    "efficiency_repetitions",
     "anchor_threshold_grid",
     "anchor_threshold_grid_fingerprint",
     "residual_threshold_grid",
@@ -146,16 +173,23 @@ CROSS_SEED_FIXED_FIELDS = (
 
 CROSS_SEED_VARIABLE_FIELDS = (
     "base_fingerprint",
-    *BASE_TRAINING_IDENTITY_FIELDS,
-    "d_v_base_cache_provenance_sha256",
-    "d_r_base_cache_provenance_sha256",
-    "d_r_state_cache_provenance_sha256",
+    "base_state_fingerprint",
+    "base_run_identity",
+    "stage_a_complete_fingerprint",
+    "d_v_base_cache_index_fingerprint",
+    "d_v_base_cache_index_sha256",
+    "d_r_base_cache_index_fingerprint",
+    "d_r_base_cache_index_sha256",
+    "d_r_state_cache_index_fingerprint",
+    "d_r_state_cache_index_sha256",
     "anchor_protocol_sha256",
     "state_fingerprint",
     "tau_o",
     "tau_B",
     "occupancy_config",
     "global_seed",
+    "efficiency_static_fingerprint",
+    "efficiency_receipt_fingerprint",
 )
 
 # These content identities are seed-derived and therefore not cross-seed fixed,
@@ -165,18 +199,26 @@ CROSS_SEED_VARIABLE_FIELDS = (
 UNIQUE_SEED_COMMON_IDENTITY_FIELDS = (
     "global_seed",
     "base_fingerprint",
-    *BASE_TRAINING_IDENTITY_FIELDS,
-    "d_v_base_cache_provenance_sha256",
-    "d_r_base_cache_provenance_sha256",
-    "d_r_state_cache_provenance_sha256",
+    "base_state_fingerprint",
+    "stage_a_complete_fingerprint",
+    "d_v_base_cache_index_fingerprint",
+    "d_v_base_cache_index_sha256",
+    "d_r_base_cache_index_fingerprint",
+    "d_r_base_cache_index_sha256",
+    "d_r_state_cache_index_fingerprint",
+    "d_r_state_cache_index_sha256",
     "anchor_protocol_sha256",
     "state_fingerprint",
+    "efficiency_static_fingerprint",
+    "efficiency_receipt_fingerprint",
 )
 
 if set(CROSS_SEED_FIXED_FIELDS) & set(CROSS_SEED_VARIABLE_FIELDS):
     raise RuntimeError("cross-seed fixed and variable Stage-A fields overlap")
 if set(CROSS_SEED_FIXED_FIELDS) | set(CROSS_SEED_VARIABLE_FIELDS) != set(COMMON_FIELDS):
     raise RuntimeError("cross-seed fixed/variable fields do not partition COMMON_FIELDS")
+if tuple(STAGE_A_VARIANTS) != STAGE_A_METHOD_ORDER:
+    raise RuntimeError("Stage-A method/decoder contracts do not share one order")
 
 _TOP_LEVEL_FIELDS = (
     "schema_version",
@@ -185,7 +227,6 @@ _TOP_LEVEL_FIELDS = (
     "stage",
     "split",
     "thresholds_frozen",
-    "preregistered_gates",
     "common_config",
     "protocols",
 )
@@ -198,7 +239,6 @@ _MASTER_TOP_LEVEL_FIELDS = (
     "thresholds_frozen",
     "minimum_full_pipeline_seeds",
     "seed_count",
-    "preregistered_gates",
     "cross_seed_fixed_config",
     "efficiency_protocol",
     "seed_registries",
@@ -207,27 +247,37 @@ _MASTER_SEED_FIELDS = (
     "registry_sha256",
     "global_seed",
     "base_fingerprint",
-    "base_training_identity",
+    "base_state_fingerprint",
+    "base_run_identity",
+    "stage_a_complete_fingerprint",
 )
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SEED_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
 
 
 @dataclass(frozen=True)
-class BaseTrainingIdentity:
-    """Content identities proving which fresh base run a seed used."""
+class BaseRunIdentity:
+    """Detector-neutral identity of one completed Base training run."""
 
-    provenance_fingerprint: str
-    provenance_sha256: str
-    final_receipt_sha256: str
-    preflight_receipt_sha256: str
+    producer_schema: str
+    base_fingerprint: str
+    base_state_fingerprint: str
+    training_run_fingerprint: str
+    completion_receipt_sha256: str
+    checkpoint_sha256: str
+    selection_fingerprint: str
+    source_fingerprint: str
 
     def to_registry_dict(self) -> dict[str, str]:
         return {
-            "base_training_provenance_fingerprint": self.provenance_fingerprint,
-            "base_training_provenance_sha256": self.provenance_sha256,
-            "base_training_final_receipt_sha256": self.final_receipt_sha256,
-            "base_training_preflight_receipt_sha256": self.preflight_receipt_sha256,
+            "producer_schema": self.producer_schema,
+            "base_fingerprint": self.base_fingerprint,
+            "base_state_fingerprint": self.base_state_fingerprint,
+            "training_run_fingerprint": self.training_run_fingerprint,
+            "completion_receipt_sha256": self.completion_receipt_sha256,
+            "checkpoint_sha256": self.checkpoint_sha256,
+            "selection_fingerprint": self.selection_fingerprint,
+            "source_fingerprint": self.source_fingerprint,
         }
 
 
@@ -236,9 +286,8 @@ class ValidatedSeedRegistry:
     """Canonical, fully validated contents of one full-pipeline seed registry."""
 
     common_config: dict[str, Any]
-    preregistered_gates: dict[str, Any]
     protocols: dict[str, dict[str, Any]]
-    base_training_identity: BaseTrainingIdentity
+    base_run_identity: BaseRunIdentity
 
 
 @dataclass(frozen=True)
@@ -270,14 +319,18 @@ class SeedRegistryBinding:
     registry_sha256: str
     global_seed: int
     base_fingerprint: str
-    base_training_identity: BaseTrainingIdentity
+    base_state_fingerprint: str
+    base_run_identity: BaseRunIdentity
+    stage_a_complete_fingerprint: str
 
     def to_registry_dict(self) -> dict[str, Any]:
         return {
             "registry_sha256": self.registry_sha256,
             "global_seed": self.global_seed,
             "base_fingerprint": self.base_fingerprint,
-            "base_training_identity": self.base_training_identity.to_registry_dict(),
+            "base_state_fingerprint": self.base_state_fingerprint,
+            "base_run_identity": self.base_run_identity.to_registry_dict(),
+            "stage_a_complete_fingerprint": self.stage_a_complete_fingerprint,
         }
 
 
@@ -285,7 +338,6 @@ class SeedRegistryBinding:
 class ValidatedMasterRegistry:
     """Canonical contents of the >=5-seed pre-D_T master registry."""
 
-    preregistered_gates: dict[str, Any]
     cross_seed_fixed_config: dict[str, Any]
     efficiency_protocol: dict[str, Any]
     seed_registries: dict[str, SeedRegistryBinding]
@@ -297,7 +349,9 @@ class ValidatedMasterRegistry:
         registry_sha256: str,
         global_seed: int,
         base_fingerprint: str,
-        base_training_identity: BaseTrainingIdentity | Mapping[str, Any],
+        base_state_fingerprint: str,
+        base_run_identity: BaseRunIdentity | Mapping[str, Any],
+        stage_a_complete_fingerprint: str,
     ) -> SeedRegistryBinding:
         """Require an exact SHA/base/receipt binding for one named seed."""
 
@@ -308,9 +362,9 @@ class ValidatedMasterRegistry:
             raise RuntimeError(
                 f"Stage-A master registry does not contain seed {canonical_id!r}"
             ) from error
-        expected_identity = _coerce_base_training_identity(
-            base_training_identity,
-            name=f"expected base training identity for {canonical_id!r}",
+        expected_identity = _coerce_base_run_identity(
+            base_run_identity,
+            name=f"expected Base run identity for {canonical_id!r}",
         )
         expected = SeedRegistryBinding(
             registry_sha256=_digest(
@@ -324,14 +378,26 @@ class ValidatedMasterRegistry:
                 base_fingerprint,
                 name=f"expected base_fingerprint for {canonical_id!r}",
             ),
-            base_training_identity=expected_identity,
+            base_state_fingerprint=_digest(
+                base_state_fingerprint,
+                name=f"expected base_state_fingerprint for {canonical_id!r}",
+            ),
+            base_run_identity=expected_identity,
+            stage_a_complete_fingerprint=_digest(
+                stage_a_complete_fingerprint,
+                name=(
+                    f"expected stage_a_complete_fingerprint for {canonical_id!r}"
+                ),
+            ),
         )
         if frozen != expected:
             for field in (
                 "registry_sha256",
                 "global_seed",
                 "base_fingerprint",
-                "base_training_identity",
+                "base_state_fingerprint",
+                "base_run_identity",
+                "stage_a_complete_fingerprint",
             ):
                 if getattr(frozen, field) != getattr(expected, field):
                     raise RuntimeError(
@@ -351,13 +417,6 @@ class ValidatedMasterRegistry:
             raise TypeError("seed_registry must be a LoadedSeedRegistry")
         seed_registry.verify_unchanged()
         common = seed_registry.validated.common_config
-        if not _json_equal(
-            seed_registry.validated.preregistered_gates,
-            self.preregistered_gates,
-        ):
-            raise RuntimeError(
-                f"Stage-A seed registry {seed_id!r} gates differ from master"
-            )
         for field in CROSS_SEED_FIXED_FIELDS:
             if not _json_equal(
                 common[field], self.cross_seed_fixed_config[field]
@@ -371,7 +430,9 @@ class ValidatedMasterRegistry:
             registry_sha256=seed_registry.sha256,
             global_seed=common["global_seed"],
             base_fingerprint=common["base_fingerprint"],
-            base_training_identity=seed_registry.validated.base_training_identity,
+            base_state_fingerprint=common["base_state_fingerprint"],
+            base_run_identity=seed_registry.validated.base_run_identity,
+            stage_a_complete_fingerprint=common["stage_a_complete_fingerprint"],
         )
 
 
@@ -411,7 +472,9 @@ class LoadedMasterRegistry:
         registry_sha256: str,
         global_seed: int,
         base_fingerprint: str,
-        base_training_identity: BaseTrainingIdentity | Mapping[str, Any],
+        base_state_fingerprint: str,
+        base_run_identity: BaseRunIdentity | Mapping[str, Any],
+        stage_a_complete_fingerprint: str,
     ) -> SeedRegistryBinding:
         self.verify_unchanged()
         return self.validated.require_seed_binding(
@@ -419,7 +482,9 @@ class LoadedMasterRegistry:
             registry_sha256=registry_sha256,
             global_seed=global_seed,
             base_fingerprint=base_fingerprint,
-            base_training_identity=base_training_identity,
+            base_state_fingerprint=base_state_fingerprint,
+            base_run_identity=base_run_identity,
+            stage_a_complete_fingerprint=stage_a_complete_fingerprint,
         )
 
 
@@ -444,34 +509,47 @@ def _digest(value: object, *, name: str) -> str:
     return value
 
 
-def _coerce_base_training_identity(
-    value: BaseTrainingIdentity | Mapping[str, Any],
+def _coerce_base_run_identity(
+    value: BaseRunIdentity | Mapping[str, Any],
     *,
     name: str,
-) -> BaseTrainingIdentity:
-    if isinstance(value, BaseTrainingIdentity):
+) -> BaseRunIdentity:
+    if isinstance(value, BaseRunIdentity):
         # The dataclass constructor is public, so validate even an existing
         # instance rather than assuming its strings are well formed.
         mapping: Mapping[str, Any] = value.to_registry_dict()
     else:
         mapping = _mapping(value, name=name)
-    _exact_keys(mapping, BASE_TRAINING_IDENTITY_FIELDS, name=name)
-    return BaseTrainingIdentity(
-        provenance_fingerprint=_digest(
-            mapping["base_training_provenance_fingerprint"],
-            name=f"{name}.base_training_provenance_fingerprint",
+    _exact_keys(mapping, BASE_RUN_IDENTITY_FIELDS, name=name)
+    producer_schema = mapping["producer_schema"]
+    if not isinstance(producer_schema, str) or not producer_schema:
+        raise ValueError(f"{name}.producer_schema must be non-empty text")
+    return BaseRunIdentity(
+        producer_schema=producer_schema,
+        base_fingerprint=_digest(
+            mapping["base_fingerprint"], name=f"{name}.base_fingerprint"
         ),
-        provenance_sha256=_digest(
-            mapping["base_training_provenance_sha256"],
-            name=f"{name}.base_training_provenance_sha256",
+        base_state_fingerprint=_digest(
+            mapping["base_state_fingerprint"],
+            name=f"{name}.base_state_fingerprint",
         ),
-        final_receipt_sha256=_digest(
-            mapping["base_training_final_receipt_sha256"],
-            name=f"{name}.base_training_final_receipt_sha256",
+        training_run_fingerprint=_digest(
+            mapping["training_run_fingerprint"],
+            name=f"{name}.training_run_fingerprint",
         ),
-        preflight_receipt_sha256=_digest(
-            mapping["base_training_preflight_receipt_sha256"],
-            name=f"{name}.base_training_preflight_receipt_sha256",
+        completion_receipt_sha256=_digest(
+            mapping["completion_receipt_sha256"],
+            name=f"{name}.completion_receipt_sha256",
+        ),
+        checkpoint_sha256=_digest(
+            mapping["checkpoint_sha256"], name=f"{name}.checkpoint_sha256"
+        ),
+        selection_fingerprint=_digest(
+            mapping["selection_fingerprint"],
+            name=f"{name}.selection_fingerprint",
+        ),
+        source_fingerprint=_digest(
+            mapping["source_fingerprint"], name=f"{name}.source_fingerprint"
         ),
     )
 
@@ -623,35 +701,6 @@ def _threshold_grid(
     return grid
 
 
-def _validate_gates(value: object) -> dict[str, Any]:
-    gates = _mapping(value, name="preregistered_gates")
-    _exact_keys(gates, GATE_FIELDS, name="preregistered_gates")
-    for key in (
-        "minimum_net_rmr_gain",
-        "minimum_pd_gain",
-        "maximum_miou_drop",
-        "maximum_niou_drop",
-        "maximum_incremental_latency_ms",
-    ):
-        _float(gates[key], name=f"preregistered_gates.{key}", minimum=0.0)
-    _integer(
-        gates["maximum_incremental_parameters"],
-        name="preregistered_gates.maximum_incremental_parameters",
-        minimum=0,
-    )
-    _integer(
-        gates["bootstrap_replicates"],
-        name="preregistered_gates.bootstrap_replicates",
-        minimum=1,
-    )
-    confidence = _float(
-        gates["confidence"], name="preregistered_gates.confidence"
-    )
-    if not 0.0 < confidence < 1.0:
-        raise ValueError("preregistered_gates.confidence must lie strictly in (0,1)")
-    return deepcopy(gates)
-
-
 def _validate_common(value: object) -> dict[str, Any]:
     common = _mapping(value, name="common_config")
     _exact_keys(common, COMMON_FIELDS, name="common_config")
@@ -659,16 +708,34 @@ def _validate_common(value: object) -> dict[str, Any]:
     for key in (
         "manifest_fingerprint",
         "base_fingerprint",
-        *BASE_TRAINING_IDENTITY_FIELDS,
+        "base_state_fingerprint",
+        "stage_a_complete_fingerprint",
         "d_v_image_fingerprint",
         "d_v_gt_fingerprint",
-        "d_v_base_cache_provenance_sha256",
-        "d_r_base_cache_provenance_sha256",
-        "d_r_state_cache_provenance_sha256",
+        "d_v_base_cache_index_fingerprint",
+        "d_v_base_cache_index_sha256",
+        "d_r_base_cache_index_fingerprint",
+        "d_r_base_cache_index_sha256",
+        "d_r_state_cache_index_fingerprint",
+        "d_r_state_cache_index_sha256",
         "anchor_protocol_sha256",
         "state_fingerprint",
+        "efficiency_static_fingerprint",
+        "efficiency_receipt_fingerprint",
     ):
         _digest(common[key], name=f"common_config.{key}")
+
+    base_run_identity = _coerce_base_run_identity(
+        common["base_run_identity"], name="common_config.base_run_identity"
+    )
+    if base_run_identity.base_fingerprint != common["base_fingerprint"]:
+        raise RuntimeError(
+            "common_config Base run identity differs from base_fingerprint"
+        )
+    if base_run_identity.base_state_fingerprint != common["base_state_fingerprint"]:
+        raise RuntimeError(
+            "common_config Base run identity differs from base_state_fingerprint"
+        )
 
     tau_o = _float(common["tau_o"], name="common_config.tau_o", minimum=0.0, maximum=1.0)
     tau_b = _float(common["tau_B"], name="common_config.tau_B", minimum=0.0, maximum=1.0)
@@ -700,6 +767,11 @@ def _validate_common(value: object) -> dict[str, Any]:
     if common["null_residual_candidate"] is not True:
         raise RuntimeError(
             "common_config.null_residual_candidate must be the canonical true flag"
+        )
+    if common["threshold_selection_rule"] != THRESHOLD_SELECTION_RULE:
+        raise RuntimeError(
+            "common_config.threshold_selection_rule differs from the "
+            "implemented calibration rule"
         )
 
     anchor_grid = _threshold_grid(common, "anchor_threshold_grid")
@@ -801,6 +873,19 @@ def _validate_common(value: object) -> dict[str, Any]:
     if stopping != {"epochs": epochs, "steps_per_epoch": steps}:
         raise RuntimeError("common_config fixed stopping rule differs from completed run")
 
+    if common["efficiency_device_type"] not in {"cpu", "cuda"}:
+        raise ValueError("common_config.efficiency_device_type must be cpu or cuda")
+    _integer(
+        common["efficiency_warmup"],
+        name="common_config.efficiency_warmup",
+        minimum=0,
+    )
+    _integer(
+        common["efficiency_repetitions"],
+        name="common_config.efficiency_repetitions",
+        minimum=1,
+    )
+
     return deepcopy(common)
 
 
@@ -809,52 +894,107 @@ def _validate_protocols(
     *,
     residual_grid: list[float],
     null_residual_candidate: bool,
+    tau_o: float,
+    tau_b: float,
+    anchor_protocol_sha256: str,
 ) -> dict[str, dict[str, Any]]:
     protocols = _mapping(value, name="protocols")
     _exact_keys(protocols, set(STAGE_A_VARIANTS), name="protocols")
-    protocol_digests: set[str] = set()
-    checkpoint_digests: set[str] = set()
+    # ``protocol_fingerprint`` binds the decoder-free anchor receipt for A and
+    # the inner BoundDVThresholdProtocol for Base@B/F/F×/U. Base@B's outer
+    # receipt is also decoder-free, but the inner protocol fingerprint is the
+    # shared registry-level threshold identity for all four calibrated arms.
+    protocol_fingerprints: set[str] = set()
+    decoder_artifact_fingerprints: set[str] = set()
     result: dict[str, dict[str, Any]] = {}
-    for stage_id, variant in STAGE_A_VARIANTS.items():
-        entry = _mapping(protocols[stage_id], name=f"protocols.{stage_id}")
-        _exact_keys(entry, PROTOCOL_ENTRY_FIELDS, name=f"protocols.{stage_id}")
+    for method_id, variant in STAGE_A_VARIANTS.items():
+        entry = _mapping(protocols[method_id], name=f"protocols.{method_id}")
+        _exact_keys(entry, PROTOCOL_ENTRY_FIELDS, name=f"protocols.{method_id}")
+        expected_mode = STAGE_A_EVALUATION_MODES[method_id]
+        if entry["evaluation_mode"] != expected_mode:
+            raise RuntimeError(
+                f"protocols.{method_id}.evaluation_mode must be {expected_mode!r}"
+            )
         if entry["decoder_variant"] != variant:
             raise RuntimeError(
-                f"protocols.{stage_id}.decoder_variant must be {variant!r}"
+                f"protocols.{method_id}.decoder_variant must be {variant!r}"
             )
-        protocol_sha = _digest(
-            entry["protocol_sha256"], name=f"protocols.{stage_id}.protocol_sha256"
+        protocol_fingerprint = _digest(
+            entry["protocol_fingerprint"],
+            name=f"protocols.{method_id}.protocol_fingerprint",
         )
-        checkpoint_sha = _digest(
-            entry["decoder_checkpoint_sha256"],
-            name=f"protocols.{stage_id}.decoder_checkpoint_sha256",
-        )
-        if protocol_sha in protocol_digests:
-            raise RuntimeError("protocol SHA256 values must be unique across P/F/F×/U/S")
-        if checkpoint_sha in checkpoint_digests:
+        if protocol_fingerprint in protocol_fingerprints:
             raise RuntimeError(
-                "decoder checkpoint SHA256 values must be unique across P/F/F×/U/S"
+                "protocol fingerprints must be unique across A/Base@B/F/F×/U"
             )
-        protocol_digests.add(protocol_sha)
-        checkpoint_digests.add(checkpoint_sha)
-        tau_r_value = entry["tau_r"]
-        if tau_r_value is None:
+        protocol_fingerprints.add(protocol_fingerprint)
+
+        artifact_fingerprint = entry["decoder_artifact_fingerprint"]
+        if variant is None:
+            if artifact_fingerprint is not None:
+                raise RuntimeError(
+                    f"protocols.{method_id} is decoder-free and must not bind "
+                    "a decoder artifact"
+                )
+        else:
+            artifact_fingerprint = _digest(
+                artifact_fingerprint,
+                name=f"protocols.{method_id}.decoder_artifact_fingerprint",
+            )
+            if artifact_fingerprint in decoder_artifact_fingerprints:
+                raise RuntimeError(
+                    "decoder artifact fingerprints must be unique across F/F×/U"
+                )
+            decoder_artifact_fingerprints.add(artifact_fingerprint)
+
+        selected_threshold = entry["selected_threshold"]
+        if method_id == "A":
+            threshold = _float(
+                selected_threshold,
+                name="protocols.A.selected_threshold",
+                minimum=0.0,
+                maximum=1.0,
+            )
+            if threshold != tau_o:
+                raise RuntimeError(
+                    "protocols.A.selected_threshold must equal common_config.tau_o"
+                )
+            if protocol_fingerprint != anchor_protocol_sha256:
+                raise RuntimeError(
+                    "protocols.A.protocol_fingerprint must equal "
+                    "common_config.anchor_protocol_sha256"
+                )
+        elif method_id == "Base@B":
+            threshold = _float(
+                selected_threshold,
+                name="protocols.Base@B.selected_threshold",
+                minimum=0.0,
+                maximum=1.0,
+            )
+            if threshold != tau_b:
+                raise RuntimeError(
+                    "protocols.Base@B.selected_threshold must equal "
+                    "common_config.tau_B"
+                )
+        elif selected_threshold is None:
             if not null_residual_candidate:
                 raise RuntimeError(
-                    f"protocols.{stage_id}.tau_r selects an unregistered null residual"
+                    f"protocols.{method_id}.selected_threshold selects an "
+                    "unregistered null residual"
                 )
         else:
             tau_r = _float(
-                tau_r_value,
-                name=f"protocols.{stage_id}.tau_r",
+                selected_threshold,
+                name=f"protocols.{method_id}.selected_threshold",
                 minimum=0.0,
                 maximum=1.0,
             )
             if tau_r not in residual_grid:
                 raise RuntimeError(
-                    f"protocols.{stage_id}.tau_r is absent from residual_threshold_grid"
+                    f"protocols.{method_id}.selected_threshold is absent from "
+                    "residual_threshold_grid"
                 )
-        result[stage_id] = deepcopy(entry)
+        result[method_id] = deepcopy(entry)
     return result
 
 
@@ -863,10 +1003,10 @@ def validate_seed_registry_mapping(
     *,
     source: str = "Stage-A seed registry",
 ) -> ValidatedSeedRegistry:
-    """Validate one canonical, frozen P/F/F×/U/S registry.
+    """Validate one canonical, frozen A/Base@B/F/F×/U registry.
 
     Unknown fields, numeric type aliases, non-canonical configuration objects,
-    unbound threshold grids, and incomplete provenance are all rejected.
+    unbound threshold grids, and incomplete run identities are all rejected.
     """
 
     registry = _mapping(payload, name=source)
@@ -884,19 +1024,18 @@ def validate_seed_registry_mapping(
             raise RuntimeError(f"{source} mismatch for {key}")
 
     common = _validate_common(registry["common_config"])
-    gates = _validate_gates(registry["preregistered_gates"])
     protocols = _validate_protocols(
         registry["protocols"],
         residual_grid=common["residual_threshold_grid"],
         null_residual_candidate=common["null_residual_candidate"],
+        tau_o=common["tau_o"],
+        tau_b=common["tau_B"],
+        anchor_protocol_sha256=common["anchor_protocol_sha256"],
     )
-    identity = BaseTrainingIdentity(
-        provenance_fingerprint=common["base_training_provenance_fingerprint"],
-        provenance_sha256=common["base_training_provenance_sha256"],
-        final_receipt_sha256=common["base_training_final_receipt_sha256"],
-        preflight_receipt_sha256=common["base_training_preflight_receipt_sha256"],
+    identity = _coerce_base_run_identity(
+        common["base_run_identity"], name="common_config.base_run_identity"
     )
-    return ValidatedSeedRegistry(common, gates, protocols, identity)
+    return ValidatedSeedRegistry(common, protocols, identity)
 
 
 def validate_seed_registry(
@@ -987,6 +1126,11 @@ def _validate_master_fixed_config(value: object) -> dict[str, Any]:
     if fixed["null_residual_candidate"] is not True:
         raise RuntimeError(
             "cross_seed_fixed_config.null_residual_candidate must be true"
+        )
+    if fixed["threshold_selection_rule"] != THRESHOLD_SELECTION_RULE:
+        raise RuntimeError(
+            "cross_seed_fixed_config.threshold_selection_rule differs from the "
+            "implemented calibration rule"
         )
 
     _canonical_config(
@@ -1098,6 +1242,21 @@ def _validate_master_fixed_config(value: object) -> dict[str, Any]:
             "cross_seed_fixed_config stopping rule differs from epochs/steps"
         )
 
+    if fixed["efficiency_device_type"] not in {"cpu", "cuda"}:
+        raise ValueError(
+            "cross_seed_fixed_config.efficiency_device_type must be cpu or cuda"
+        )
+    _integer(
+        fixed["efficiency_warmup"],
+        name="cross_seed_fixed_config.efficiency_warmup",
+        minimum=0,
+    )
+    _integer(
+        fixed["efficiency_repetitions"],
+        name="cross_seed_fixed_config.efficiency_repetitions",
+        minimum=1,
+    )
+
     _threshold_grid(fixed, "anchor_threshold_grid")
     _threshold_grid(fixed, "residual_threshold_grid")
     _threshold_grid(fixed, "base_threshold_grid")
@@ -1108,11 +1267,13 @@ def _validate_efficiency_protocol(value: object) -> dict[str, Any]:
     protocol = _mapping(value, name="efficiency_protocol")
     _exact_keys(
         protocol,
-        {"device", "warmup", "repetitions"},
+        {"device_type", "warmup", "repetitions"},
         name="efficiency_protocol",
     )
-    if protocol["device"] not in {"cpu", "cuda"}:
-        raise ValueError("efficiency_protocol.device must be exactly cpu or cuda")
+    if protocol["device_type"] not in {"cpu", "cuda"}:
+        raise ValueError(
+            "efficiency_protocol.device_type must be exactly cpu or cuda"
+        )
     _integer(protocol["warmup"], name="efficiency_protocol.warmup", minimum=0)
     _integer(
         protocol["repetitions"],
@@ -1132,8 +1293,11 @@ def _validate_master_seed_bindings(value: object) -> dict[str, SeedRegistryBindi
     seen_registry_sha: dict[str, str] = {}
     seen_global_seed: dict[int, str] = {}
     seen_base: dict[str, str] = {}
+    seen_base_state: dict[str, str] = {}
+    seen_stage_a_complete: dict[str, str] = {}
+    shared_base_producer: tuple[str, str] | None = None
     seen_identity: dict[str, dict[str, str]] = {
-        field: {} for field in BASE_TRAINING_IDENTITY_FIELDS
+        field: {} for field in BASE_RUN_UNIQUE_IDENTITY_FIELDS
     }
     seed_ids = [validate_seed_id(raw_seed_id) for raw_seed_id in entries]
     for seed_id in sorted(seed_ids):
@@ -1150,14 +1314,47 @@ def _validate_master_seed_bindings(value: object) -> dict[str, SeedRegistryBindi
             entry["base_fingerprint"],
             name=f"seed_registries.{seed_id}.base_fingerprint",
         )
-        identity = _coerce_base_training_identity(
-            entry["base_training_identity"],
-            name=f"seed_registries.{seed_id}.base_training_identity",
+        base_state_fingerprint = _digest(
+            entry["base_state_fingerprint"],
+            name=f"seed_registries.{seed_id}.base_state_fingerprint",
         )
+        stage_a_complete_fingerprint = _digest(
+            entry["stage_a_complete_fingerprint"],
+            name=f"seed_registries.{seed_id}.stage_a_complete_fingerprint",
+        )
+        identity = _coerce_base_run_identity(
+            entry["base_run_identity"],
+            name=f"seed_registries.{seed_id}.base_run_identity",
+        )
+        if identity.base_fingerprint != base_fingerprint:
+            raise RuntimeError(
+                f"seed_registries.{seed_id}.base_run_identity base differs"
+            )
+        if identity.base_state_fingerprint != base_state_fingerprint:
+            raise RuntimeError(
+                f"seed_registries.{seed_id}.base_run_identity state differs"
+            )
+        producer = (identity.producer_schema, identity.source_fingerprint)
+        if shared_base_producer is None:
+            shared_base_producer = producer
+        elif producer != shared_base_producer:
+            raise RuntimeError(
+                "master seeds must share one Base producer schema and source"
+            )
         for label, current, seen in (
             ("registry_sha256", registry_sha, seen_registry_sha),
             ("global_seed", global_seed, seen_global_seed),
             ("base_fingerprint", base_fingerprint, seen_base),
+            (
+                "base_state_fingerprint",
+                base_state_fingerprint,
+                seen_base_state,
+            ),
+            (
+                "stage_a_complete_fingerprint",
+                stage_a_complete_fingerprint,
+                seen_stage_a_complete,
+            ),
         ):
             previous = seen.get(current)
             if previous is not None:
@@ -1166,7 +1363,7 @@ def _validate_master_seed_bindings(value: object) -> dict[str, SeedRegistryBindi
                 )
             seen[current] = seed_id
         identity_mapping = identity.to_registry_dict()
-        for field in BASE_TRAINING_IDENTITY_FIELDS:
+        for field in BASE_RUN_UNIQUE_IDENTITY_FIELDS:
             current = identity_mapping[field]
             previous = seen_identity[field].get(current)
             if previous is not None:
@@ -1178,7 +1375,9 @@ def _validate_master_seed_bindings(value: object) -> dict[str, SeedRegistryBindi
             registry_sha256=registry_sha,
             global_seed=global_seed,
             base_fingerprint=base_fingerprint,
-            base_training_identity=identity,
+            base_state_fingerprint=base_state_fingerprint,
+            base_run_identity=identity,
+            stage_a_complete_fingerprint=stage_a_complete_fingerprint,
         )
     return result
 
@@ -1205,13 +1404,21 @@ def validate_master_registry_mapping(
         if not _json_equal(master[key], value):
             raise RuntimeError(f"{source} mismatch for {key}")
     seed_count = _integer(master["seed_count"], name=f"{source}.seed_count", minimum=5)
-    gates = _validate_gates(master["preregistered_gates"])
     fixed = _validate_master_fixed_config(master["cross_seed_fixed_config"])
     efficiency = _validate_efficiency_protocol(master["efficiency_protocol"])
+    expected_efficiency = {
+        "device_type": fixed["efficiency_device_type"],
+        "warmup": fixed["efficiency_warmup"],
+        "repetitions": fixed["efficiency_repetitions"],
+    }
+    if not _json_equal(efficiency, expected_efficiency):
+        raise RuntimeError(
+            f"{source}.efficiency_protocol differs from seed registry receipts"
+        )
     seeds = _validate_master_seed_bindings(master["seed_registries"])
     if seed_count != len(seeds):
         raise RuntimeError(f"{source}.seed_count differs from seed_registries")
-    return ValidatedMasterRegistry(gates, fixed, efficiency, seeds)
+    return ValidatedMasterRegistry(fixed, efficiency, seeds)
 
 
 def validate_master_registry(
@@ -1283,12 +1490,8 @@ def _require_unique(
 
 def build_master_registry(
     entries: Mapping[str, LoadedSeedRegistry],
-    *,
-    efficiency_device: str,
-    efficiency_warmup: int,
-    efficiency_repetitions: int,
 ) -> dict[str, Any]:
-    """Build a master preregistration from at least five validated seeds."""
+    """Build a master registry and derive its shared efficiency protocol."""
 
     if len(entries) < MINIMUM_FULL_PIPELINE_SEEDS:
         raise ValueError(
@@ -1303,11 +1506,6 @@ def build_master_registry(
             raise RuntimeError(f"duplicate seed ID {canonical_id!r}")
         canonical_entries[canonical_id] = loaded
 
-    if efficiency_device not in {"cpu", "cuda"}:
-        raise ValueError("efficiency device must be exactly cpu or cuda")
-    _integer(efficiency_warmup, name="efficiency_warmup", minimum=0)
-    _integer(efficiency_repetitions, name="efficiency_repetitions", minimum=1)
-
     _require_unique(canonical_entries, label="registry SHA256", value=lambda item: item.sha256)
     _require_unique(canonical_entries, label="registry path", value=lambda item: item.path)
     for field in UNIQUE_SEED_COMMON_IDENTITY_FIELDS:
@@ -1316,27 +1514,30 @@ def build_master_registry(
             label=field,
             value=lambda item, key=field: item.validated.common_config[key],
         )
-    for stage_id in STAGE_A_VARIANTS:
-        for digest_field in ("protocol_sha256", "decoder_checkpoint_sha256"):
-            _require_unique(
-                canonical_entries,
-                label=f"protocols.{stage_id}.{digest_field}",
-                value=lambda item, sid=stage_id, key=digest_field: (
-                    item.validated.protocols[sid][key]
-                ),
-            )
+    for method_id in STAGE_A_VARIANTS:
+        _require_unique(
+            canonical_entries,
+            label=f"protocols.{method_id}.protocol_fingerprint",
+            value=lambda item, mid=method_id: (
+                item.validated.protocols[mid]["protocol_fingerprint"]
+            ),
+        )
+    for method_id, variant in STAGE_A_VARIANTS.items():
+        if variant is None:
+            continue
+        _require_unique(
+            canonical_entries,
+            label=f"protocols.{method_id}.decoder_artifact_fingerprint",
+            value=lambda item, mid=method_id: (
+                item.validated.protocols[mid]["decoder_artifact_fingerprint"]
+            ),
+        )
 
     ordered_ids = sorted(canonical_entries)
     reference_id = ordered_ids[0]
     reference = canonical_entries[reference_id].validated
     for seed_id in ordered_ids[1:]:
         candidate = canonical_entries[seed_id].validated
-        if not _json_equal(
-            candidate.preregistered_gates, reference.preregistered_gates
-        ):
-            raise RuntimeError(
-                f"preregistered_gates differ across seeds: {reference_id!r} != {seed_id!r}"
-            )
         for field in CROSS_SEED_FIXED_FIELDS:
             if not _json_equal(
                 candidate.common_config[field], reference.common_config[field]
@@ -1357,7 +1558,11 @@ def build_master_registry(
             "registry_sha256": loaded.sha256,
             "global_seed": common["global_seed"],
             "base_fingerprint": common["base_fingerprint"],
-            "base_training_identity": loaded.validated.base_training_identity.to_registry_dict(),
+            "base_state_fingerprint": common["base_state_fingerprint"],
+            "base_run_identity": loaded.validated.base_run_identity.to_registry_dict(),
+            "stage_a_complete_fingerprint": common[
+                "stage_a_complete_fingerprint"
+            ],
         }
 
     master = {
@@ -1369,12 +1574,11 @@ def build_master_registry(
         "thresholds_frozen": True,
         "minimum_full_pipeline_seeds": MINIMUM_FULL_PIPELINE_SEEDS,
         "seed_count": len(seed_map),
-        "preregistered_gates": deepcopy(reference.preregistered_gates),
         "cross_seed_fixed_config": fixed,
         "efficiency_protocol": {
-            "device": efficiency_device,
-            "warmup": efficiency_warmup,
-            "repetitions": efficiency_repetitions,
+            "device_type": reference.common_config["efficiency_device_type"],
+            "warmup": reference.common_config["efficiency_warmup"],
+            "repetitions": reference.common_config["efficiency_repetitions"],
         },
         "seed_registries": seed_map,
     }
@@ -1384,19 +1588,22 @@ def build_master_registry(
 
 
 __all__ = [
-    "BASE_TRAINING_IDENTITY_FIELDS",
+    "BASE_RUN_IDENTITY_FIELDS",
+    "BASE_RUN_UNIQUE_IDENTITY_FIELDS",
     "COMMON_FIELDS",
     "CROSS_SEED_FIXED_FIELDS",
     "CROSS_SEED_VARIABLE_FIELDS",
-    "GATE_FIELDS",
     "MASTER_REGISTRY_SCHEMA_VERSION",
     "METHOD_VERSION",
     "MINIMUM_FULL_PIPELINE_SEEDS",
     "PROTOCOL_ENTRY_FIELDS",
     "SEED_REGISTRY_SCHEMA_VERSION",
+    "STAGE_A_DECODER_VARIANTS",
+    "STAGE_A_EVALUATION_MODES",
+    "STAGE_A_METHOD_ORDER",
     "STAGE_A_VARIANTS",
     "UNIQUE_SEED_COMMON_IDENTITY_FIELDS",
-    "BaseTrainingIdentity",
+    "BaseRunIdentity",
     "LoadedSeedRegistry",
     "LoadedMasterRegistry",
     "SeedRegistryBinding",

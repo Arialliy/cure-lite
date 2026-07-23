@@ -13,7 +13,7 @@ from tools.run_stage_a import _development_mechanism_screen, load_stage_a_config
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
-_FX_PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v1"
+_FX_PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
 
 
 def _metrics(
@@ -47,7 +47,7 @@ def test_decision_rule_is_bound_to_the_active_stage_a_config() -> None:
         "Pd(U) > Pd(F)",
     ]
     assert rule["stage_a_config_sha256"] == hashlib.sha256(config_bytes).hexdigest()
-    with pytest.raises(ValueError, match="differs from the supported rule"):
+    with pytest.raises(ValueError, match="fields are not canonical|differs from"):
         _validate_decision_rule(
             rule,
             dataset="IRSTD-1K",
@@ -114,7 +114,12 @@ def test_next_decision_data_requires_u_to_beat_exposure_matched_control() -> Non
         seed=42,
         stage_config_sha256="a" * 64,
     )
-    assert payload["schema_version"] == "cure-lite-stage-a-decision-rule-v2"
+    assert payload["schema_version"] == "cure-lite-stage-a-decision-rule-v3"
+    assert payload["threshold_selection_rule"] == (
+        "maximize_pd_then_retention_then_minimize_pixel_fa_then_"
+        "raw_background_fa_then_fp_components_per_mp_then_"
+        "maximize_threshold_with_null_as_residual_off-v1"
+    )
     assert payload["method_order"] == ["A", "Base@B", "F", "F×", "U"]
     assert payload["comparators"] == ["Base@B", "F", "F×"]
     assert payload["positive_signal_requires_all"][-1] == "Pd(U) > Pd(F×)"

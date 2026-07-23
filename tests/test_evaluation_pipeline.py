@@ -19,6 +19,10 @@ from cure_lite.experiment.evaluation_pipeline import (
     select_base_threshold_on_d_v,
     select_residual_threshold_on_d_v,
 )
+from cure_lite.metrics import (
+    FORMAL_STAGE_A_METRIC_FIELDS,
+    formal_stage_a_metrics_payload,
+)
 from cure_lite.splits import SplitManifest, SplitRecord
 
 
@@ -41,9 +45,9 @@ def test_gate_2_access_returns_only_d_r_or_d_v() -> None:
     assert [record.sample_id for record in access.records_for("D_V")] == ["dv"]
     with pytest.raises(Gate2SplitAccessError, match="only D_R or D_V"):
         access.records_for("D_B")
-    with pytest.raises(Gate2SplitAccessError, match="D_T is sealed"):
+    with pytest.raises(Gate2SplitAccessError, match="D_T is unavailable"):
         access.records_for("D_T")
-    with pytest.raises(Gate2SplitAccessError, match="D_T is sealed"):
+    with pytest.raises(Gate2SplitAccessError, match="D_T is unavailable"):
         pipeline.development_records(manifest, "D_T")
 
 
@@ -138,6 +142,16 @@ def test_d_v_selection_and_frozen_evaluation_reproves_grid_optimum() -> None:
     assert protocol.budget == budget
     assert len(protocol.sample_tensor_fingerprint) == 64
     assert len(protocol.receipt_fingerprint) == 64
+    formal_metrics = formal_stage_a_metrics_payload(protocol.selected_metrics)
+    assert tuple(formal_metrics) == FORMAL_STAGE_A_METRIC_FIELDS
+    assert {
+        "rmr",
+        "gross_rmr",
+        "net_rmr",
+        "reachable_rmr",
+        "oracle_upper_bound",
+        "overlap_supported_rmr",
+    }.isdisjoint(formal_metrics)
 
     metrics = evaluate_frozen_residual_threshold(
         access,

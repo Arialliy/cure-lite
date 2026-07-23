@@ -1,4 +1,4 @@
-"""Leakage-resistant Gate-2 development calibration boundaries.
+"""Development-only Gate-2 calibration boundaries.
 
 This module deliberately separates three operations:
 
@@ -14,7 +14,7 @@ evaluation wrapper accepts only ``D_V`` and has no threshold-grid argument.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 import hashlib
 import json
 import math
@@ -26,6 +26,7 @@ from torch import Tensor
 from ..calibration import (
     CalibrationSample,
     FalseAlarmBudget,
+    THRESHOLD_SELECTION_RULE,
     evaluate_base_threshold as _evaluate_base_threshold,
     evaluate_residual_threshold as _evaluate_residual_threshold,
     select_base_threshold_at_budget as _select_base_threshold_at_budget,
@@ -34,7 +35,7 @@ from ..calibration import (
 from ..cache.schema import stable_fingerprint
 from ..config import MatchConfig, OccupancyConfig
 from ..decoder import CURELiteDecoder
-from ..metrics import AggregateEvaluation
+from ..metrics import AggregateEvaluation, formal_stage_a_metrics_payload
 from ..occupancy import build_occupancy_batch
 from ..splits import SplitManifest, SplitName, SplitRecord
 from ..types import FrozenBaseOutput
@@ -44,7 +45,7 @@ GATE_2_SPLITS: frozenset[str] = frozenset({"D_R", "D_V"})
 
 
 class Gate2SplitAccessError(RuntimeError):
-    """Raised when code attempts to cross a sealed Gate-2 split boundary."""
+    """Raised when code requests a split unavailable in the current stage."""
 
 
 @dataclass(frozen=True)
@@ -60,7 +61,7 @@ class DevelopmentSplitAccess:
     def records_for(self, split: SplitName | str) -> tuple[SplitRecord, ...]:
         if split == "D_T":
             raise Gate2SplitAccessError(
-                "D_T is sealed and has no access path in the current Gate-2 stage"
+                "D_T is unavailable and has no access path in the current Gate-2 stage"
             )
         if split not in GATE_2_SPLITS:
             raise Gate2SplitAccessError(
@@ -299,10 +300,13 @@ class BoundDVThresholdProtocol:
     budget: FalseAlarmBudget
     selected_threshold: float | None
     selected_metrics: AggregateEvaluation
+    selection_rule: str = THRESHOLD_SELECTION_RULE
 
     def __post_init__(self) -> None:
         if self.variant not in {"residual", "base_at_budget"}:
             raise ValueError("unsupported D_V threshold protocol variant")
+        if self.selection_rule != THRESHOLD_SELECTION_RULE:
+            raise ValueError("unsupported D_V threshold selection rule")
         _digest(self.manifest_fingerprint, name="manifest_fingerprint")
         _digest(self.sample_tensor_fingerprint, name="sample_tensor_fingerprint")
         if (
@@ -358,8 +362,9 @@ class BoundDVThresholdProtocol:
     def receipt_fingerprint(self) -> str:
         return stable_fingerprint(
             {
-                "schema_version": "cure-lite-bound-d-v-threshold-protocol-v1",
+                "schema_version": "cure-lite-bound-d-v-threshold-protocol-v3",
                 "variant": self.variant,
+                "selection_rule": self.selection_rule,
                 "manifest_fingerprint": self.manifest_fingerprint,
                 "ordered_d_v_sample_ids": self.ordered_d_v_sample_ids,
                 "sample_tensor_fingerprint": self.sample_tensor_fingerprint,
@@ -368,7 +373,9 @@ class BoundDVThresholdProtocol:
                 "match_config": self.match_config,
                 "budget": _budget_payload(self.budget),
                 "selected_threshold": self.selected_threshold,
-                "selected_metrics": asdict(self.selected_metrics),
+                "selected_metrics": formal_stage_a_metrics_payload(
+                    self.selected_metrics
+                ),
             }
         )
 

@@ -57,6 +57,28 @@ def _identity_pairs(result: MatchResult) -> tuple[tuple[int, int], ...]:
     return tuple((pair.gt_id, pair.pred_id) for pair in result.pairs)
 
 
+def _full_gt_restores_base_coverage_validated(
+    occupancy_after: Tensor,
+    gt: InstanceMap,
+    gt_id: int,
+    before: MatchResult,
+    match_config: MatchConfig,
+    *,
+    connectivity: int,
+    min_area: int,
+) -> bool:
+    """Run the restoration oracle after structural inputs were validated."""
+
+    oracle_mask = occupancy_after | gt.by_id(gt_id).mask
+    oracle_pred = instances_from_binary_mask(
+        oracle_mask,
+        connectivity=connectivity,
+        min_area=min_area,
+    )
+    oracle_match = match_components(oracle_pred, gt, match_config)
+    return oracle_match.matched_gt_ids == before.matched_gt_ids
+
+
 def full_gt_restores_base_coverage(
     occupancy_after: Tensor,
     gt: InstanceMap,
@@ -88,14 +110,15 @@ def full_gt_restores_base_coverage(
         raise ValueError("before matching is inconsistent with the GT instance map")
 
     occupied = _as_occupancy(occupancy_after, gt.shape)
-    oracle_mask = occupied | gt.by_id(gt_id).mask
-    oracle_pred = instances_from_binary_mask(
-        oracle_mask,
+    return _full_gt_restores_base_coverage_validated(
+        occupied,
+        gt,
+        gt_id,
+        before,
+        match_config,
         connectivity=connectivity,
         min_area=min_area,
     )
-    oracle_match = match_components(oracle_pred, gt, match_config)
-    return oracle_match.matched_gt_ids == before.matched_gt_ids
 
 
 def oracle_restores_base_coverage(
@@ -119,6 +142,64 @@ def oracle_restores_base_coverage(
         connectivity=connectivity,
         min_area=min_area,
     )
+
+
+def _enumerate_legal_deletions_validated(
+    pred: InstanceMap,
+    gt: InstanceMap,
+    before: MatchResult,
+    occupancy: Tensor,
+    *,
+    match_config: MatchConfig,
+    intervention_config: InterventionConfig,
+) -> tuple[LegalDeletion, ...]:
+    """Enumerate candidates after the caller proved base-state consistency."""
+
+    original_misses = set(before.unmatched_gt_ids)
+    original_pairs = set(_identity_pairs(before))
+    legal: list[LegalDeletion] = []
+
+    for pair in before.pairs:
+        pred_after = pred.without(pair.pred_id)
+        occupancy_after = occupancy & (pred.labels != pair.pred_id)
+        if not torch.equal(occupancy_after, pred_after.occupancy):
+            raise AssertionError("component deletion produced inconsistent occupancy")
+        after = match_components(pred_after, gt, match_config)
+
+        # A: exactly the selected GT is added to the original miss set.
+        if set(after.unmatched_gt_ids) != original_misses | {pair.gt_id}:
+            continue
+        # B: every remaining component-target identity is unchanged.
+        expected_after_pairs = original_pairs - {(pair.gt_id, pair.pred_id)}
+        if set(_identity_pairs(after)) != expected_after_pairs:
+            continue
+        # C: the selected target retains at least one residual-writable pixel.
+        target_mask = gt.by_id(pair.gt_id).mask
+        writable_pixels = int(torch.count_nonzero(target_mask & ~occupancy_after))
+        if writable_pixels < intervention_config.min_writable_pixels:
+            continue
+        if not _full_gt_restores_base_coverage_validated(
+            occupancy_after,
+            gt,
+            pair.gt_id,
+            before,
+            match_config,
+            connectivity=8,
+            min_area=1,
+        ):
+            continue
+
+        legal.append(
+            LegalDeletion(
+                gt_id=pair.gt_id,
+                pred_id=pair.pred_id,
+                occupancy_after=occupancy_after,
+                pred_after=pred_after,
+                match_after=after,
+            )
+        )
+
+    return tuple(sorted(legal, key=lambda item: (item.gt_id, item.pred_id)))
 
 
 def enumerate_legal_deletions(
@@ -156,49 +237,11 @@ def enumerate_legal_deletions(
     if before != expected_before:
         raise ValueError("before matching is stale or inconsistent with pred, gt, or match_config")
 
-    original_misses = set(before.unmatched_gt_ids)
-    original_pairs = set(_identity_pairs(before))
-    legal: list[LegalDeletion] = []
-
-    for pair in before.pairs:
-        pred_after = pred.without(pair.pred_id)
-        occupancy_after = occupancy_2d & (pred.labels != pair.pred_id)
-        if not torch.equal(occupancy_after, pred_after.occupancy):
-            raise AssertionError("component deletion produced inconsistent occupancy")
-        after = match_components(pred_after, gt, match_config)
-
-        # A: exactly the selected GT is added to the original miss set.
-        if set(after.unmatched_gt_ids) != original_misses | {pair.gt_id}:
-            continue
-        # B: every remaining component-target identity is unchanged.
-        expected_after_pairs = original_pairs - {(pair.gt_id, pair.pred_id)}
-        if set(_identity_pairs(after)) != expected_after_pairs:
-            continue
-        # C: the selected target retains at least one residual-writable pixel.
-        target_mask = gt.by_id(pair.gt_id).mask
-        writable_pixels = int(torch.count_nonzero(target_mask & ~occupancy_after))
-        if writable_pixels < intervention_config.min_writable_pixels:
-            continue
-        # A writable target is legal only when perfect residual output survives
-        # the complete CC8 + one-to-one matching pipeline and restores exactly
-        # the GT coverage that existed before deletion.
-        if not full_gt_restores_base_coverage(
-            occupancy_after,
-            gt,
-            pair.gt_id,
-            before,
-            match_config,
-        ):
-            continue
-
-        legal.append(
-            LegalDeletion(
-                gt_id=pair.gt_id,
-                pred_id=pair.pred_id,
-                occupancy_after=occupancy_after,
-                pred_after=pred_after,
-                match_after=after,
-            )
-        )
-
-    return tuple(sorted(legal, key=lambda item: (item.gt_id, item.pred_id)))
+    return _enumerate_legal_deletions_validated(
+        pred,
+        gt,
+        before,
+        occupancy_2d,
+        match_config=match_config,
+        intervention_config=intervention_config,
+    )

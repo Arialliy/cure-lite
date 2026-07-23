@@ -23,6 +23,29 @@ from .occupancy import build_occupancy
 
 _VALIDATION_ROLES = frozenset({"D_V", "validation"})
 _UNSET = object()
+THRESHOLD_SELECTION_RULE = (
+    "maximize_pd_then_retention_then_minimize_pixel_fa_then_"
+    "raw_background_fa_then_fp_components_per_mp_then_"
+    "maximize_threshold_with_null_as_residual_off-v1"
+)
+
+
+def threshold_selection_key(
+    threshold: float | None,
+    metrics: AggregateEvaluation,
+) -> tuple[float, float, float, float, float, float]:
+    """Return the single predeclared ordering used by every calibrator."""
+
+    if not isinstance(metrics, AggregateEvaluation):
+        raise TypeError("metrics must be an AggregateEvaluation")
+    return (
+        metrics.pd,
+        metrics.retention,
+        -metrics.pixel_fa,
+        -metrics.raw_background_fa,
+        -metrics.fp_components_per_mp,
+        float("inf") if threshold is None else float(threshold),
+    )
 
 
 def _require_validation(split_role: str) -> None:
@@ -309,12 +332,13 @@ def select_residual_threshold(
 ) -> ThresholdSelection:
     """On D_V, maximize total Pd under every preregistered constraint.
 
-    For one fixed anchor, total Pd and net RMR have the same ordering because
-    the number of anchor-covered and anchor-missed targets is constant.  Pd is
-    nevertheless placed first because it is the standard IRSTD metric; net and
-    gross RMR remain diagnostic tie-breakers.  The explicit null candidate is
-    residual-off and sorts above every numeric threshold when all metric terms
-    tie, avoiding any assumption that numeric ``1.0`` disables the residual.
+    Total object-level Pd is the sole recovery objective.  Ties are resolved
+    conservatively by retaining anchor-covered targets, then by lower standard
+    false-alarm quantities, and finally by the higher threshold.  The explicit
+    null candidate is residual-off and sorts above every numeric threshold when
+    all preceding terms tie, avoiding any assumption that numeric ``1.0``
+    disables the residual.  Custom recovery ratios remain diagnostics only and
+    do not affect model selection.
     """
 
     _require_validation(split_role)
@@ -363,12 +387,7 @@ def select_residual_threshold(
         )
     threshold, metrics = max(
         feasible,
-        key=lambda item: (
-            item[1].pd,
-            item[1].net_rmr,
-            item[1].gross_rmr,
-            float("inf") if item[0] is None else item[0],
-        ),
+        key=lambda item: threshold_selection_key(item[0], item[1]),
     )
     return ThresholdSelection(threshold, metrics, True)
 
@@ -518,7 +537,7 @@ def select_base_threshold_at_budget(
         )
     threshold, metrics = max(
         feasible,
-        key=lambda item: (item[1].pd, item[1].net_rmr, item[0]),
+        key=lambda item: threshold_selection_key(item[0], item[1]),
     )
     return ThresholdSelection(threshold, metrics, True)
 

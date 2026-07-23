@@ -11,7 +11,7 @@ from cure_lite.calibration import (
 )
 from cure_lite.config import MatchConfig, OccupancyConfig
 from cure_lite.stage_a import (
-    BASE_TRAINING_IDENTITY_FIELDS,
+    BASE_RUN_IDENTITY_FIELDS,
     COMMON_FIELDS,
     _validate_common,
 )
@@ -46,17 +46,29 @@ def test_stage_a_registry_rejects_tau_b_above_tau_o() -> None:
     digest_fields = (
         "manifest_fingerprint",
         "base_fingerprint",
-        *BASE_TRAINING_IDENTITY_FIELDS,
+        "base_state_fingerprint",
+        "stage_a_complete_fingerprint",
         "d_v_image_fingerprint",
         "d_v_gt_fingerprint",
-        "d_v_base_cache_provenance_sha256",
-        "d_r_base_cache_provenance_sha256",
-        "d_r_state_cache_provenance_sha256",
+        "d_v_base_cache_index_fingerprint",
+        "d_v_base_cache_index_sha256",
+        "d_r_base_cache_index_fingerprint",
+        "d_r_base_cache_index_sha256",
+        "d_r_state_cache_index_fingerprint",
+        "d_r_state_cache_index_sha256",
         "anchor_protocol_sha256",
         "state_fingerprint",
+        "efficiency_static_fingerprint",
+        "efficiency_receipt_fingerprint",
     )
     for field in digest_fields:
         common[field] = "a" * 64
+    common["base_run_identity"] = {
+        field: (
+            "reference-base-v1" if field == "producer_schema" else "a" * 64
+        )
+        for field in BASE_RUN_IDENTITY_FIELDS
+    }
     common["tau_o"] = 0.5
     common["tau_B"] = 0.6
 

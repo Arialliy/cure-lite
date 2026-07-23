@@ -28,8 +28,10 @@ from .cache_pipeline import LoadedDRCacheBundle
 from .training_pipeline import (
     CachedTrainingSource,
     FixedTrainingLog,
+    PreparedTrainingCatalog,
     TrainingSupportSummary,
-    build_epoch_branch_pools,
+    build_epoch_branch_pools_from_catalog,
+    prepare_training_catalog,
     require_training_branch_support,
     run_fixed_training,
     summarize_training_support,
@@ -92,6 +94,119 @@ class PairedGate2TrainingConfig:
             "factual_no_miss": self.factual_no_miss_batch,
             "synthetic": self.synthetic_batch,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedGate2TrainingSeal:
+    bundle: LoadedDRCacheBundle
+    sources: tuple[CachedTrainingSource, ...]
+    catalog: PreparedTrainingCatalog
+
+
+@dataclass(frozen=True)
+class PreparedGate2Training:
+    """One process-local semantic catalog bound to one verified D_R bundle.
+
+    This is an internal orchestration value rather than a persisted artifact.
+    Object-identity seals prevent a catalog prepared from one loaded bundle
+    from being supplied with another otherwise similar bundle.
+    """
+
+    bundle: LoadedDRCacheBundle
+    sources: tuple[CachedTrainingSource, ...]
+    catalog: PreparedTrainingCatalog
+    _verification_token: object
+
+    def _verify_source_seal(self) -> None:
+        seal = self._verification_token
+        if type(seal) is not _PreparedGate2TrainingSeal:
+            raise TypeError(
+                "PreparedGate2Training must come from prepare_gate2_training"
+            )
+        if (
+            seal.bundle is not self.bundle
+            or seal.sources is not self.sources
+            or seal.catalog is not self.catalog
+        ):
+            raise TypeError("prepared Gate-2 training fields were replaced")
+
+    def __post_init__(self) -> None:
+        self._verify_source_seal()
+        if not isinstance(self.bundle, LoadedDRCacheBundle):
+            raise TypeError("prepared Gate-2 bundle has an invalid type")
+        if not isinstance(self.sources, tuple) or not self.sources:
+            raise ValueError("prepared Gate-2 sources must be a nonempty tuple")
+        if any(
+            not isinstance(source, CachedTrainingSource) for source in self.sources
+        ):
+            raise TypeError("prepared Gate-2 sources contain an invalid value")
+        if not isinstance(self.catalog, PreparedTrainingCatalog):
+            raise TypeError("prepared Gate-2 catalog has an invalid type")
+        self._verify_catalog_binding()
+
+    def _verify_catalog_binding(self) -> None:
+        self.catalog.require_compatible(
+            self.sources,
+            occupancy_config=self.bundle.occupancy_config,
+            match_config=self.bundle.match_config,
+            intervention_config=self.bundle.intervention_config,
+        )
+
+    def verify_binding(self) -> None:
+        """Check process-local identities/configs without rereading cache files."""
+
+        self._verify_source_seal()
+        self._verify_catalog_binding()
+
+    def verify_unchanged(self) -> None:
+        """Strictly rehash the bound files and in-memory source tensors."""
+
+        self.verify_binding()
+        self.bundle.verify_unchanged()
+
+
+def prepare_gate2_training(
+    bundle: LoadedDRCacheBundle,
+) -> PreparedGate2Training:
+    """Prepare invariant semantics exactly once for one loaded D_R bundle."""
+
+    if not isinstance(bundle, LoadedDRCacheBundle):
+        raise TypeError("bundle must be a LoadedDRCacheBundle")
+    bundle.verify_unchanged()
+    sources = _training_sources(bundle)
+    catalog = prepare_training_catalog(
+        sources,
+        occupancy_config=bundle.occupancy_config,
+        match_config=bundle.match_config,
+        intervention_config=bundle.intervention_config,
+    )
+    seal = _PreparedGate2TrainingSeal(
+        bundle=bundle,
+        sources=sources,
+        catalog=catalog,
+    )
+    prepared = PreparedGate2Training(
+        bundle=bundle,
+        sources=sources,
+        catalog=catalog,
+        _verification_token=seal,
+    )
+    prepared.verify_unchanged()
+    return prepared
+
+
+def _resolve_prepared_gate2_training(
+    bundle: LoadedDRCacheBundle,
+    prepared: PreparedGate2Training | None,
+) -> PreparedGate2Training:
+    if prepared is None:
+        return prepare_gate2_training(bundle)
+    if not isinstance(prepared, PreparedGate2Training):
+        raise TypeError("prepared must be PreparedGate2Training or None")
+    prepared.verify_binding()
+    if prepared.bundle is not bundle:
+        raise ValueError("prepared Gate-2 catalog belongs to another D_R bundle")
+    return prepared
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,6 +496,7 @@ def run_paired_gate2_training(
     config: PairedGate2TrainingConfig,
     *,
     device: torch.device | str = "cpu",
+    prepared: PreparedGate2Training | None = None,
 ) -> CompletedPairedGate2Run:
     """Train F, Fx, and U with one D_R bundle and identical initialization."""
 
@@ -389,19 +505,21 @@ def run_paired_gate2_training(
     if not isinstance(config, PairedGate2TrainingConfig):
         raise TypeError("config must be a PairedGate2TrainingConfig")
     resolved_device = torch.device(device)
-    bundle.verify_unchanged()
+    resolved_prepared = _resolve_prepared_gate2_training(bundle, prepared)
+    # One strict check immediately before any optimizer update and one after
+    # the complete paired run are sufficient to prove immutability. Rehashing
+    # the same D_R files after each variant only repeated I/O without changing
+    # the experimental contract.
+    resolved_prepared.verify_unchanged()
     feature_channels = {int(row.base_output.feature.shape[1]) for row in bundle.rows}
     if feature_channels != {config.decoder_config.feature_channels}:
         raise ValueError("decoder feature channels differ from the D_R cache bundle")
-    sources = _training_sources(bundle)
-    support_pools = build_epoch_branch_pools(
-        sources,
+    sources = resolved_prepared.sources
+    support_pools = build_epoch_branch_pools_from_catalog(
+        resolved_prepared.catalog,
         variant="uniform_legal",
         epoch=0,
         global_seed=config.global_seed,
-        occupancy_config=bundle.occupancy_config,
-        match_config=bundle.match_config,
-        intervention_config=bundle.intervention_config,
     )
     require_training_branch_support(support_pools, variant="uniform_legal")
     (
@@ -442,6 +560,7 @@ def run_paired_gate2_training(
             match_config=bundle.match_config,
             intervention_config=bundle.intervention_config,
             training_config=config.training_config,
+            prepared_catalog=resolved_prepared.catalog,
         )
         final_fingerprint = decoder_state_fingerprint(decoder)
         seal = _CompletedRunSeal(
@@ -458,7 +577,6 @@ def run_paired_gate2_training(
             _verification_token=seal,
         )
         outputs[variant].verify_unchanged()
-        bundle.verify_unchanged()
 
     factual_output = outputs["factual_only"]
     exposure_matched_output = outputs["factual_exposure_matched"]
@@ -476,25 +594,28 @@ def run_paired_gate2_training(
         initial_decoder_fingerprint=initial_fingerprint,
         _verification_token=pair_seal,
     )
-    bundle.verify_unchanged()
+    resolved_prepared.verify_unchanged()
     return result
 
 
 def summarize_gate2_training_support(
     bundle: LoadedDRCacheBundle,
+    *,
+    prepared: PreparedGate2Training | None = None,
 ) -> TrainingSupportSummary:
     """Return the revalidated D_R support used by formal paired training."""
 
     if not isinstance(bundle, LoadedDRCacheBundle):
         raise TypeError("bundle must be a LoadedDRCacheBundle")
-    bundle.verify_unchanged()
+    resolved_prepared = _resolve_prepared_gate2_training(bundle, prepared)
     summary = summarize_training_support(
-        _training_sources(bundle),
+        resolved_prepared.sources,
         occupancy_config=bundle.occupancy_config,
         match_config=bundle.match_config,
         intervention_config=bundle.intervention_config,
+        prepared_catalog=resolved_prepared.catalog,
     )
-    bundle.verify_unchanged()
+    resolved_prepared.verify_binding()
     return summary
 
 

@@ -15,6 +15,7 @@ from cure_lite.calibration import FalseAlarmBudget
 from cure_lite.data import ManifestImageDataset, PreprocessConfig
 from cure_lite.experiment.artifacts import load_decoder_artifact
 from cure_lite.experiment.cache_pipeline import (
+    LoadedDRCacheBundle,
     cache_d_r_states,
     cache_manifest_split,
     load_d_r_cache_bundle,
@@ -23,6 +24,7 @@ from cure_lite.experiment.cache_pipeline import (
 from cure_lite.experiment.formal_evaluation import (
     build_loaded_d_v_method_run,
     calibrate_paired_gate2,
+    evaluate_formal_base_threshold,
     evaluate_paired_gate2,
     select_formal_base_threshold,
     select_formal_residual_threshold,
@@ -37,8 +39,10 @@ from cure_lite.experiment.evaluation_pipeline import (
 )
 from cure_lite.experiment.formal_training import (
     PairedGate2TrainingConfig,
+    prepare_gate2_training,
     run_paired_gate2_training,
     save_completed_decoder_run,
+    summarize_gate2_training_support,
 )
 from cure_lite.splits import SplitManifest, SplitRecord
 from cure_lite.toy import ToyFrozenBaseAdapter
@@ -116,6 +120,57 @@ def _d_r_dataset(tmp_path: Path) -> tuple[ManifestImageDataset, str]:
     return dataset, str(manifest_path)
 
 
+def test_prepared_bundle_is_fully_verified_only_at_semantic_boundaries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _ = _d_r_dataset(tmp_path)
+    adapter = ToyFrozenBaseAdapter()
+    base_root = tmp_path / "base"
+    cache_manifest_split(adapter, dataset, "D_R", base_root)
+    state_root = tmp_path / "state"
+    cache_d_r_states(
+        base_root / "index.json",
+        dataset,
+        state_root,
+        expected_base_fingerprint=adapter.fingerprint,
+    )
+    bundle = load_d_r_cache_bundle(
+        state_root / "index.json",
+        dataset,
+        expected_base_fingerprint=adapter.fingerprint,
+    )
+
+    calls = 0
+    original = LoadedDRCacheBundle.verify_unchanged
+
+    def counted(current: LoadedDRCacheBundle) -> None:
+        nonlocal calls
+        calls += 1
+        original(current)
+
+    monkeypatch.setattr(LoadedDRCacheBundle, "verify_unchanged", counted)
+    prepared = prepare_gate2_training(bundle)
+    assert calls == 2  # before and after one-time semantic preparation
+
+    summarize_gate2_training_support(bundle, prepared=prepared)
+    assert calls == 2  # support is already part of the sealed catalog
+
+    run_paired_gate2_training(
+        bundle,
+        PairedGate2TrainingConfig(
+            decoder_config=DecoderConfig(feature_channels=3),
+            optimizer="sgd",
+            learning_rate=1e-3,
+            epochs=1,
+            steps_per_epoch=1,
+            global_seed=17,
+        ),
+        prepared=prepared,
+    )
+    assert calls == 4  # once immediately before training and once after F/Fx/U
+
+
 def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -147,8 +202,44 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     assert anchor.canonical_payload()["selection_rule"] == (
         "max_global_miou_tie_higher_threshold"
     )
+    assert {
+        "rmr",
+        "gross_rmr",
+        "net_rmr",
+        "reachable_rmr",
+        "oracle_upper_bound",
+        "overlap_supported_rmr",
+    }.isdisjoint(anchor.canonical_payload()["selected_metrics"])
     with pytest.raises(TypeError, match="receipt fields were replaced"):
         replace(anchor, candidate_threshold_grid=(0.5,))
+    budget = FalseAlarmBudget(
+        pixel_fa_budget=1.0,
+        component_fa_per_mp_budget=float("inf"),
+        raw_background_fa_budget=1.0,
+        minimum_retention=0.0,
+    )
+    # Base@B is fully selectable and replayable before any decoder training or
+    # artifact exists.  Its receipt binds only the base-run cache provenance.
+    independent_base = select_formal_base_threshold(
+        base_run,
+        [0.3, 0.5],
+        anchor.occupancy_config,
+        anchor.match_config,
+        budget,
+    )
+    assert evaluate_formal_base_threshold(base_run, independent_base) == (
+        independent_base.protocol.selected_metrics
+    )
+    for decoder_field in (
+        "decoder_artifact_fingerprint",
+        "decoder_receipt_sha256",
+        "decoder_state_fingerprint",
+        "decoder_variant",
+        "global_seed",
+    ):
+        assert not hasattr(independent_base, decoder_field)
+    with pytest.raises(TypeError, match="Base@B threshold receipt fields"):
+        replace(independent_base, base_index_sha256="0" * 64)
 
     state_root = tmp_path / "state"
     cache_d_r_states(
@@ -261,18 +352,13 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
                 forged_samples
             ),
         )
-    budget = FalseAlarmBudget(
-        pixel_fa_budget=1.0,
-        component_fa_per_mp_budget=float("inf"),
-        raw_background_fa_budget=1.0,
-        minimum_retention=0.0,
-    )
     mismatched_anchor = select_frozen_anchor(base_run, [0.5], MatchConfig())
     with pytest.raises(
         RuntimeError,
         match="decoder occupancy config differs from frozen tau_o",
     ):
         calibrate_paired_gate2(
+            base_run,
             factual_d_v_run,
             exposure_d_v_run,
             uniform_d_v_run,
@@ -282,6 +368,7 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
             budget=budget,
         )
     calibration = calibrate_paired_gate2(
+        base_run,
         factual_d_v_run,
         exposure_d_v_run,
         uniform_d_v_run,
@@ -291,8 +378,10 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         budget=budget,
     )
     legacy_base = select_formal_base_threshold(
-        factual_d_v_run,
+        base_run,
         [0.3, 0.5],
+        anchor.occupancy_config,
+        anchor.match_config,
         budget,
     )
     legacy_factual = select_formal_residual_threshold(
@@ -311,6 +400,7 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         budget,
     )
     assert calibration.base_at_budget.protocol == legacy_base.protocol
+    assert calibration.base_at_budget == independent_base
     assert calibration.factual_only.protocol == legacy_factual.protocol
     assert (
         calibration.factual_exposure_matched.protocol
@@ -318,6 +408,7 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
     )
     assert calibration.uniform_legal.protocol == legacy_uniform.protocol
     metrics = evaluate_paired_gate2(
+        base_run,
         factual_d_v_run,
         exposure_d_v_run,
         uniform_d_v_run,

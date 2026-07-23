@@ -11,6 +11,8 @@ from cure_lite.experiment.training_pipeline import (
     CachedTrainingSource,
     TrainingSupportRequirements,
     build_epoch_branch_pools,
+    build_epoch_branch_pools_from_catalog,
+    prepare_training_catalog,
     require_training_branch_support,
     run_fixed_training,
     summarize_training_support,
@@ -130,6 +132,43 @@ def test_epoch_pools_share_factual_schedule_and_only_u_has_synthetic() -> None:
         assert example.supervision.branch == "synthetic"
         assert len(example.supervision.positive_gt_ids) == 1
         assert example.supervision.reachable_gt_ids == ()
+
+
+def test_miss_aligned_pool_uses_global_mapping_and_factual_schedule() -> None:
+    sources = _sources()
+    catalog = prepare_training_catalog(sources)
+    reversed_catalog = prepare_training_catalog(tuple(reversed(sources)))
+    assert (
+        catalog.miss_alignment_fingerprint
+        == reversed_catalog.miss_alignment_fingerprint
+    )
+    assert catalog.miss_alignment_summary["aligned_pair_count"] == 1
+    assert catalog.miss_alignment_summary["unique_aligned_legal_targets"] == 1
+
+    pools = build_epoch_branch_pools_from_catalog(
+        catalog,
+        variant="miss_aligned_legal",
+        epoch=3,
+        global_seed=19,
+    )
+    assert len(pools.factual_miss) == len(pools.synthetic) == 1
+    choice = catalog.miss_aligned_choices[0]
+    factual = pools.factual_miss[0]
+    synthetic = pools.synthetic[0]
+    assert choice.factual_identity == (
+        factual.sample_id,
+        factual.supervision.positive_gt_ids[0],
+    )
+    assert synthetic is choice.synthetic_example
+    assert choice.legal_identity == (
+        synthetic.sample_id,
+        synthetic.supervision.positive_gt_ids[0],
+        choice.legal_pred_id,
+    )
+    require_training_branch_support(
+        pools,
+        variant="miss_aligned_legal",
+    )
 
 
 def test_uniform_legal_selector_covers_each_candidate_once_per_cycle() -> None:

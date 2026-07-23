@@ -1,10 +1,15 @@
-"""Provenance-bound paired F/Fx/U training for the Gate-2 CURE-Lite pilot.
+"""Provenance-bound decoder training for the Gate-2 CURE-Lite pilot.
 
 The lower-level training helpers intentionally remain useful for unit tests and
 mechanism studies.  This module is the formal experiment entry point: it only
 accepts a fully verified ``D_R`` cache bundle, creates the decoder, loss, and
 optimizer internally, and forces Factual-only, exposure-matched Factual-only,
 and Uniform-Legal to start from the exact same decoder bytes.
+
+The v0.2 extension deliberately trains only ``miss_aligned_legal`` when an
+immutable completed F/Fx/U trio is supplied.  This preserves the paired
+initialization contract without repeating three 800-epoch reference runs whose
+training semantics did not change.
 """
 
 from __future__ import annotations
@@ -12,21 +17,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 import torch
 
-from ..config import DecoderConfig, LossConfig, TrainingConfig
+from ..cache.schema import stable_fingerprint
+from ..config import (
+    DecoderConfig,
+    LossConfig,
+    MissAlignmentConfig,
+    TrainingConfig,
+)
 from ..decoder import CURELiteDecoder
 from ..losses import CURELiteLoss
 from .artifacts import (
+    DECODER_ARTIFACT_SCHEMA_V2,
+    DECODER_ARTIFACT_SCHEMA_V3,
     DecoderRunConfig,
+    LoadedDecoderArtifact,
     _save_decoder_artifact,
     decoder_state_fingerprint,
 )
 from .cache_pipeline import LoadedDRCacheBundle
 from .training_pipeline import (
     CachedTrainingSource,
+    FixedEpochTrainingLog,
     FixedTrainingLog,
     PreparedTrainingCatalog,
     TrainingSupportSummary,
@@ -94,6 +109,18 @@ class PairedGate2TrainingConfig:
             "factual_no_miss": self.factual_no_miss_batch,
             "synthetic": self.synthetic_batch,
         }
+
+
+@dataclass(frozen=True)
+class MissAlignedGate2TrainingConfig(PairedGate2TrainingConfig):
+    """Frozen v0.2 choices for one M-only extension of completed F/Fx/U."""
+
+    miss_alignment_config: MissAlignmentConfig = MissAlignmentConfig()
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if not isinstance(self.miss_alignment_config, MissAlignmentConfig):
+            raise TypeError("miss_alignment_config must be MissAlignmentConfig")
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,6 +410,230 @@ class CompletedPairedGate2Run:
         self.uniform_legal.verify_unchanged()
 
 
+def _verified_v01_reference_training_fingerprint(
+    factual_only: LoadedDecoderArtifact,
+    factual_exposure_matched: LoadedDecoderArtifact,
+    uniform_legal: LoadedDecoderArtifact,
+) -> str:
+    """Verify and fingerprint one immutable completed v0.1 F/Fx/U trio."""
+
+    references = (
+        factual_only,
+        factual_exposure_matched,
+        uniform_legal,
+    )
+    if any(not isinstance(item, LoadedDecoderArtifact) for item in references):
+        raise TypeError("F/Fx/U references must be LoadedDecoderArtifact values")
+    for item in references:
+        item.verify_unchanged()
+    expected_variants = (
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+    )
+    if tuple(item.config.variant for item in references) != expected_variants:
+        raise ValueError("reference artifacts must be ordered as F/Fx/U")
+    if any(
+        item.config.schema_version != DECODER_ARTIFACT_SCHEMA_V2
+        for item in references
+    ):
+        raise ValueError("M-only extension requires completed v0.1 artifact v2 references")
+    initial_fingerprints = {
+        item.config.initial_decoder_fingerprint for item in references
+    }
+    if len(initial_fingerprints) != 1:
+        raise ValueError("reference F/Fx/U artifacts do not share one initialization")
+
+    common_payloads: list[dict[str, object]] = []
+    for item in references:
+        payload = item.config.canonical_payload()
+        payload.pop("variant")
+        payload.pop("variant_contract")
+        common_payloads.append(payload)
+    if any(payload != common_payloads[0] for payload in common_payloads[1:]):
+        raise ValueError("reference F/Fx/U configs differ outside variant")
+    return stable_fingerprint(
+        {
+            "schema_version": "cure-lite-v01-reference-training-trio-v1",
+            "common_run_config": common_payloads[0],
+            "artifacts": {
+                label: {
+                    "artifact_fingerprint": item.artifact_fingerprint,
+                    "receipt_sha256": item.receipt_sha256,
+                    "decoder_state_fingerprint": (
+                        item.decoder_state_fingerprint
+                    ),
+                    "train_log_fingerprint": item.train_log_fingerprint,
+                }
+                for label, item in zip(
+                    ("F", "F×", "U"),
+                    references,
+                    strict=True,
+                )
+            },
+        }
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _CompletedMissAlignedExtensionSeal:
+    factual_only_reference: LoadedDecoderArtifact
+    factual_exposure_matched_reference: LoadedDecoderArtifact
+    uniform_legal_reference: LoadedDecoderArtifact
+    miss_aligned_legal: CompletedDecoderRun
+    reference_training_fingerprint: str
+    alignment_catalog_fingerprint: str
+
+
+@dataclass(frozen=True)
+class CompletedMissAlignedGate2Extension:
+    """One M run paired to immutable completed v0.1 F/Fx/U references."""
+
+    factual_only_reference: LoadedDecoderArtifact
+    factual_exposure_matched_reference: LoadedDecoderArtifact
+    uniform_legal_reference: LoadedDecoderArtifact
+    miss_aligned_legal: CompletedDecoderRun
+    reference_training_fingerprint: str
+    alignment_catalog_fingerprint: str
+    _verification_token: object
+
+    def _verify_source_seal(self) -> None:
+        seal = self._verification_token
+        if type(seal) is not _CompletedMissAlignedExtensionSeal:
+            raise TypeError(
+                "CompletedMissAlignedGate2Extension must come from the "
+                "formal M-only trainer"
+            )
+        if (
+            seal.factual_only_reference is not self.factual_only_reference
+            or seal.factual_exposure_matched_reference
+            is not self.factual_exposure_matched_reference
+            or seal.uniform_legal_reference is not self.uniform_legal_reference
+            or seal.miss_aligned_legal is not self.miss_aligned_legal
+            or seal.reference_training_fingerprint
+            != self.reference_training_fingerprint
+            or seal.alignment_catalog_fingerprint
+            != self.alignment_catalog_fingerprint
+        ):
+            raise TypeError("completed M-only extension fields were replaced")
+
+    def __post_init__(self) -> None:
+        self._verify_source_seal()
+        self.verify_unchanged()
+
+    @property
+    def extension_fingerprint(self) -> str:
+        return stable_fingerprint(
+            {
+                "schema_version": "cure-lite-miss-aligned-gate2-extension-v1",
+                "reference_training_fingerprint": (
+                    self.reference_training_fingerprint
+                ),
+                "alignment_catalog_fingerprint": (
+                    self.alignment_catalog_fingerprint
+                ),
+                "miss_aligned_config": (
+                    self.miss_aligned_legal.config.canonical_payload()
+                ),
+                "miss_aligned_final_decoder_fingerprint": (
+                    self.miss_aligned_legal.final_decoder_fingerprint
+                ),
+                "miss_aligned_training_log": (
+                    self.miss_aligned_legal.training_log.canonical_epoch_logs()
+                ),
+            }
+        )
+
+    def verify_unchanged(self) -> None:
+        self._verify_source_seal()
+        reference_fingerprint = _verified_v01_reference_training_fingerprint(
+            self.factual_only_reference,
+            self.factual_exposure_matched_reference,
+            self.uniform_legal_reference,
+        )
+        if reference_fingerprint != self.reference_training_fingerprint:
+            raise RuntimeError("completed F/Fx/U references changed")
+        self.miss_aligned_legal.verify_unchanged()
+        config = self.miss_aligned_legal.config
+        if (
+            config.schema_version != DECODER_ARTIFACT_SCHEMA_V3
+            or config.variant != "miss_aligned_legal"
+        ):
+            raise ValueError("extension output is not a v3 miss_aligned_legal run")
+        if config.alignment_catalog_fingerprint != (
+            self.alignment_catalog_fingerprint
+        ):
+            raise ValueError("M config and extension bind different alignment catalogs")
+        if config.initial_decoder_fingerprint != (
+            self.factual_only_reference.config.initial_decoder_fingerprint
+        ):
+            raise ValueError("M and reference F/Fx/U do not share initialization")
+        m_logs = self.miss_aligned_legal.training_log.canonical_epoch_logs()
+        reference_logs = (
+            self.factual_only_reference.epoch_logs,
+            self.factual_exposure_matched_reference.epoch_logs,
+            self.uniform_legal_reference.epoch_logs,
+        )
+        for m_log, f_log, fx_log, u_log in zip(
+            m_logs,
+            *reference_logs,
+            strict=True,
+        ):
+            m_pools = m_log["pool_sizes"]
+            reference_pools = tuple(
+                item["pool_sizes"] for item in (f_log, fx_log, u_log)
+            )
+            for branch in ("factual_miss", "factual_no_miss"):
+                if any(
+                    pools[branch] != m_pools[branch]
+                    for pools in reference_pools
+                ):
+                    raise ValueError(
+                        f"M and reference factual pool sizes differ for {branch}"
+                    )
+            if m_pools["synthetic"] != m_pools["factual_miss"]:
+                raise ValueError(
+                    "M synthetic pool must match its factual-miss pool size"
+                )
+            m_metrics = m_log["metrics"]
+            reference_metrics = tuple(
+                item["metrics"] for item in (f_log, fx_log, u_log)
+            )
+            for branch in ("factual_miss", "factual_no_miss"):
+                for suffix in (
+                    "active",
+                    "active_min",
+                    "active_max",
+                    "states",
+                    "states_min",
+                    "states_max",
+                ):
+                    key = f"{branch}/{suffix}"
+                    if any(
+                        metrics.get(key) != m_metrics.get(key)
+                        for metrics in reference_metrics
+                    ):
+                        raise ValueError(
+                            f"M and reference factual exposure differ for {key}"
+                        )
+            for suffix in (
+                "active",
+                "active_min",
+                "active_max",
+                "states",
+                "states_min",
+                "states_max",
+            ):
+                key = f"synthetic/{suffix}"
+                if (
+                    fx_log["metrics"].get(key) != m_metrics.get(key)
+                    or u_log["metrics"].get(key) != m_metrics.get(key)
+                ):
+                    raise ValueError(
+                        f"M and reference third-slot exposure differ for {key}"
+                    )
+
+
 def _training_sources(bundle: LoadedDRCacheBundle) -> tuple[CachedTrainingSource, ...]:
     return tuple(
         CachedTrainingSource(
@@ -452,6 +703,126 @@ def _run_config(
         factual_no_miss_batch=config.factual_no_miss_batch,
         synthetic_batch=config.synthetic_batch,
     )
+
+
+def _require_v01_references_match_extension(
+    bundle: LoadedDRCacheBundle,
+    config: MissAlignedGate2TrainingConfig,
+    factual_only: LoadedDecoderArtifact,
+    factual_exposure_matched: LoadedDecoderArtifact,
+    uniform_legal: LoadedDecoderArtifact,
+) -> str:
+    reference_fingerprint = _verified_v01_reference_training_fingerprint(
+        factual_only,
+        factual_exposure_matched,
+        uniform_legal,
+    )
+    reference = factual_only.config
+    bundle_bindings = {
+        "manifest_fingerprint": bundle.split_manifest_fingerprint,
+        "manifest_file_sha256": bundle.split_manifest_file_sha256,
+        "preprocessing_fingerprint": bundle.preprocessing_fingerprint,
+        "base_fingerprint": bundle.base_fingerprint,
+        "state_fingerprint": bundle.state_fingerprint,
+        "gt_fingerprint": bundle.gt_fingerprint,
+        "base_index_fingerprint": bundle.base_index_fingerprint,
+        "base_index_sha256": bundle.base_index_sha256,
+        "state_index_fingerprint": bundle.state_index_fingerprint,
+        "state_index_sha256": bundle.state_index_sha256,
+    }
+    for name, expected in bundle_bindings.items():
+        if getattr(reference, name) != expected:
+            raise ValueError(f"reference F/Fx/U {name} differs from D_R bundle")
+    if (
+        reference.occupancy_config != bundle.occupancy_config
+        or reference.match_config != bundle.match_config
+        or reference.intervention_config != bundle.intervention_config
+    ):
+        raise ValueError("reference F/Fx/U semantic configs differ from D_R bundle")
+    requested_bindings = {
+        "decoder_config": config.decoder_config,
+        "loss_config": config.loss_config,
+        "training_config": config.training_config,
+        "optimizer": config.optimizer,
+        "learning_rate": config.learning_rate,
+        "weight_decay": config.weight_decay,
+        "trained_epochs": config.epochs,
+        "steps_per_epoch": config.steps_per_epoch,
+        "factual_miss_batch": config.factual_miss_batch,
+        "factual_no_miss_batch": config.factual_no_miss_batch,
+        "synthetic_batch": config.synthetic_batch,
+        "global_seed": config.global_seed,
+    }
+    for name, expected in requested_bindings.items():
+        if getattr(reference, name) != expected:
+            raise ValueError(
+                f"M training request differs from completed F/Fx/U at {name}"
+            )
+    return reference_fingerprint
+
+
+def _miss_aligned_run_config(
+    bundle: LoadedDRCacheBundle,
+    config: MissAlignedGate2TrainingConfig,
+    *,
+    initial_decoder_fingerprint: str,
+    alignment_catalog_fingerprint: str,
+) -> DecoderRunConfig:
+    return DecoderRunConfig(
+        variant="miss_aligned_legal",
+        manifest_fingerprint=bundle.split_manifest_fingerprint,
+        manifest_file_sha256=bundle.split_manifest_file_sha256,
+        preprocessing_fingerprint=bundle.preprocessing_fingerprint,
+        base_fingerprint=bundle.base_fingerprint,
+        state_fingerprint=bundle.state_fingerprint,
+        gt_fingerprint=bundle.gt_fingerprint,
+        base_index_fingerprint=bundle.base_index_fingerprint,
+        base_index_sha256=bundle.base_index_sha256,
+        state_index_fingerprint=bundle.state_index_fingerprint,
+        state_index_sha256=bundle.state_index_sha256,
+        initial_decoder_fingerprint=initial_decoder_fingerprint,
+        occupancy_config=bundle.occupancy_config,
+        match_config=bundle.match_config,
+        intervention_config=bundle.intervention_config,
+        global_seed=config.global_seed,
+        trained_epochs=config.epochs,
+        steps_per_epoch=config.steps_per_epoch,
+        decoder_config=config.decoder_config,
+        loss_config=config.loss_config,
+        training_config=config.training_config,
+        optimizer=config.optimizer,
+        learning_rate=config.learning_rate,
+        weight_decay=config.weight_decay,
+        factual_miss_batch=config.factual_miss_batch,
+        factual_no_miss_batch=config.factual_no_miss_batch,
+        synthetic_batch=config.synthetic_batch,
+        schema_version=DECODER_ARTIFACT_SCHEMA_V3,
+        miss_alignment_config=config.miss_alignment_config,
+        alignment_catalog_fingerprint=alignment_catalog_fingerprint,
+    )
+
+
+def _fresh_single_decoder(
+    config: DecoderConfig,
+    *,
+    global_seed: int,
+    expected_initial_fingerprint: str,
+    device: torch.device,
+) -> tuple[CURELiteDecoder, str]:
+    if device.type == "meta":
+        raise ValueError("formal training cannot run on the meta device")
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(global_seed)
+        decoder = CURELiteDecoder(config)
+    initial_fingerprint = decoder_state_fingerprint(decoder)
+    if initial_fingerprint != expected_initial_fingerprint:
+        raise RuntimeError(
+            "deterministic M initialization differs from completed F/Fx/U"
+        )
+    decoder.to(device)
+    if decoder_state_fingerprint(decoder) != initial_fingerprint:
+        raise RuntimeError("moving the M decoder changed its initialization")
+    return decoder, initial_fingerprint
 
 
 def _fresh_paired_decoders(
@@ -598,6 +969,130 @@ def run_paired_gate2_training(
     return result
 
 
+def run_miss_aligned_gate2_extension(
+    bundle: LoadedDRCacheBundle,
+    config: MissAlignedGate2TrainingConfig,
+    *,
+    factual_only_reference: LoadedDecoderArtifact,
+    factual_exposure_matched_reference: LoadedDecoderArtifact,
+    uniform_legal_reference: LoadedDecoderArtifact,
+    device: torch.device | str = "cpu",
+    prepared: PreparedGate2Training | None = None,
+    training_progress: Callable[[FixedEpochTrainingLog], None] | None = None,
+) -> CompletedMissAlignedGate2Extension:
+    """Train only M while binding it to completed immutable F/Fx/U references."""
+
+    if not isinstance(bundle, LoadedDRCacheBundle):
+        raise TypeError("bundle must be a LoadedDRCacheBundle")
+    if not isinstance(config, MissAlignedGate2TrainingConfig):
+        raise TypeError("config must be a MissAlignedGate2TrainingConfig")
+    if training_progress is not None and not callable(training_progress):
+        raise TypeError("training_progress must be callable or None")
+    resolved_device = torch.device(device)
+    resolved_prepared = _resolve_prepared_gate2_training(bundle, prepared)
+    resolved_prepared.catalog.require_compatible(
+        resolved_prepared.sources,
+        occupancy_config=bundle.occupancy_config,
+        match_config=bundle.match_config,
+        intervention_config=bundle.intervention_config,
+        miss_alignment_config=config.miss_alignment_config,
+    )
+    resolved_prepared.verify_unchanged()
+    reference_fingerprint = _require_v01_references_match_extension(
+        bundle,
+        config,
+        factual_only_reference,
+        factual_exposure_matched_reference,
+        uniform_legal_reference,
+    )
+    feature_channels = {int(row.base_output.feature.shape[1]) for row in bundle.rows}
+    if feature_channels != {config.decoder_config.feature_channels}:
+        raise ValueError("decoder feature channels differ from the D_R cache bundle")
+    support_pools = build_epoch_branch_pools_from_catalog(
+        resolved_prepared.catalog,
+        variant="miss_aligned_legal",
+        epoch=0,
+        global_seed=config.global_seed,
+    )
+    require_training_branch_support(
+        support_pools,
+        variant="miss_aligned_legal",
+    )
+    alignment_fingerprint = (
+        resolved_prepared.catalog.miss_alignment_fingerprint
+    )
+    decoder, initial_fingerprint = _fresh_single_decoder(
+        config.decoder_config,
+        global_seed=config.global_seed,
+        expected_initial_fingerprint=(
+            factual_only_reference.config.initial_decoder_fingerprint
+        ),
+        device=resolved_device,
+    )
+    run_config = _miss_aligned_run_config(
+        bundle,
+        config,
+        initial_decoder_fingerprint=initial_fingerprint,
+        alignment_catalog_fingerprint=alignment_fingerprint,
+    )
+    log = run_fixed_training(
+        decoder,
+        CURELiteLoss(config.loss_config).to(resolved_device),
+        _optimizer(decoder, config),
+        resolved_prepared.sources,
+        variant="miss_aligned_legal",
+        epochs=config.epochs,
+        steps_per_epoch=config.steps_per_epoch,
+        branch_batch_sizes=config.branch_batch_sizes,
+        global_seed=config.global_seed,
+        device=resolved_device,
+        occupancy_config=bundle.occupancy_config,
+        match_config=bundle.match_config,
+        intervention_config=bundle.intervention_config,
+        miss_alignment_config=config.miss_alignment_config,
+        training_config=config.training_config,
+        prepared_catalog=resolved_prepared.catalog,
+        progress=training_progress,
+    )
+    final_fingerprint = decoder_state_fingerprint(decoder)
+    run_seal = _CompletedRunSeal(
+        decoder=decoder,
+        config=run_config,
+        training_log=log,
+        final_decoder_fingerprint=final_fingerprint,
+    )
+    completed_m = CompletedDecoderRun(
+        decoder=decoder,
+        config=run_config,
+        training_log=log,
+        final_decoder_fingerprint=final_fingerprint,
+        _verification_token=run_seal,
+    )
+    extension_seal = _CompletedMissAlignedExtensionSeal(
+        factual_only_reference=factual_only_reference,
+        factual_exposure_matched_reference=(
+            factual_exposure_matched_reference
+        ),
+        uniform_legal_reference=uniform_legal_reference,
+        miss_aligned_legal=completed_m,
+        reference_training_fingerprint=reference_fingerprint,
+        alignment_catalog_fingerprint=alignment_fingerprint,
+    )
+    result = CompletedMissAlignedGate2Extension(
+        factual_only_reference=factual_only_reference,
+        factual_exposure_matched_reference=(
+            factual_exposure_matched_reference
+        ),
+        uniform_legal_reference=uniform_legal_reference,
+        miss_aligned_legal=completed_m,
+        reference_training_fingerprint=reference_fingerprint,
+        alignment_catalog_fingerprint=alignment_fingerprint,
+        _verification_token=extension_seal,
+    )
+    resolved_prepared.verify_unchanged()
+    return result
+
+
 def summarize_gate2_training_support(
     bundle: LoadedDRCacheBundle,
     *,
@@ -639,7 +1134,10 @@ def save_completed_decoder_run(
 
 
 __all__ = [
+    "CompletedMissAlignedGate2Extension",
+    "MissAlignedGate2TrainingConfig",
     "PairedGate2TrainingConfig",
+    "run_miss_aligned_gate2_extension",
     "run_paired_gate2_training",
     "save_completed_decoder_run",
     "summarize_gate2_training_support",

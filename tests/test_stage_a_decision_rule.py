@@ -13,7 +13,13 @@ from tools.run_stage_a import _development_mechanism_screen, load_stage_a_config
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
-_FX_PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
+_FX_PROTOCOL = _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v3"
+_FX_S43_PROTOCOL = (
+    _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v3_s43"
+)
+_FAILED_FX_V2_PROTOCOL = (
+    _ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
+)
 
 
 def _metrics(
@@ -128,6 +134,8 @@ def test_next_decision_data_requires_u_to_beat_exposure_matched_control() -> Non
 def test_five_way_protocol_config_and_decision_rule_are_bound() -> None:
     config_path = _FX_PROTOCOL / "stage_a_config.json"
     config = load_stage_a_config(config_path)
+    assert config.training.epochs == 800
+    assert config.training.steps_per_epoch == 40
     assert config.canonical_payload()["method_contract"]["method_order"] == [
         "A",
         "Base@B",
@@ -142,5 +150,46 @@ def test_five_way_protocol_config_and_decision_rule_are_bound() -> None:
     assert rule == stage_a_decision_rule_payload(
         dataset="IRSTD-1K",
         seed=42,
+        stage_config_sha256=config_sha256,
+    )
+
+
+def test_fx_v3_changes_only_the_declared_decoder_horizon() -> None:
+    active = json.loads(
+        (_FX_PROTOCOL / "stage_a_config.json").read_text(encoding="utf-8")
+    )
+    failed = json.loads(
+        (_FAILED_FX_V2_PROTOCOL / "stage_a_config.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert failed["training"]["epochs"] == 20
+    assert active["training"]["epochs"] == 800
+    active["training"]["epochs"] = failed["training"]["epochs"]
+    assert active == failed
+
+
+def test_seed43_protocol_changes_only_the_training_seed() -> None:
+    seed42_path = _FX_PROTOCOL / "stage_a_config.json"
+    seed43_path = _FX_S43_PROTOCOL / "stage_a_config.json"
+    seed42 = json.loads(seed42_path.read_text(encoding="utf-8"))
+    seed43 = json.loads(seed43_path.read_text(encoding="utf-8"))
+    assert seed42["training"]["global_seed"] == 42
+    assert seed43["training"]["global_seed"] == 43
+    seed43["training"]["global_seed"] = seed42["training"]["global_seed"]
+    assert seed43 == seed42
+
+    config = load_stage_a_config(seed43_path)
+    assert config.training.epochs == 800
+    assert config.training.steps_per_epoch == 40
+    config_sha256 = hashlib.sha256(seed43_path.read_bytes()).hexdigest()
+    rule = json.loads(
+        (_FX_S43_PROTOCOL / "stage_a_decision_rule.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert rule == stage_a_decision_rule_payload(
+        dataset="IRSTD-1K",
+        seed=43,
         stage_config_sha256=config_sha256,
     )

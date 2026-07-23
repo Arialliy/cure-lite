@@ -70,34 +70,46 @@ def instances_from_binary_mask(
 
     binary = _as_cpu_bool_2d(mask)
     height, width = binary.shape
-    visited = torch.zeros_like(binary)
     components: list[tuple[tuple[float, float, float, float], tuple[tuple[int, int], ...]]] = []
 
-    # Row-major discovery is deterministic; the explicit final sort below is
-    # still retained because it is part of the public ID contract.
-    for y0 in range(height):
-        for x0 in range(width):
-            if not bool(binary[y0, x0]) or bool(visited[y0, x0]):
-                continue
-            visited[y0, x0] = True
-            queue: deque[tuple[int, int]] = deque([(y0, x0)])
-            pixels: list[tuple[int, int]] = []
-            while queue:
-                y, x = queue.popleft()
-                pixels.append((y, x))
-                for ny, nx in _neighbours(y, x, height, width, connectivity):
-                    if bool(binary[ny, nx]) and not bool(visited[ny, nx]):
-                        visited[ny, nx] = True
-                        queue.append((ny, nx))
-            if len(pixels) < min_area:
-                continue
-            ys = [pixel[0] for pixel in pixels]
-            xs = [pixel[1] for pixel in pixels]
-            ymin, xmin = min(ys), min(xs)
-            cy = sum(ys) / len(ys)
-            cx = sum(xs) / len(xs)
-            key = (float(ymin), float(xmin), float(cy), float(cx))
-            components.append((key, tuple(pixels)))
+    # Enumerating only foreground indices avoids a Python scalar conversion for
+    # every background pixel.  The flattened indices are explicitly sorted so
+    # discovery remains exactly row-major.  ``remaining`` simultaneously
+    # records foreground membership and the visited state; neighbour order and
+    # therefore component construction are unchanged.
+    foreground = [
+        int(value)
+        for value in torch.nonzero(
+            binary.reshape(-1),
+            as_tuple=False,
+        ).reshape(-1).tolist()
+    ]
+    foreground.sort()
+    remaining = set(foreground)
+    for flat0 in foreground:
+        if flat0 not in remaining:
+            continue
+        remaining.remove(flat0)
+        y0, x0 = divmod(flat0, width)
+        queue: deque[tuple[int, int]] = deque([(y0, x0)])
+        pixels: list[tuple[int, int]] = []
+        while queue:
+            y, x = queue.popleft()
+            pixels.append((y, x))
+            for ny, nx in _neighbours(y, x, height, width, connectivity):
+                neighbour = ny * width + nx
+                if neighbour in remaining:
+                    remaining.remove(neighbour)
+                    queue.append((ny, nx))
+        if len(pixels) < min_area:
+            continue
+        ys = [pixel[0] for pixel in pixels]
+        xs = [pixel[1] for pixel in pixels]
+        ymin, xmin = min(ys), min(xs)
+        cy = sum(ys) / len(ys)
+        cx = sum(xs) / len(xs)
+        key = (float(ymin), float(xmin), float(cy), float(cx))
+        components.append((key, tuple(pixels)))
 
     components.sort(key=lambda item: item[0])
     labels = torch.zeros((height, width), dtype=torch.int64)

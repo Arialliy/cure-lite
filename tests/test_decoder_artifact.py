@@ -6,14 +6,18 @@ import json
 import pytest
 import torch
 
+from cure_lite.cache.schema import stable_fingerprint
 from cure_lite.config import (
     DecoderConfig,
     InterventionConfig,
     MatchConfig,
+    MissAlignmentConfig,
     OccupancyConfig,
 )
 from cure_lite.decoder import CURELiteDecoder
 from cure_lite.experiment.artifacts import (
+    DECODER_ARTIFACT_SCHEMA_V2,
+    DECODER_ARTIFACT_SCHEMA_V3,
     DecoderRunConfig,
     _save_decoder_artifact,
     decoder_state_fingerprint,
@@ -42,6 +46,19 @@ def _config() -> DecoderRunConfig:
         trained_epochs=2,
         steps_per_epoch=3,
         decoder_config=DecoderConfig(feature_channels=3),
+    )
+
+
+def _v3_config(
+    *,
+    variant: str = "miss_aligned_legal",
+) -> DecoderRunConfig:
+    return replace(
+        _config(),
+        schema_version=DECODER_ARTIFACT_SCHEMA_V3,
+        variant=variant,
+        miss_alignment_config=MissAlignmentConfig(),
+        alignment_catalog_fingerprint="c" * 64,
     )
 
 
@@ -352,3 +369,126 @@ def test_decoder_artifact_enforces_variant_exposure_contracts(tmp_path) -> None:
             factual_config,
             factual_logs,
         )
+
+
+def test_v2_payload_and_contract_remain_backward_compatible() -> None:
+    config = _config()
+    payload = config.canonical_payload()
+
+    assert config.schema_version == DECODER_ARTIFACT_SCHEMA_V2
+    assert "miss_alignment_config" not in payload
+    assert "alignment_catalog_fingerprint" not in payload
+    assert DecoderRunConfig.from_mapping(payload) == config
+    assert replace(
+        config,
+        variant="factual_exposure_matched",
+    ).variant_contract["matched_reference_variant"] == "uniform_legal"
+
+    with pytest.raises(ValueError, match="variant"):
+        replace(config, variant="miss_aligned_legal")
+    with pytest.raises(ValueError, match="cannot bind miss_alignment_config"):
+        replace(config, miss_alignment_config=MissAlignmentConfig())
+
+
+def test_v3_accepts_exact_four_variants_and_binds_alignment_catalog() -> None:
+    expected_variants = {
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+        "miss_aligned_legal",
+    }
+    for variant in expected_variants:
+        config = _v3_config(variant=variant)
+        payload = config.canonical_payload()
+        assert payload["schema_version"] == DECODER_ARTIFACT_SCHEMA_V3
+        assert payload["miss_alignment_config"] == {
+            "policy": MissAlignmentConfig().policy,
+            "distance_quantization": 1_000_000,
+        }
+        assert payload["alignment_catalog_fingerprint"] == "c" * 64
+        assert DecoderRunConfig.from_mapping(payload) == config
+
+    fx_contract = _v3_config(
+        variant="factual_exposure_matched"
+    ).variant_contract
+    assert fx_contract["matched_reference_variant"] == "miss_aligned_legal"
+    assert (
+        _v3_config().variant_contract["third_loss_slot_source"]
+        == "miss_aligned_legal_deletion"
+    )
+    assert _v3_config().variant_contract["deletion_intervention_used"] is True
+
+    with pytest.raises(TypeError, match="requires MissAlignmentConfig"):
+        replace(
+            _config(),
+            schema_version=DECODER_ARTIFACT_SCHEMA_V3,
+        )
+    with pytest.raises(ValueError, match="alignment_catalog_fingerprint"):
+        replace(
+            _config(),
+            schema_version=DECODER_ARTIFACT_SCHEMA_V3,
+            miss_alignment_config=MissAlignmentConfig(),
+            alignment_catalog_fingerprint="not-a-digest",
+        )
+
+
+def test_v3_miss_aligned_artifact_round_trip_uses_its_own_schema(
+    tmp_path,
+) -> None:
+    config = _v3_config()
+    directory = tmp_path / "miss-aligned"
+    fingerprint = _save_decoder_artifact(
+        directory,
+        CURELiteDecoder(feature_channels=3),
+        config,
+        _logs(),
+    )
+
+    receipt = json.loads(
+        (directory / "receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt["schema_version"] == DECODER_ARTIFACT_SCHEMA_V3
+    assert (
+        receipt["run_config"]["schema_version"]
+        == DECODER_ARTIFACT_SCHEMA_V3
+    )
+    loaded = load_decoder_artifact(directory, expected_config=config)
+    assert loaded.artifact_fingerprint == fingerprint
+    assert loaded.config.miss_alignment_config == MissAlignmentConfig()
+    assert loaded.config.alignment_catalog_fingerprint == "c" * 64
+    loaded.verify_unchanged()
+
+    missing_pool = json.loads(json.dumps(_logs()))
+    missing_pool[0]["pool_sizes"]["synthetic"] = 0
+    with pytest.raises(ValueError, match="M logs require"):
+        _save_decoder_artifact(
+            tmp_path / "missing-m-pool",
+            CURELiteDecoder(feature_channels=3),
+            config,
+            missing_pool,
+        )
+
+
+def test_v3_loader_rejects_receipt_run_config_schema_disagreement(
+    tmp_path,
+) -> None:
+    directory = tmp_path / "schema-mismatch"
+    _save_decoder_artifact(
+        directory,
+        CURELiteDecoder(feature_channels=3),
+        _v3_config(),
+        _logs(),
+    )
+    receipt_path = directory / "receipt.json"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["schema_version"] = DECODER_ARTIFACT_SCHEMA_V2
+    receipt_core = {
+        key: value
+        for key, value in receipt.items()
+        if key != "artifact_fingerprint"
+    }
+    receipt["artifact_fingerprint"] = stable_fingerprint(receipt_core)
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="schemas differ"):
+        load_decoder_artifact(directory)

@@ -1,0 +1,30 @@
+{
+  "complete_receipt_present": false,
+  "decoder_directory_present": false,
+  "failure_class": "cuda_runtime_initialization_failure",
+  "failure_location": "cure_lite/experiment/formal_training.py:_fresh_paired_decoders:factual.to(device)",
+  "failure_time_utc": "2026-07-23T04:11:38.632324Z",
+  "frozen_stage_a_service_invocation_id": "56482eb92ca74515bd69d338837ab9b8",
+  "output": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v2",
+  "output_incomplete_marker_present": true,
+  "protocol_artifact_sha256": {
+    "protocol_freeze.json": "e4f61c0d3706f438e4dc44b50ac8041be3033db13a962289dd6853812bfd318e",
+    "stage_a_config.json": "b904de307f209fec148cd0c69da49459cf03daa1ecfa73467ff1ec3b795447d1",
+    "stage_a_decision_rule.json": "3f9ed6d8b6a33541dfdc4399f4d8a7525139d6fdc2ded796977da9154b0dd4e0"
+  },
+  "protocol_instance": "stage_a_seed42_fx_v2",
+  "receipt_sha256": {
+    "anchor.json": "9e717b1441b9543df088662605b8f67183503afeb75af4d9def6d9a1698b1e23",
+    "config.json": "fdca19a5ef9500313884c1398a5e5cc6f3713e49ae6a6771629a808cf074e4cc",
+    "support.json": "91cc8751b50b07d65f8b98b655cafb47f945f40e2b62c1ea0a706949fe4989ed"
+  },
+  "resume_allowed": false,
+  "runtime_error": "CUDA unknown error; CUDA reported zero available devices",
+  "schema_version": "cure-lite-stage-a-failure-record-v1",
+  "scientific_result_available": false,
+  "stage_internal_artifacts_reusable": false,
+  "systemd_invocation_id": "1c9fa56f3d8f472c8cdd7f559bcb4d57",
+  "training_updates_completed": 0,
+  "wrapper_end_time_utc": "2026-07-23T04:11:39.491356Z",
+  "wrapper_return_code": 1
+}

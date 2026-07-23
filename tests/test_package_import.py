@@ -27,6 +27,7 @@ _EXPECTED_PUBLIC_API = {
     "LossConfig",
     "MatchConfig",
     "MatchResult",
+    "MissAlignmentConfig",
     "OccupancyConfig",
     "StateExample",
     "ThresholdSelection",
@@ -38,10 +39,12 @@ _EXPECTED_PUBLIC_API = {
     "build_synthetic_supervision",
     "choose_uniform_factual_gt_id",
     "choose_uniform_legal_deletion",
+    "choose_miss_aligned_legal_identity",
     "enumerate_legal_deletions",
     "instances_from_binary_mask",
     "iter_fixed_branch_batches",
     "match_components",
+    "miss_alignment_descriptor",
     "run_training_epoch",
     "select_anchor_threshold_by_miou",
     "select_residual_threshold",
@@ -52,8 +55,13 @@ _EXPECTED_EXPERIMENT_API = {
     "CalibratedCURELiteModel",
     "CalibratedDeploymentReceipt",
     "EfficiencyBinding",
+    "CompletedMissAlignedGate2Extension",
     "LoadedStageARun",
+    "MissAlignedGate2TrainingConfig",
     "PairedGate2TrainingConfig",
+    "PublishedStageAMExtension",
+    "STAGE_A_M_METHOD_ORDER",
+    "StageAReferenceSnapshot",
     "StageARunConfig",
     "StageAEfficiencyReceipt",
     "TrainingSupportRequirements",
@@ -70,11 +78,14 @@ _EXPECTED_EXPERIMENT_API = {
     "load_d_v_cache_bundle",
     "load_decoder_artifact",
     "load_stage_a_run",
+    "load_stage_a_reference_snapshot",
     "measure_stage_a_efficiency",
     "materialize_base_cache_bundle",
     "run_paired_gate2_training",
+    "run_miss_aligned_gate2_extension",
     "replay_static_efficiency",
     "run_stage_a",
+    "run_stage_a_m_extension",
     "run_stage_a_from_base_caches",
     "save_completed_decoder_run",
     "summarize_gate2_training_support",
@@ -85,6 +96,13 @@ def test_installed_package_resolves_to_nested_source_tree() -> None:
     repository_root = Path(__file__).resolve().parents[1]
     package_root = repository_root / "cure_lite"
     assert Path(cure_lite.__file__).resolve() == package_root / "__init__.py"
+
+
+def test_package_version_matches_project_metadata() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    project = (repository_root / "pyproject.toml").read_text(encoding="utf-8")
+    assert cure_lite.__version__ == "0.2.0"
+    assert 'version = "0.2.0"' in project
 
 
 def test_public_api_is_unique_resolvable_and_contains_main_lite_types() -> None:
@@ -112,9 +130,13 @@ def test_public_root_does_not_import_adapter_specific_or_future_namespaces() -> 
     assert all(token not in root_source for token in forbidden)
 
 
-def test_experiment_api_exposes_only_the_paired_gate_2_route() -> None:
+def test_experiment_api_exposes_paired_v01_and_m_only_v02_routes() -> None:
     assert set(cure_experiment.__all__) == _EXPECTED_EXPERIMENT_API
     assert all(hasattr(cure_experiment, name) for name in _EXPECTED_EXPERIMENT_API)
     assert not hasattr(cure_experiment, "save_decoder_artifact")
     assert not hasattr(cure_experiment, "select_formal_residual_threshold")
     assert not hasattr(cure_experiment, "evaluate_formal_base_threshold")
+    assert not hasattr(cure_experiment, "prepare_gate2_training")
+    assert not hasattr(cure_lite, "miss_alignment_descriptors")
+    assert not hasattr(cure_lite, "positive_region_feature_rms_many")
+    assert not hasattr(cure_lite, "quantized_miss_alignment_distance")

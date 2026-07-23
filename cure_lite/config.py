@@ -81,6 +81,39 @@ class InterventionConfig:
             raise ValueError("CURE-Lite v0.1 fixes min_writable_pixels at 1")
 
 
+MISS_ALIGNMENT_POLICY = (
+    "global-decoder-visible-positive-region-log1p-feature-rms-nearest-v1"
+)
+
+
+@dataclass(frozen=True)
+class MissAlignmentConfig:
+    """Frozen target-state alignment rule for CURE-Lite v0.2.
+
+    The policy deliberately exposes no tunable neighbourhood size, temperature,
+    or fallback.  It maps each reachable factual miss to the globally nearest
+    decoder-visible legal intervention using only the frozen feature RMS over
+    the positive supervision region.
+    """
+
+    policy: str = MISS_ALIGNMENT_POLICY
+    distance_quantization: int = 1_000_000
+
+    def __post_init__(self) -> None:
+        if self.policy != MISS_ALIGNMENT_POLICY:
+            raise ValueError(
+                "CURE-Lite v0.2 fixes the miss-alignment policy"
+            )
+        _positive_integer(
+            "distance_quantization",
+            self.distance_quantization,
+        )
+        if self.distance_quantization != 1_000_000:
+            raise ValueError(
+                "CURE-Lite v0.2 fixes distance_quantization at 1000000"
+            )
+
+
 @dataclass(frozen=True)
 class DecoderConfig:
     """Frozen residual-decoder topology, parameterized only by input channels."""

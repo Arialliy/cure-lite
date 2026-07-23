@@ -1,0 +1,29 @@
+{
+  "assessment_output": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3.assessment.json",
+  "assessment_service_invocation_id": "2b2a90dd902f40b5a69e271c473c22db",
+  "assessment_tool_sha256": "cc4626a0c18f314173a3d3122613bf143a035a24f3a8b1af50bcf0eed8196591",
+  "base_training_config_sha256": "de04342a26f7d42ae670a5e2b120b9eb94f64b75be74bc23bb55c7b67f17f7ac",
+  "build_record_sha256": "d111ecb84c829f3df62cab6d4b4d7ec6bc60cc3b0b01540fd0df6ca4820a376c",
+  "cache_output": "runs/irstd1k_stage_a_seed42/reference_base_cache_fx_v2",
+  "decision_rule_sha256": "22e728ccfc930a02061d63822b7dbd6d59f9119396258786a8f26ecb2bdab5c3",
+  "frozen_at_utc": "2026-07-23T08:34:56Z",
+  "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+  "manifest_fingerprint": "87d63d1a6aa1414c06dc08cdb5547080a18cd54baf08e72cd5a77175758e1820",
+  "method_source_tree_digest": "3954aae1b548c1c484b6490c436315961840705844b4c0e9a520ea1db633e042",
+  "reference_base_output": "runs/irstd1k_stage_a_seed42/reference_base_v1",
+  "reference_base_source_sha256": "ffe85388dac89870803b791e3f36166b8ba7f6dfd8a5227679e41676b45fd8a9",
+  "reference_service_invocation_id": "f4115d56bae340029f6977dd813c9c47",
+  "run_tool_sha256": "3029e22414511be8ef8d09954b4172edf8830c8ba8a16f714817e32e306455f6",
+  "runtime_python_environment": "/home/md0/ly/MSHNet/.venv/bin/python",
+  "runtime_splits": [
+    "D_B",
+    "D_R",
+    "D_V"
+  ],
+  "schema_version": "cure-lite-stage-a-protocol-freeze-v2",
+  "software_test_result": "294 passed in 53.35s; inactive historical MSHNet adapter test excluded",
+  "stage_a_config_sha256": "6eecdc10f87a043cafb945db40d0b767b5f0a2ccb64963c1043160f165ce9d6c",
+  "stage_a_output": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3",
+  "stage_a_service_invocation_id": "ea43ffae42424874a8bda3368f75f8a0",
+  "unused_split": "D_T"
+}

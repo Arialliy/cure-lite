@@ -41,6 +41,7 @@ _VARIANTS = (
     "factual_exposure_matched",
     "uniform_legal",
 )
+_ALL_VARIANTS = (*_VARIANTS, "miss_aligned_legal")
 _BRANCHES = ("factual_miss", "factual_no_miss", "synthetic")
 
 
@@ -301,7 +302,7 @@ def _assert_pools_equal(actual: BranchPools, expected: BranchPools) -> None:
 @pytest.mark.parametrize("reverse_inputs", (False, True))
 @pytest.mark.parametrize("variant", _VARIANTS)
 @pytest.mark.parametrize("global_seed", (0, 19, 2**31 - 1))
-@pytest.mark.parametrize("epoch", (0, 1, 2, 19))
+@pytest.mark.parametrize("epoch", (0, 1, 2, 19, 799))
 def test_prepared_catalog_is_bit_exact_to_legacy_epoch_semantics(
     toy_sources: tuple[training_pipeline.CachedTrainingSource, ...],
     toy_catalogs,
@@ -327,7 +328,7 @@ def test_prepared_catalog_is_bit_exact_to_legacy_epoch_semantics(
     _assert_pools_equal(actual, expected)
 
 
-def test_twenty_epochs_and_three_variants_reuse_prepared_semantics(
+def test_eight_hundred_epochs_and_all_variants_reuse_prepared_semantics(
     toy_sources: tuple[training_pipeline.CachedTrainingSource, ...],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -343,6 +344,9 @@ def test_twenty_epochs_and_three_variants_reuse_prepared_semantics(
         "decoder_visible_legal_deletions",
         "project_occupancy_to_feature_grid",
         "_apply_image_valid_mask",
+        "miss_alignment_descriptors",
+        "choose_miss_aligned_legal_identity",
+        "_build_miss_aligned_choices",
     )
     calls = dict.fromkeys(expensive_names, 0)
 
@@ -355,8 +359,8 @@ def test_twenty_epochs_and_three_variants_reuse_prepared_semantics(
 
         monkeypatch.setattr(training_pipeline, name, counted)
 
-    for variant in _VARIANTS:
-        for epoch in range(20):
+    for variant in _ALL_VARIANTS:
+        for epoch in range(800):
             pools = training_pipeline.build_epoch_branch_pools_from_catalog(
                 catalog,
                 variant=variant,
@@ -365,9 +369,36 @@ def test_twenty_epochs_and_three_variants_reuse_prepared_semantics(
             )
             assert pools.factual_miss
             assert pools.factual_no_miss
-            assert bool(pools.synthetic) == (variant == "uniform_legal")
+            assert bool(pools.synthetic) == (
+                variant in {"uniform_legal", "miss_aligned_legal"}
+            )
 
     assert calls == dict.fromkeys(expensive_names, 0)
+
+
+def test_alignment_descriptors_are_built_once_per_supported_source(
+    toy_sources: tuple[training_pipeline.CachedTrainingSource, ...],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+    original = training_pipeline.miss_alignment_descriptors
+
+    def counted(feature, masks):
+        calls.append(str(id(feature)))
+        return original(feature, masks)
+
+    monkeypatch.setattr(
+        training_pipeline,
+        "miss_alignment_descriptors",
+        counted,
+    )
+    catalog = training_pipeline.prepare_training_catalog(toy_sources)
+    expected_calls = sum(
+        bool(entry.factual_examples or entry.synthetic_examples)
+        for entry in catalog.entries
+    )
+    assert len(calls) == expected_calls
+    assert len(calls) == len(set(calls))
 
 
 def test_epoch_pools_reuse_only_prevalidated_state_templates(toy_catalogs) -> None:
@@ -390,8 +421,8 @@ def test_epoch_pools_reuse_only_prevalidated_state_templates(toy_catalogs) -> No
         for example in entry.synthetic_examples
     }
 
-    for variant in _VARIANTS:
-        for epoch in range(20):
+    for variant in _ALL_VARIANTS:
+        for epoch in range(800):
             pools = training_pipeline.build_epoch_branch_pools_from_catalog(
                 catalog,
                 variant=variant,
@@ -404,7 +435,9 @@ def test_epoch_pools_reuse_only_prevalidated_state_templates(toy_catalogs) -> No
                 for example in pools.get(branch)
             } <= factual_templates
             assert {id(example) for example in pools.synthetic} <= (
-                synthetic_templates if variant == "uniform_legal" else set()
+                synthetic_templates
+                if variant in {"uniform_legal", "miss_aligned_legal"}
+                else set()
             )
 
 
@@ -441,11 +474,20 @@ def _train_with_epoch_builder(
                 global_seed=23,
             )
             if catalog is not None
-            else _legacy_epoch_pool_oracle(
-                sources,
-                variant=variant,
-                epoch=epoch,
-                global_seed=23,
+            else (
+                training_pipeline.build_epoch_branch_pools(
+                    sources,
+                    variant=variant,
+                    epoch=epoch,
+                    global_seed=23,
+                )
+                if variant == "miss_aligned_legal"
+                else _legacy_epoch_pool_oracle(
+                    sources,
+                    variant=variant,
+                    epoch=epoch,
+                    global_seed=23,
+                )
             )
         )
         if variant == "factual_exposure_matched":
@@ -476,7 +518,7 @@ def _train_with_epoch_builder(
     return decoder, tuple(logs)
 
 
-@pytest.mark.parametrize("variant", _VARIANTS)
+@pytest.mark.parametrize("variant", _ALL_VARIANTS)
 def test_prepared_catalog_preserves_training_log_and_final_decoder_bytes(
     toy_sources: tuple[training_pipeline.CachedTrainingSource, ...],
     variant: str,

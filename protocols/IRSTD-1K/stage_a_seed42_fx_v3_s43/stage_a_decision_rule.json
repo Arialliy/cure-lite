@@ -1,0 +1,34 @@
+{
+  "all_methods_must_satisfy_configured_constraints": true,
+  "comparators": [
+    "Base@B",
+    "F",
+    "F×"
+  ],
+  "dataset": "IRSTD-1K",
+  "evaluation_role": "development_mechanism_screen",
+  "evaluation_split": "D_V",
+  "independent_generalization_claim": false,
+  "method_order": [
+    "A",
+    "Base@B",
+    "F",
+    "F×",
+    "U"
+  ],
+  "positive_signal_requires_all": [
+    "Pd(U) > Pd(Base@B)",
+    "Pd(U) > Pd(F)",
+    "Pd(U) > Pd(F×)"
+  ],
+  "primary_metric": "total_object_level_pd",
+  "schema_version": "cure-lite-stage-a-decision-rule-v3",
+  "secondary_quality_metrics": [
+    "mIoU",
+    "nIoU"
+  ],
+  "seed": 43,
+  "stage_a_config_sha256": "01b9df8c8b93fcd80fe194bddcc32178e56f8f749e71a738adcdb0d33dd1d1c5",
+  "strict_improvement_required": true,
+  "threshold_selection_rule": "maximize_pd_then_retention_then_minimize_pixel_fa_then_raw_background_fa_then_fp_components_per_mp_then_maximize_threshold_with_null_as_residual_off-v1"
+}

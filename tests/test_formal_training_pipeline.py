@@ -25,9 +25,11 @@ from cure_lite.experiment.formal_evaluation import (
     build_loaded_d_v_method_run,
     calibrate_paired_gate2,
     evaluate_formal_base_threshold,
+    evaluate_formal_residual_fixed_point,
     evaluate_paired_gate2,
     select_formal_base_threshold,
     select_formal_residual_threshold,
+    select_formal_residual_threshold_from_ledger,
 )
 from cure_lite.experiment.formal_anchor import (
     build_loaded_d_v_base_run,
@@ -38,12 +40,15 @@ from cure_lite.experiment.evaluation_pipeline import (
     calibration_samples_fingerprint,
 )
 from cure_lite.experiment.formal_training import (
+    MissAlignedGate2TrainingConfig,
     PairedGate2TrainingConfig,
     prepare_gate2_training,
+    run_miss_aligned_gate2_extension,
     run_paired_gate2_training,
     save_completed_decoder_run,
     summarize_gate2_training_support,
 )
+from cure_lite.experiment import formal_training
 from cure_lite.splits import SplitManifest, SplitRecord
 from cure_lite.toy import ToyFrozenBaseAdapter
 
@@ -169,6 +174,110 @@ def test_prepared_bundle_is_fully_verified_only_at_semantic_boundaries(
         prepared=prepared,
     )
     assert calls == 4  # once immediately before training and once after F/Fx/U
+
+
+def test_miss_aligned_extension_reuses_completed_references_and_trains_only_m(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset, _ = _d_r_dataset(tmp_path)
+    adapter = ToyFrozenBaseAdapter()
+    base_root = tmp_path / "base"
+    cache_manifest_split(adapter, dataset, "D_R", base_root)
+    state_root = tmp_path / "state"
+    cache_d_r_states(
+        base_root / "index.json",
+        dataset,
+        state_root,
+        expected_base_fingerprint=adapter.fingerprint,
+    )
+    bundle = load_d_r_cache_bundle(
+        state_root / "index.json",
+        dataset,
+        expected_base_fingerprint=adapter.fingerprint,
+    )
+    shared = PairedGate2TrainingConfig(
+        decoder_config=DecoderConfig(feature_channels=3),
+        optimizer="sgd",
+        learning_rate=1e-3,
+        epochs=1,
+        steps_per_epoch=1,
+        global_seed=17,
+    )
+    paired = run_paired_gate2_training(bundle, shared)
+    reference_runs = (
+        ("f", paired.factual_only),
+        ("fx", paired.factual_exposure_matched),
+        ("u", paired.uniform_legal),
+    )
+    references = []
+    for name, run in reference_runs:
+        directory = tmp_path / f"{name}-artifact"
+        save_completed_decoder_run(directory, run)
+        references.append(load_decoder_artifact(directory))
+
+    prepared = prepare_gate2_training(bundle)
+    called_variants: list[str] = []
+    original = formal_training.run_fixed_training
+
+    def counted(*args: object, **kwargs: object):
+        called_variants.append(str(kwargs["variant"]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(formal_training, "run_fixed_training", counted)
+    progress_epochs: list[int] = []
+    extension = run_miss_aligned_gate2_extension(
+        bundle,
+        MissAlignedGate2TrainingConfig(
+            decoder_config=shared.decoder_config,
+            optimizer=shared.optimizer,
+            learning_rate=shared.learning_rate,
+            epochs=shared.epochs,
+            steps_per_epoch=shared.steps_per_epoch,
+            global_seed=shared.global_seed,
+        ),
+        factual_only_reference=references[0],
+        factual_exposure_matched_reference=references[1],
+        uniform_legal_reference=references[2],
+        prepared=prepared,
+        training_progress=lambda epoch_log: progress_epochs.append(
+            epoch_log.epoch
+        ),
+    )
+    assert called_variants == ["miss_aligned_legal"]
+    assert progress_epochs == [0]
+    assert extension.miss_aligned_legal.config.schema_version == (
+        "cure-lite-decoder-artifact-v3"
+    )
+    assert extension.miss_aligned_legal.config.initial_decoder_fingerprint == (
+        references[0].config.initial_decoder_fingerprint
+    )
+    assert extension.alignment_catalog_fingerprint == (
+        prepared.catalog.miss_alignment_fingerprint
+    )
+    assert extension.miss_aligned_legal.config.alignment_catalog_fingerprint == (
+        extension.alignment_catalog_fingerprint
+    )
+    m_log = extension.miss_aligned_legal.training_log.epoch_logs[0]
+    assert dict(m_log.pool_sizes) == {
+        "factual_miss": 1,
+        "factual_no_miss": 1,
+        "synthetic": 1,
+    }
+    extension_fingerprint = extension.extension_fingerprint
+    extension.verify_unchanged()
+    assert extension.extension_fingerprint == extension_fingerprint
+
+    m_directory = tmp_path / "m-artifact"
+    saved = save_completed_decoder_run(
+        m_directory,
+        extension.miss_aligned_legal,
+    )
+    loaded_m = load_decoder_artifact(
+        m_directory,
+        expected_config=extension.miss_aligned_legal.config,
+    )
+    assert loaded_m.artifact_fingerprint == saved
 
 
 def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
@@ -399,6 +508,12 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         [0.5, 0.9],
         budget,
     )
+    ledger_uniform = select_formal_residual_threshold_from_ledger(
+        uniform_d_v_run,
+        [0.5, 0.9],
+        budget,
+        method_label="M",
+    )
     assert calibration.base_at_budget.protocol == legacy_base.protocol
     assert calibration.base_at_budget == independent_base
     assert calibration.factual_only.protocol == legacy_factual.protocol
@@ -407,6 +522,18 @@ def test_formal_paired_training_binds_bundle_initialization_and_artifacts(
         == legacy_exposure.protocol
     )
     assert calibration.uniform_legal.protocol == legacy_uniform.protocol
+    assert ledger_uniform.protocol == legacy_uniform.protocol
+    fixed_uniform = evaluate_formal_residual_fixed_point(
+        uniform_d_v_run,
+        legacy_uniform.protocol.selected_threshold,
+        method_label="U-fixed",
+    )
+    assert fixed_uniform == legacy_uniform.protocol.selected_metrics
+    assert evaluate_formal_residual_fixed_point(
+        uniform_d_v_run,
+        None,
+        method_label="U-fixed",
+    ) == calibration.anchor.selected_metrics
     metrics = evaluate_paired_gate2(
         base_run,
         factual_d_v_run,

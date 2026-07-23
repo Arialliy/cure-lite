@@ -1,6 +1,6 @@
-"""Public, backbone-independent CURE-Lite v0.1 API."""
+"""Public, backbone-independent CURE-Lite v0.2 API."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .calibration import (
     CalibrationSample,
@@ -15,6 +15,7 @@ from .config import (
     InterventionConfig,
     LossConfig,
     MatchConfig,
+    MissAlignmentConfig,
     OccupancyConfig,
     TrainingConfig,
 )
@@ -26,7 +27,12 @@ from .losses import CURELiteLoss
 from .matching import match_components
 from .model import CURELiteModel, CURELiteOutput
 from .occupancy import build_occupancy
-from .sampling import choose_uniform_factual_gt_id, choose_uniform_legal_deletion
+from .sampling import (
+    choose_miss_aligned_legal_identity,
+    choose_uniform_factual_gt_id,
+    choose_uniform_legal_deletion,
+    miss_alignment_descriptor,
+)
 from .supervision import (
     build_epoch_factual_supervision_from_catalog,
     build_factual_supervision,
@@ -70,6 +76,7 @@ __all__ = [
     "LossConfig",
     "MatchConfig",
     "MatchResult",
+    "MissAlignmentConfig",
     "OccupancyConfig",
     "StateExample",
     "ThresholdSelection",
@@ -81,10 +88,12 @@ __all__ = [
     "build_synthetic_supervision",
     "choose_uniform_factual_gt_id",
     "choose_uniform_legal_deletion",
+    "choose_miss_aligned_legal_identity",
     "enumerate_legal_deletions",
     "instances_from_binary_mask",
     "iter_fixed_branch_batches",
     "match_components",
+    "miss_alignment_descriptor",
     "run_training_epoch",
     "select_anchor_threshold_by_miou",
     "select_residual_threshold",

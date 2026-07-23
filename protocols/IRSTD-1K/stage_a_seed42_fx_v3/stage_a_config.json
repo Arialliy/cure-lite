@@ -1,0 +1,96 @@
+{
+  "anchor_thresholds": [
+    0.0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18,
+    0.2, 0.22, 0.24, 0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38,
+    0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.56, 0.58,
+    0.6, 0.62, 0.64, 0.66, 0.68, 0.7, 0.72, 0.74, 0.76, 0.78,
+    0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.92, 0.94, 0.96, 0.98,
+    1.0
+  ],
+  "base_thresholds": [
+    0.0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18,
+    0.2, 0.22, 0.24, 0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38,
+    0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.56, 0.58,
+    0.6, 0.62, 0.64, 0.66, 0.68, 0.7, 0.72, 0.74, 0.76, 0.78,
+    0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.92, 0.94, 0.96, 0.98,
+    1.0
+  ],
+  "budget": {
+    "component_fa_per_mp_budget": 100.0,
+    "minimum_retention": 0.99,
+    "pixel_fa_budget": 0.0001,
+    "raw_background_fa_budget": 0.0001
+  },
+  "device": "cuda:0",
+  "intervention_config": {
+    "min_writable_pixels": 1
+  },
+  "match_config": {
+    "distance_quantization": 1000000,
+    "iou_quantization": 1000000,
+    "max_distance": 3.0
+  },
+  "method_contract": {
+    "decoder_variants": {
+      "F": "factual_only",
+      "F×": "factual_exposure_matched",
+      "U": "uniform_legal"
+    },
+    "exposure_matched_control": "F×",
+    "intervention_method": "U",
+    "method_order": [
+      "A",
+      "Base@B",
+      "F",
+      "F×",
+      "U"
+    ],
+    "strict_pd_comparators": [
+      "Base@B",
+      "F",
+      "F×"
+    ],
+    "threshold_selection_rule": "maximize_pd_then_retention_then_minimize_pixel_fa_then_raw_background_fa_then_fp_components_per_mp_then_maximize_threshold_with_null_as_residual_off-v1"
+  },
+  "residual_thresholds": [
+    0.0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16, 0.18,
+    0.2, 0.22, 0.24, 0.26, 0.28, 0.3, 0.32, 0.34, 0.36, 0.38,
+    0.4, 0.42, 0.44, 0.46, 0.48, 0.5, 0.52, 0.54, 0.56, 0.58,
+    0.6, 0.62, 0.64, 0.66, 0.68, 0.7, 0.72, 0.74, 0.76, 0.78,
+    0.8, 0.82, 0.84, 0.86, 0.88, 0.9, 0.92, 0.94, 0.96, 0.98,
+    1.0
+  ],
+  "schema_version": "cure-lite-stage-a-config-v4",
+  "support_requirements": {
+    "minimum_factual_miss_images": 8,
+    "minimum_factual_no_miss_images": 8,
+    "minimum_reachable_miss_targets": 8,
+    "minimum_synthetic_images": 8,
+    "minimum_visible_legal_candidates": 8,
+    "minimum_visible_legal_fraction": 0.5
+  },
+  "training": {
+    "decoder_config": {
+      "feature_channels": 64,
+      "groups": 8,
+      "width": 32
+    },
+    "epochs": 800,
+    "factual_miss_batch": 4,
+    "factual_no_miss_batch": 4,
+    "global_seed": 42,
+    "learning_rate": 0.001,
+    "loss_config": {
+      "dice_weight": 1.0,
+      "epsilon": 1e-06
+    },
+    "optimizer": "adam",
+    "steps_per_epoch": 40,
+    "synthetic_batch": 4,
+    "training_config": {
+      "lambda_no_miss": 1.0,
+      "lambda_synthetic": 1.0
+    },
+    "weight_decay": 0.0
+  }
+}

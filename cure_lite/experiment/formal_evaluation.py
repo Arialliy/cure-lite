@@ -31,7 +31,7 @@ from ..calibration_ledger import (
 from ..config import MatchConfig, OccupancyConfig
 from ..metrics import AggregateEvaluation
 from ..splits import SplitManifest
-from .artifacts import LoadedDecoderArtifact
+from .artifacts import DECODER_ARTIFACT_SCHEMA_V2, LoadedDecoderArtifact
 from .cache_pipeline import LoadedDVCacheBundle
 from .formal_anchor import (
     FrozenAnchorReceipt,
@@ -662,6 +662,54 @@ def select_formal_residual_threshold(
     return receipt
 
 
+def select_formal_residual_threshold_from_ledger(
+    run: LoadedDVMethodRun,
+    thresholds: Iterable[float],
+    budget: FalseAlarmBudget,
+    *,
+    method_label: str = "M",
+    max_workers: int = 1,
+    mp_context: BaseContext | str | None = None,
+    progress: ProgressCallback | None = None,
+) -> FormalDVThresholdReceipt:
+    """Select one residual method with the shared, parallel-capable ledger."""
+
+    if not isinstance(run, LoadedDVMethodRun):
+        raise TypeError("run must be a LoadedDVMethodRun")
+    if not isinstance(budget, FalseAlarmBudget):
+        raise TypeError("budget must be a FalseAlarmBudget")
+    if not isinstance(method_label, str) or not method_label:
+        raise ValueError("method_label must be a non-empty string")
+    if method_label == "Base@B":
+        raise ValueError("method_label must identify a residual method")
+    run.verify_unchanged()
+    grid = _canonical_candidate_grid(thresholds, allow_empty=True)
+    occupancy_config = run.artifact.config.occupancy_config
+    context = prepare_calibration_context(
+        run.base_samples,
+        occupancy_config,
+        run.artifact.config.match_config,
+    )
+    ledger = evaluate_candidate_ledger(
+        context,
+        {method_label: run.residual_samples},
+        base_thresholds=(occupancy_config.threshold,),
+        residual_thresholds_by_method={method_label: grid},
+        max_workers=max_workers,
+        mp_context=mp_context,
+        progress=progress,
+    )
+    protocol = _protocol_from_ledger_selection(
+        run,
+        grid,
+        budget,
+        ledger.select(method_label, budget),
+    )
+    receipt = _formal_receipt(run, protocol)
+    run.verify_unchanged()
+    return receipt
+
+
 def select_formal_base_threshold(
     run: LoadedDVBaseRun,
     thresholds: Iterable[float],
@@ -735,6 +783,52 @@ def evaluate_formal_residual_threshold(
     return result
 
 
+def evaluate_formal_residual_fixed_point(
+    run: LoadedDVMethodRun,
+    threshold: float | None,
+    *,
+    method_label: str = "fixed",
+) -> AggregateEvaluation:
+    """Evaluate exactly one residual operating point without selecting it.
+
+    This is the replay primitive for comparing a new method with an already
+    frozen historical operating point.  It deliberately constructs no
+    threshold-selection receipt and never considers any alternative threshold.
+    ``None`` denotes the residual-off anchor candidate.
+    """
+
+    if not isinstance(run, LoadedDVMethodRun):
+        raise TypeError("run must be a LoadedDVMethodRun")
+    if not isinstance(method_label, str) or not method_label:
+        raise ValueError("method_label must be a non-empty string")
+    if method_label == "Base@B":
+        raise ValueError("method_label must identify a residual method")
+    if threshold is None:
+        grid: tuple[float, ...] = ()
+        resolved_threshold = None
+    else:
+        grid = _canonical_candidate_grid((threshold,), allow_empty=True)
+        resolved_threshold = grid[0]
+
+    run.verify_unchanged()
+    occupancy_config = run.artifact.config.occupancy_config
+    context = prepare_calibration_context(
+        run.base_samples,
+        occupancy_config,
+        run.artifact.config.match_config,
+    )
+    ledger = evaluate_candidate_ledger(
+        context,
+        {method_label: run.residual_samples},
+        base_thresholds=(occupancy_config.threshold,),
+        residual_thresholds_by_method={method_label: grid},
+        max_workers=1,
+    )
+    result = ledger.get(method_label, resolved_threshold).metrics
+    run.verify_unchanged()
+    return result
+
+
 def evaluate_formal_base_threshold(
     run: LoadedDVBaseRun,
     receipt: FormalDVBaseThresholdReceipt,
@@ -762,6 +856,13 @@ def _common_training_fingerprint(
     )
     common_payloads: list[dict[str, object]] = []
     for run, expected_variant in zip(runs, expected_variants, strict=True):
+        if (
+            run.artifact.config.schema_version
+            != DECODER_ARTIFACT_SCHEMA_V2
+        ):
+            raise ValueError(
+                "paired v0.1 calibration accepts only decoder artifact v2"
+            )
         payload = run.artifact.config.canonical_payload()
         variant = payload.pop("variant")
         payload.pop("variant_contract")
@@ -1298,8 +1399,10 @@ __all__ = [
     "build_loaded_d_v_method_run",
     "calibrate_paired_gate2",
     "evaluate_formal_base_threshold",
+    "evaluate_formal_residual_fixed_point",
     "evaluate_formal_residual_threshold",
     "evaluate_paired_gate2",
     "select_formal_base_threshold",
     "select_formal_residual_threshold",
+    "select_formal_residual_threshold_from_ledger",
 ]

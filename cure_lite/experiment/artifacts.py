@@ -20,6 +20,7 @@ from ..config import (
     InterventionConfig,
     LossConfig,
     MatchConfig,
+    MissAlignmentConfig,
     OccupancyConfig,
     TrainingConfig,
     config_to_dict,
@@ -27,10 +28,26 @@ from ..config import (
 from ..decoder import CURELiteDecoder
 
 
-DECODER_ARTIFACT_SCHEMA = "cure-lite-decoder-artifact-v2"
-DECODER_VARIANTS = frozenset(
+DECODER_ARTIFACT_SCHEMA_V2 = "cure-lite-decoder-artifact-v2"
+DECODER_ARTIFACT_SCHEMA_V3 = "cure-lite-decoder-artifact-v3"
+# Preserve the historical default and import surface for all v0.1 callers.
+DECODER_ARTIFACT_SCHEMA = DECODER_ARTIFACT_SCHEMA_V2
+SUPPORTED_DECODER_ARTIFACT_SCHEMAS = frozenset(
+    {DECODER_ARTIFACT_SCHEMA_V2, DECODER_ARTIFACT_SCHEMA_V3}
+)
+DECODER_VARIANTS_V2 = frozenset(
     {"factual_only", "factual_exposure_matched", "uniform_legal"}
 )
+DECODER_VARIANTS_V3 = frozenset(
+    {
+        "factual_only",
+        "factual_exposure_matched",
+        "uniform_legal",
+        "miss_aligned_legal",
+    }
+)
+# Preserve the historical name as the v2 variant set.
+DECODER_VARIANTS = DECODER_VARIANTS_V2
 _WEIGHTS_NAME = "decoder.safetensors"
 _LOG_NAME = "train_log.json"
 _RECEIPT_NAME = "receipt.json"
@@ -77,7 +94,7 @@ def _finite_nonnegative(value: object, *, name: str, positive: bool = False) -> 
 
 @dataclass(frozen=True)
 class DecoderRunConfig:
-    """All choices that determine one F or U decoder training run."""
+    """All choices that determine one decoder training run."""
 
     variant: str
     manifest_fingerprint: str
@@ -107,12 +124,44 @@ class DecoderRunConfig:
     factual_no_miss_batch: int = 4
     synthetic_batch: int = 4
     schema_version: str = DECODER_ARTIFACT_SCHEMA
+    miss_alignment_config: MissAlignmentConfig | None = None
+    alignment_catalog_fingerprint: str | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != DECODER_ARTIFACT_SCHEMA:
+        if (
+            not isinstance(self.schema_version, str)
+            or self.schema_version not in SUPPORTED_DECODER_ARTIFACT_SCHEMAS
+        ):
             raise ValueError(f"unsupported decoder artifact schema {self.schema_version!r}")
-        if self.variant not in DECODER_VARIANTS:
-            raise ValueError(f"variant must be one of {sorted(DECODER_VARIANTS)}")
+        variants = (
+            DECODER_VARIANTS_V2
+            if self.schema_version == DECODER_ARTIFACT_SCHEMA_V2
+            else DECODER_VARIANTS_V3
+        )
+        if self.variant not in variants:
+            raise ValueError(f"variant must be one of {sorted(variants)}")
+        if self.schema_version == DECODER_ARTIFACT_SCHEMA_V2:
+            if self.miss_alignment_config is not None:
+                raise ValueError(
+                    "decoder artifact v2 cannot bind miss_alignment_config"
+                )
+            if self.alignment_catalog_fingerprint is not None:
+                raise ValueError(
+                    "decoder artifact v2 cannot bind alignment_catalog_fingerprint"
+                )
+        else:
+            if not isinstance(self.miss_alignment_config, MissAlignmentConfig):
+                raise TypeError(
+                    "decoder artifact v3 requires MissAlignmentConfig"
+                )
+            object.__setattr__(
+                self,
+                "alignment_catalog_fingerprint",
+                _digest(
+                    self.alignment_catalog_fingerprint,
+                    name="alignment_catalog_fingerprint",
+                ),
+            )
         for name in (
             "manifest_fingerprint",
             "manifest_file_sha256",
@@ -174,14 +223,20 @@ class DecoderRunConfig:
 
     @property
     def variant_contract(self) -> dict[str, Any]:
-        """Describe the third loss slot that distinguishes F, Fx, and U."""
+        """Describe the third loss slot that distinguishes formal variants."""
 
         third_slot_sources = {
             "factual_only": "absent",
             "factual_exposure_matched": "independent_factual_positive_replacement",
             "uniform_legal": "uniform_legal_deletion",
+            "miss_aligned_legal": "miss_aligned_legal_deletion",
         }
         active = self.variant != "factual_only"
+        matched_reference = (
+            "miss_aligned_legal"
+            if self.schema_version == DECODER_ARTIFACT_SCHEMA_V3
+            else "uniform_legal"
+        )
         return {
             "third_loss_slot_source": third_slot_sources[self.variant],
             "third_loss_slot_batch": self.synthetic_batch if active else 0,
@@ -189,15 +244,16 @@ class DecoderRunConfig:
                 "training_config.lambda_synthetic" if active else "none"
             ),
             "matched_reference_variant": (
-                "uniform_legal"
+                matched_reference
                 if self.variant == "factual_exposure_matched"
                 else None
             ),
-            "deletion_intervention_used": self.variant == "uniform_legal",
+            "deletion_intervention_used": self.variant
+            in {"uniform_legal", "miss_aligned_legal"},
         }
 
     def canonical_payload(self) -> dict[str, Any]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
             "variant": self.variant,
             "manifest_fingerprint": self.manifest_fingerprint,
@@ -233,9 +289,29 @@ class DecoderRunConfig:
             },
             "data_augmentation": "none_frozen_base_cache",
         }
+        if self.schema_version == DECODER_ARTIFACT_SCHEMA_V3:
+            payload.update(
+                {
+                    "miss_alignment_config": config_to_dict(
+                        self.miss_alignment_config
+                    ),
+                    "alignment_catalog_fingerprint": (
+                        self.alignment_catalog_fingerprint
+                    ),
+                }
+            )
+        return payload
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "DecoderRunConfig":
+        schema_version = value.get("schema_version")
+        if (
+            not isinstance(schema_version, str)
+            or schema_version not in SUPPORTED_DECODER_ARTIFACT_SCHEMAS
+        ):
+            raise ValueError(
+                f"unsupported decoder artifact schema {schema_version!r}"
+            )
         expected = {
             "schema_version",
             "variant",
@@ -265,6 +341,13 @@ class DecoderRunConfig:
             "fixed_stopping_rule",
             "data_augmentation",
         }
+        if schema_version == DECODER_ARTIFACT_SCHEMA_V3:
+            expected.update(
+                {
+                    "miss_alignment_config",
+                    "alignment_catalog_fingerprint",
+                }
+            )
         if set(value) != expected:
             raise ValueError("decoder run config fields are not canonical")
         decoder = value["decoder_config"]
@@ -277,6 +360,11 @@ class DecoderRunConfig:
         batches = value["branch_batch_sizes"]
         stopping = value["fixed_stopping_rule"]
         variant_contract = value["variant_contract"]
+        miss_alignment = (
+            value["miss_alignment_config"]
+            if schema_version == DECODER_ARTIFACT_SCHEMA_V3
+            else None
+        )
         if not all(
             isinstance(item, Mapping)
             for item in (
@@ -293,6 +381,11 @@ class DecoderRunConfig:
             )
         ):
             raise TypeError("decoder artifact configuration sections must be mappings")
+        if (
+            schema_version == DECODER_ARTIFACT_SCHEMA_V3
+            and not isinstance(miss_alignment, Mapping)
+        ):
+            raise TypeError("miss_alignment_config must be a mapping")
         if value["data_augmentation"] != "none_frozen_base_cache":
             raise ValueError("decoder artifact data_augmentation is not canonical")
         if set(optimization) != {"optimizer", "learning_rate", "weight_decay"}:
@@ -333,6 +426,16 @@ class DecoderRunConfig:
             factual_miss_batch=batches["factual_miss"],
             factual_no_miss_batch=batches["factual_no_miss"],
             synthetic_batch=batches["synthetic"],
+            miss_alignment_config=(
+                MissAlignmentConfig(**dict(miss_alignment))
+                if miss_alignment is not None
+                else None
+            ),
+            alignment_catalog_fingerprint=(
+                value["alignment_catalog_fingerprint"]
+                if schema_version == DECODER_ARTIFACT_SCHEMA_V3
+                else None
+            ),
         )
         if config.canonical_payload() != dict(value):
             raise ValueError("decoder run config payload is not canonical")
@@ -463,7 +566,7 @@ class LoadedDecoderArtifact:
         if not isinstance(receipt, dict) or set(receipt) != _RECEIPT_FIELDS:
             raise RuntimeError("loaded decoder receipt fields changed")
         if (
-            receipt["schema_version"] != DECODER_ARTIFACT_SCHEMA
+            receipt["schema_version"] != self.config.schema_version
             or receipt["artifact_type"] != "cure_lite_decoder"
             or receipt["weights_file"] != _WEIGHTS_NAME
             or receipt["train_log_file"] != _LOG_NAME
@@ -528,8 +631,14 @@ def _normalized_logs(
             raise ValueError(
                 f"{variant} logs cannot contain a deletion-synthetic pool"
             )
-        if variant == "uniform_legal" and pools["synthetic"] < 1:
-            raise ValueError("U logs require a non-empty deletion-synthetic pool")
+        if (
+            variant in {"uniform_legal", "miss_aligned_legal"}
+            and pools["synthetic"] < 1
+        ):
+            label = "U" if variant == "uniform_legal" else "M"
+            raise ValueError(
+                f"{label} logs require a non-empty deletion-synthetic pool"
+            )
         if not isinstance(metrics, dict) or not metrics:
             raise TypeError("epoch metrics must be a non-empty mapping")
         if metrics.get("steps") != expected_steps:
@@ -579,8 +688,9 @@ def _normalized_logs(
                         "F× third loss slot does not match synthetic_batch exposure "
                         "on every step"
                     ) from error
+                label = "U" if variant == "uniform_legal" else "M"
                 raise ValueError(
-                    "U third loss slot exposure differs from config on every step"
+                    f"{label} third loss slot exposure differs from config on every step"
                 ) from error
         for name, value in metrics.items():
             if not isinstance(name, str) or not name:
@@ -661,7 +771,7 @@ def _save_decoder_artifact(
         save_file(_decoder_tensors(decoder), str(weights))
         log_path.write_bytes(_json_bytes(list(logs)))
         receipt_core = {
-            "schema_version": DECODER_ARTIFACT_SCHEMA,
+            "schema_version": config.schema_version,
             "artifact_type": "cure_lite_decoder",
             "run_config": config.canonical_payload(),
             "weights_file": _WEIGHTS_NAME,
@@ -712,7 +822,11 @@ def load_decoder_artifact(
     receipt = _load_json(files[_RECEIPT_NAME], name="decoder receipt")
     if not isinstance(receipt, dict) or set(receipt) != _RECEIPT_FIELDS:
         raise ValueError("decoder receipt fields are not canonical")
-    if receipt["schema_version"] != DECODER_ARTIFACT_SCHEMA:
+    receipt_schema = receipt["schema_version"]
+    if (
+        not isinstance(receipt_schema, str)
+        or receipt_schema not in SUPPORTED_DECODER_ARTIFACT_SCHEMAS
+    ):
         raise ValueError("unsupported decoder receipt schema")
     if receipt["artifact_type"] != "cure_lite_decoder":
         raise ValueError("decoder receipt artifact_type is invalid")
@@ -738,6 +852,8 @@ def load_decoder_artifact(
     if not isinstance(run_config_raw, Mapping):
         raise TypeError("decoder run_config must be a mapping")
     config = DecoderRunConfig.from_mapping(run_config_raw)
+    if config.schema_version != receipt_schema:
+        raise ValueError("decoder receipt and run config schemas differ")
     if expected_config is not None and config != expected_config:
         raise ValueError("decoder artifact run config differs from expected_config")
     logs_raw = _load_json(files[_LOG_NAME], name="decoder train log")
@@ -795,5 +911,14 @@ def load_decoder_artifact(
 
 
 __all__ = [
+    "DECODER_ARTIFACT_SCHEMA",
+    "DECODER_ARTIFACT_SCHEMA_V2",
+    "DECODER_ARTIFACT_SCHEMA_V3",
+    "DECODER_VARIANTS",
+    "DECODER_VARIANTS_V2",
+    "DECODER_VARIANTS_V3",
+    "DecoderRunConfig",
+    "LoadedDecoderArtifact",
+    "decoder_state_fingerprint",
     "load_decoder_artifact",
 ]

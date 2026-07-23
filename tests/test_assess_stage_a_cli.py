@@ -25,6 +25,25 @@ _ABORTED_FX_V1_SHA256 = {
     ),
 }
 
+_FAILED_FX_V2_SHA256 = {
+    "failure_record.json": (
+        "65627439f4e5d475d3d14e02c4c02cba"
+        "3a11874f9a7c59d734e22520eb03362d"
+    ),
+    "protocol_freeze.json": (
+        "e4f61c0d3706f438e4dc44b50ac8041b"
+        "e3033db13a962289dd6853812bfd318e"
+    ),
+    "stage_a_config.json": (
+        "b904de307f209fec148cd0c69da49459"
+        "cf03daa1ecfa73467ff1ec3b795447d1"
+    ),
+    "stage_a_decision_rule.json": (
+        "3f9ed6d8b6a33541dfdc4399f4d8a752"
+        "5139d6fdc2ded796977da9154b0dd4e0"
+    ),
+}
+
 
 def _metrics(
     pd: float,
@@ -186,12 +205,12 @@ def test_v2_protocol_freeze_binds_run_and_assessment_tools() -> None:
         cli.validate_protocol_freeze(freeze, **arguments)
 
 
-def test_current_five_way_protocol_freeze_is_self_consistent() -> None:
+def test_completed_v01_protocol_freeze_rejects_current_v02_source() -> None:
     manifest_protocol = (
         cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
     )
     stage_protocol = (
-        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v3"
     )
     freeze = json.loads(
         (stage_protocol / "protocol_freeze.json").read_text("utf-8")
@@ -201,16 +220,62 @@ def test_current_five_way_protocol_freeze_is_self_consistent() -> None:
         / "runs/irstd1k_stage_a_seed42/reference_base_cache_fx_v2"
     )
     stage_run = (
-        cli._ROOT / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v2"
+        cli._ROOT / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3"
     )
-    cli.validate_protocol_freeze(
-        freeze,
-        manifest_path=manifest_protocol / "manifest.json",
-        stage_config_path=stage_protocol / "stage_a_config.json",
-        decision_rule_path=stage_protocol / "stage_a_decision_rule.json",
-        d_r_index_path=cache / "D_R" / "index.json",
-        d_v_index_path=cache / "D_V" / "index.json",
-        stage_run_path=stage_run,
+    with pytest.raises(RuntimeError, match="method source differs"):
+        cli.validate_protocol_freeze(
+            freeze,
+            manifest_path=manifest_protocol / "manifest.json",
+            stage_config_path=stage_protocol / "stage_a_config.json",
+            decision_rule_path=stage_protocol / "stage_a_decision_rule.json",
+            d_r_index_path=cache / "D_R" / "index.json",
+            d_v_index_path=cache / "D_V" / "index.json",
+            stage_run_path=stage_run,
+        )
+
+
+def test_seed43_v01_freeze_rejects_v02_source_and_remains_path_isolated() -> None:
+    manifest_protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42"
+    )
+    seed42_protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v3"
+    )
+    seed43_protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v3_s43"
+    )
+    seed42_freeze = json.loads(
+        (seed42_protocol / "protocol_freeze.json").read_text("utf-8")
+    )
+    seed43_freeze = json.loads(
+        (seed43_protocol / "protocol_freeze.json").read_text("utf-8")
+    )
+    cache = (
+        cli._ROOT
+        / "runs/irstd1k_stage_a_seed42/reference_base_cache_fx_v2"
+    )
+    seed43_stage_run = (
+        cli._ROOT
+        / "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3_s43"
+    )
+    with pytest.raises(RuntimeError, match="method source differs"):
+        cli.validate_protocol_freeze(
+            seed43_freeze,
+            manifest_path=manifest_protocol / "manifest.json",
+            stage_config_path=seed43_protocol / "stage_a_config.json",
+            decision_rule_path=seed43_protocol / "stage_a_decision_rule.json",
+            d_r_index_path=cache / "D_R" / "index.json",
+            d_v_index_path=cache / "D_V" / "index.json",
+            stage_run_path=seed43_stage_run,
+        )
+    assert seed42_freeze["stage_a_output"] != seed43_freeze["stage_a_output"]
+    assert (
+        seed42_freeze["assessment_output"]
+        != seed43_freeze["assessment_output"]
+    )
+    assert (
+        seed42_freeze["stage_a_service_invocation_id"]
+        != seed43_freeze["stage_a_service_invocation_id"]
     )
 
 
@@ -222,3 +287,13 @@ def test_aborted_fx_v1_protocol_is_immutable_history() -> None:
         name: hashlib.sha256((protocol / name).read_bytes()).hexdigest()
         for name in _ABORTED_FX_V1_SHA256
     } == _ABORTED_FX_V1_SHA256
+
+
+def test_failed_fx_v2_protocol_is_immutable_history() -> None:
+    protocol = (
+        cli._ROOT / "protocols" / "IRSTD-1K" / "stage_a_seed42_fx_v2"
+    )
+    assert {
+        name: hashlib.sha256((protocol / name).read_bytes()).hexdigest()
+        for name in _FAILED_FX_V2_SHA256
+    } == _FAILED_FX_V2_SHA256

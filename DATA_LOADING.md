@@ -33,6 +33,11 @@ reads only the manifest's `D_R` and `D_V` records and exports two cache indexes.
 The formal Stage-A runner then starts from those indexes and no longer depends
 on the provider implementation.
 
+The active `fx_v3` Stage-A instance reuses the completed, verified
+`reference_base_cache_fx_v2` and `reference_base_v1` artifacts. The `fx_v2`
+suffix here identifies the Base-cache artifact, not the failed Stage-A run;
+neither the Base nor its cache is retrained for this fresh decoder experiment.
+
 ```text
 manifest D_B -> reference U-Net training/selection
 fixed reference U-Net + manifest D_R/D_V
@@ -70,6 +75,11 @@ no detector-name, detector-repository, checkpoint-selection, or `D_T` argument.
 Consequently, the active Stage-A core cannot switch behavior based on MSHNet or
 any other architecture, although a compatible detector-specific cache producer
 is still required upstream.
+
+For CUDA configs, the runner first performs an exact-device tensor
+allocate/fill/synchronize check, before output creation and cache ingestion.
+This execution check is separate from the later scientific anchor and support
+checks. CPU configs do not invoke CUDA.
 
 At decoder time, the source-grid occupancy is projected to the feature grid by
 adaptive max pooling. Cache preprocessing and grid metadata must therefore be

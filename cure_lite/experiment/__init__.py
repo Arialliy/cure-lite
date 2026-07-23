@@ -20,7 +20,10 @@ from .formal_evaluation import (
     evaluate_paired_gate2,
 )
 from .formal_training import (
+    CompletedMissAlignedGate2Extension,
+    MissAlignedGate2TrainingConfig,
     PairedGate2TrainingConfig,
+    run_miss_aligned_gate2_extension,
     run_paired_gate2_training,
     save_completed_decoder_run,
     summarize_gate2_training_support,
@@ -31,6 +34,15 @@ from .stage_a_runner import (
     load_stage_a_run,
     run_stage_a,
     run_stage_a_from_base_caches,
+)
+from .stage_a_m_extension import (
+    StageAReferenceSnapshot,
+    load_stage_a_reference_snapshot,
+)
+from .stage_a_m_runner import (
+    PublishedStageAMExtension,
+    STAGE_A_M_METHOD_ORDER,
+    run_stage_a_m_extension,
 )
 from .deployment import (
     CalibratedCURELiteModel,
@@ -52,7 +64,12 @@ __all__ = [
     "CalibratedCURELiteModel",
     "CalibratedDeploymentReceipt",
     "EfficiencyBinding",
+    "CompletedMissAlignedGate2Extension",
+    "MissAlignedGate2TrainingConfig",
     "PairedGate2TrainingConfig",
+    "PublishedStageAMExtension",
+    "STAGE_A_M_METHOD_ORDER",
+    "StageAReferenceSnapshot",
     "StageARunConfig",
     "StageAEfficiencyReceipt",
     "TrainingSupportRequirements",
@@ -70,10 +87,13 @@ __all__ = [
     "materialize_base_cache_bundle",
     "load_decoder_artifact",
     "load_stage_a_run",
+    "load_stage_a_reference_snapshot",
     "measure_stage_a_efficiency",
     "run_paired_gate2_training",
+    "run_miss_aligned_gate2_extension",
     "replay_static_efficiency",
     "run_stage_a",
+    "run_stage_a_m_extension",
     "run_stage_a_from_base_caches",
     "save_completed_decoder_run",
     "summarize_gate2_training_support",

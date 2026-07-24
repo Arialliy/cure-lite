@@ -91,8 +91,58 @@ sample size is `1024 / 108 = 9.48`. This is evidence that the one-dimensional
 hard nearest-neighbour rule concentrates the synthetic training distribution;
 it is not evidence against the broader CURE problem formulation.
 
-The current full test suite reports `359 passed`. This validates the software
+The current full test suite reports `376 passed`. This validates the software
 path; the two formal runs above provide the separate performance result.
+
+### D_R-only P0: geometry gate failed before S
+
+The next step was not another training run. A frozen, create-only P0 protocol
+first tested whether the existing synthetic population was suitable for a
+support-preserving marginal distribution correction. It accepts only the
+bound `D_R` manifest/cache and has no `D_V`, training, calibration, inference,
+or backbone argument.
+
+P0-A traces every native 512-grid GT component through the frozen 256-grid
+nearest-neighbour resize. The current catalog gives:
+
+| P0-A item | result |
+|---|---:|
+| native / evaluation targets | 244 / 242 |
+| native disappearances | 2 |
+| evaluation merges | 1 |
+| native splits | 1 |
+| legal targets without one-to-one lineage | 2 |
+| legal area-ratio failures | 1 |
+| legal centroid-shift failures | 0 |
+
+P0-A therefore fails. In the sequential protocol this makes P0-B and P0-C
+secondary diagnostics only, and leaves P0-D's candidate S unevaluated. Their
+formal values are `null`, no candidate marginal distribution is constructed,
+and no new model is trained.
+
+The `D_R` diagnostic population is 32 reachable factual misses in 24 source
+groups, plus one separately recorded unreachable miss. This is intentionally
+different from the 23 fixed `D_V` anchor misses used by the historical
+performance comparison.
+
+Two independent create-only executions produced byte-identical receipts and
+completion records:
+
+- `runs/irstd1k_stage_a_seed42/cure_lite_p0_v1_r3`;
+- `runs/irstd1k_stage_a_seed42/cure_lite_p0_v1_r4`.
+
+The exact frozen entry point is:
+
+```bash
+python tools/run_p0_diagnostics.py \
+  --manifest protocols/IRSTD-1K/stage_a_seed42/manifest.json \
+  --state-index runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3/d_r/state_cache/index.json \
+  --config protocols/IRSTD-1K/p0_v1/p0_config.json \
+  --output /path/to/new_create_only_p0_run
+```
+
+The current decision is `rebuild_synthetic_target_extraction`. It does not
+authorize S training, `D_V` evaluation, Full CURE, or cross-backbone work.
 
 ## Mechanism comparison
 
@@ -160,11 +210,11 @@ secondary checks and cannot replace the Pd and recovery requirements.
 
 The observed result is negative under this predeclared rule in both seeds.
 Consequently, Full CURE design and cross-backbone integration remain blocked by
-the Lite-stage evidence gate. The next work stays in CURE-Lite: diagnose
-factual/legal distribution overlap on `D_R`, then test one support-preserving
-distribution correction while keeping the decoder, objective, schedule, and
-inference fixed. The current scalar hard-matching selector must not be promoted
-as CURE.
+the Lite-stage evidence gate. The subsequent `D_R`-only P0 audit has now shown
+that native-to-evaluation geometry must be repaired first. A
+support-preserving marginal correction cannot be trained until the repaired
+synthetic population passes P0-A and is then evaluated by P0-B/P0-C. The
+current scalar hard-matching selector must not be promoted as CURE.
 
 All `D_V` values are development-selection results. Stage-A does not read
 `D_T`. No statement about final generalization, Full CURE, or cross-backbone

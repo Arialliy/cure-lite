@@ -1,0 +1,124 @@
+{
+  "schema_version": "cure-lite-p0-diagnostic-config-v1",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "input_binding": {
+    "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+    "state_index_sha256": "075fc1ad217f365df85b1d29568ad215f06ce6e0b691ef78a5dd85f0affe6298",
+    "state_index_fingerprint": "d06e05151b2d7e9e4829d52fca0037e1c42c8a552c015312a03afd26c3fbf59d",
+    "base_fingerprint": "5f69986b95d11a89c5a5e91d6bdd63add865eda102be8ce486722fee8cd00dce",
+    "base_state_fingerprint": "1e17bc11465bf4fd63b5a697dd466cd2d78505d44ba83f9862ffbce3bd39f3c4",
+    "state_fingerprint": "eedfc898171e1e6ebd3ef29e17f52da93e89a9a4a33351ea14cddb838d651e72"
+  },
+  "geometry": {
+    "expected_native_size": [
+      512,
+      512
+    ],
+    "expected_evaluation_size": [
+      256,
+      256
+    ],
+    "foreground_rule": "uint8-positive-v1",
+    "resize_rule": "pil-nearest-v1",
+    "connectivity": 8,
+    "min_component_area": 1,
+    "require_zero_native_disappearances": true,
+    "require_zero_resized_merges": true,
+    "require_zero_native_splits": true,
+    "require_one_to_one_legal_lineage": true,
+    "legal_area_ratio_min_inclusive": 0.5,
+    "legal_area_ratio_max_inclusive": 2.0,
+    "legal_centroid_shift_max_px256_inclusive": 1.0,
+    "geometry_quantization": 1000000
+  },
+  "overlap": {
+    "factual_population": "reachable-factual-misses",
+    "legal_population": "decoder-visible-legal-targets",
+    "group_key": "manifest.group_id",
+    "exclude_same_group_neighbors": true,
+    "handcrafted_descriptor_fields": [
+      "log1p_gt_area",
+      "log1p_supervision_area",
+      "supervision_fraction",
+      "log_gt_aspect_ratio",
+      "border_distance_normalized",
+      "clipped_logit_base_gt_mean",
+      "clipped_logit_base_ring_mean",
+      "log1p_feature_target_rms",
+      "feature_target_ring_l2_per_sqrt_channel",
+      "conditioning_gt_occupancy_fraction",
+      "conditioning_ring_occupancy_fraction",
+      "nearest_conditioning_component_centroid_distance_normalized"
+    ],
+    "probability_clip": 0.000001,
+    "ring_inner_radius": 4,
+    "ring_outer_radius": 12,
+    "joint_feature_components": 6,
+    "joint_feature_residual": "legal-subspace-reconstruction-l2-per-sqrt-dimension-v1",
+    "joint_occupancy_representation": "raw-local-patch-plus-global-fraction-v1",
+    "joint_occupancy_patch_radius": 2,
+    "knn_k": 5,
+    "legal_reference_quantile": 0.95,
+    "coverage_minimum": 0.9,
+    "robust_scale_rule": "median-mad-maxdev-constant-floor-v1",
+    "quantile_rule": "sorted-higher-v1"
+  },
+  "separability": {
+    "folds": 5,
+    "classifier": "class-balanced-l2-logistic-irls-v1",
+    "classifier_l2": 1.0,
+    "classifier_max_iterations": 100,
+    "classifier_tolerance": 1e-10,
+    "auc_maximum": 0.7,
+    "auc_gate_rule": "group-balanced-oof-point-estimate-v1",
+    "bootstrap_replicates": 2000,
+    "bootstrap_seed": 1729,
+    "bootstrap_interval": [
+      0.025,
+      0.975
+    ],
+    "bootstrap_interpretation": "conditional-group-bootstrap-of-fixed-oof-scores-v1",
+    "mmd": "group-u-multiscale-rbf-matched-legal-null-v1",
+    "mmd_group_overlap_policy": "remove-overlap-from-legal-reference-v1",
+    "mmd_observed_summary_quantile": 0.5,
+    "mmd_kernel_scales": [
+      0.5,
+      1.0,
+      2.0
+    ],
+    "mmd_bandwidth_rule": "legal-exclusive-source-disjoint-positive-distance-median-v1",
+    "mmd_reference_replicates": 1000,
+    "mmd_reference_seed": 2718,
+    "mmd_reference_quantile": 0.95,
+    "require_mmd_within_legal_reference": true
+  },
+  "exposure": {
+    "epochs": 800,
+    "steps_per_epoch": 40,
+    "synthetic_batch": 4,
+    "seeds": [
+      42,
+      43
+    ],
+    "require_all_targets_positive": true,
+    "target_ess_minimum_fraction_of_legal": 0.5,
+    "target_maximum_uniform_multiple": 4.0,
+    "source_ess_minimum_fraction_of_legal_sources": 0.5,
+    "source_maximum_uniform_multiple": 4.0,
+    "source_top5_maximum_share": 0.13333333333333333,
+    "source_top10_maximum_share": 0.26666666666666666,
+    "candidate_marginal_proposal": {
+      "status": "diagnostic-only-until-p0-a-b-c-pass",
+      "descriptor_space": "handcrafted",
+      "kernel": "rbf",
+      "factual_weighting": "uniform-over-reachable-factual-targets",
+      "bandwidth_rule": "median-source-disjoint-factual-to-legal-kth-distance",
+      "uniform_base": "historical-source-balanced-U",
+      "lambda_rule": "largest-grid-value-satisfying-analytic-exposure-constraints",
+      "lambda_grid_denominator": 1000,
+      "minimum_uniform_floor": 0.1,
+      "integer_mass_total": 4294967296
+    }
+  }
+}

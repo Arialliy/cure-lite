@@ -11,6 +11,7 @@ Full CURE.
 Stage 1: CURE-Lite
   v0.1 uniform legal selection (completed diagnostic)
   v0.2 miss-aligned legal selection M (completed; signal negative)
+  P0 D_R-only prerequisite audit (completed; P0-A geometry failed)
        |
        | only after the Lite gate is supported
        v
@@ -157,14 +158,50 @@ creating a direct pairwise learning signal.
 All reported values are `D_V` development results. `D_T` remains unused until
 a CURE-Lite mechanism is frozen.
 
+## P0 prerequisite audit after v0.2
+
+The frozen P0 command accepts only the bound `D_R` manifest, state cache,
+configuration, and a new output path. It does not expose a `D_V`, training,
+calibration, inference, device, or backbone option.
+
+P0 is sequential:
+
+```text
+P0-A native 512 -> evaluation 256 geometry
+  -> P0-B common support, only as a formal gate if A passes
+  -> P0-C grouped distinguishability, only as a formal gate if A passes
+  -> P0-D full 800 x 40 x 4 exposure replay
+  -> candidate S may be constructed only if A/B/C pass
+```
+
+The current P0-A result is:
+
+- 244 native targets become 242 evaluation targets;
+- two native targets disappear;
+- one evaluation target merges two native targets;
+- one native target splits;
+- two decoder-visible legal targets lack one-to-one lineage;
+- one legal target violates the frozen area-ratio gate; and
+- no legal target violates the centroid-shift gate.
+
+Therefore P0-A is false. P0-B and P0-C have `null` formal decisions and retain
+their values only as secondary diagnostics. P0-D replays historical U/M
+exposure, but candidate S remains `not_evaluated`; no distribution, decoder,
+or model is trained. The only authorized route is
+`rebuild_synthetic_target_extraction`.
+
+The P0 population is `D_R`: 32 reachable factual misses in 24 source groups
+and one separately recorded unreachable miss. The historical value 23 is a
+`D_V` anchor-miss denominator and is not used by P0.
+
 ## Transition to Full CURE
 
 Full CURE design begins only after CURE-Lite passes its mechanism gate with
-adequate repeatability. M is unsupported in both completed runs, so the next
-task remains inside CURE-Lite: measure factual/legal distribution overlap and
-effective support on `D_R`, replace the scalar hard selector with one
-support-preserving distribution correction, and verify that single change
-while keeping all other training and inference choices fixed.
+adequate repeatability. M is unsupported in both completed runs, and P0-A has
+shown that the present synthetic target geometry must be repaired before any
+marginal distribution correction is eligible for evaluation. After the
+repaired population passes P0-A, P0-B/P0-C must be evaluated formally; only
+then may P0-D construct and audit candidate S.
 
 Only after Full CURE is defined should thin adapters be built for DNANet,
 UIUNet, MSHNet, and SCTransNet. Those experiments test whether the unchanged
@@ -173,7 +210,7 @@ Stage 1 claim.
 
 ## Software and artifact status
 
-The current full suite reports `359 passed`. Tests establish implementation
+The current full suite reports `376 passed`. Tests establish implementation
 consistency, not M performance.
 
 Historical identifiers remain as recorded: Stage-A config v4, completed run

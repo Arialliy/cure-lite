@@ -1,0 +1,87 @@
+{
+  "schema_version": "cure-lite-geometry-safe-p0-config-v2",
+  "protocol_id": "irstd1k-dr-geometry-safe-p0-v2",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "predecessor": {
+    "predecessor_schema_version": "cure-lite-p0-diagnostic-config-v1",
+    "predecessor_config_fingerprint": "fc2364ca94fc5e88d2f416952eff9259610d37f22ebfe9a9f8d1c60e8c2c8c55",
+    "predecessor_p0_a_receipt_fingerprint": "d5f08de029320bcdaf25e2da4bfd55dd115fd4642c1a7fad8bb907dafcbfc8a5",
+    "predecessor_p0_a_file_sha256": "d5821539ee4c045af5cdaa1c43851230de2be49a141d32ef65dc4f774f94da2f",
+    "predecessor_decision_fingerprint": "8cd858ffb4fbd4c4c4b6d42e1b184172a3fef4a4fb1e72cee18f0ce040595b54",
+    "predecessor_complete_fingerprint": "dff2100ff8844747ccc443b79ba812cd1c3aabc3ff5856a6f3ea4dd3b36eddc7",
+    "predecessor_complete_file_sha256": "d86db17d3bb95bfd8a25de05152aa9b9da07f0946809d966ec7f7875a17a3fa8",
+    "predecessor_p0_a_pass": false,
+    "predecessor_next_route": "rebuild_synthetic_target_extraction",
+    "relationship": "new-protocol-scope-split-not-v1-reinterpretation",
+    "v1_outcome_remains_valid": true,
+    "result_reinterpretation": false,
+    "geometry_thresholds_changed": false,
+    "hardcoded_target_exclusions_added": false,
+    "d_v_metrics_consulted_for_revision": false
+  },
+  "input_binding": {
+    "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+    "state_index_sha256": "075fc1ad217f365df85b1d29568ad215f06ce6e0b691ef78a5dd85f0affe6298",
+    "state_index_fingerprint": "d06e05151b2d7e9e4829d52fca0037e1c42c8a552c015312a03afd26c3fbf59d",
+    "base_fingerprint": "5f69986b95d11a89c5a5e91d6bdd63add865eda102be8ce486722fee8cd00dce",
+    "base_state_fingerprint": "1e17bc11465bf4fd63b5a697dd466cd2d78505d44ba83f9862ffbce3bd39f3c4",
+    "state_fingerprint": "eedfc898171e1e6ebd3ef29e17f52da93e89a9a4a33351ea14cddb838d651e72",
+    "gt_fingerprint": "5705d1ac381f9744d13222396d064a2bc034edea93e657c5f62705cf269823a8"
+  },
+  "execution_policy": {
+    "allowed_runtime_splits": [
+      "D_R"
+    ],
+    "create_only_output": true,
+    "allow_training": false,
+    "allow_calibration": false,
+    "allow_inference": false,
+    "allow_d_v_evaluation": false,
+    "allow_backbone_integration": false
+  },
+  "geometry": {
+    "expected_native_size": [
+      512,
+      512
+    ],
+    "expected_evaluation_size": [
+      256,
+      256
+    ],
+    "foreground_rule": "uint8-positive-v1",
+    "resize_rule": "pil-nearest-v1",
+    "connectivity": 8,
+    "min_component_area": 1,
+    "centroid_coordinate_rule": "pixel-center-v1",
+    "lineage_rule": "bidirectional-one-to-one-native-evaluation-v1",
+    "require_exact_component_projection": true,
+    "area_ratio_min_inclusive": 0.5,
+    "area_ratio_max_inclusive": 2.0,
+    "centroid_shift_max_evaluation_px_inclusive": 1.0,
+    "require_synthetic_positive_equals_evaluation_target": true,
+    "geometry_quantization": 1000000
+  },
+  "analysis_population": {
+    "a0_role": "descriptive-non-gating",
+    "a0_population": "all-native-gt-components",
+    "a0_require_exact_preservation_for_downstream": false,
+    "factual_candidate_population": "reachable-factual-misses",
+    "legal_candidate_population": "decoder-visible-legal-targets-before-geometry-filter",
+    "group_key": "manifest.group_id",
+    "apply_rules_to_roles": [
+      "factual",
+      "legal"
+    ],
+    "invalid_candidate_action": "exclude-with-complete-receipt-v1",
+    "hardcoded_identity_exclusions": [],
+    "retention_threshold_policy": "report-only-no-posthoc-retention-threshold",
+    "unreachable_factual_policy": "outside-reachable-population-but-mandatory-ledger",
+    "require_complete_candidate_accounting": true,
+    "require_zero_invalid_retained_targets": true,
+    "require_zero_duplicate_retained_identities": true,
+    "require_all_reachable_factual_geometry_eligible": true,
+    "require_nonempty_factual_eligible": true,
+    "require_nonempty_legal_eligible": true
+  }
+}

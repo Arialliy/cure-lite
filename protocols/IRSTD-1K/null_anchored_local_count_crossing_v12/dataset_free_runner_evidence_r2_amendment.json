@@ -1,0 +1,64 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.dataset-free-runner-evidence-amendment.v1",
+  "method_id": "nlcc_v12",
+  "runner_evidence_revision": "r2",
+  "created_date": "2026-07-26",
+  "status": "FROZEN_BEFORE_DEVELOPMENT_AUTHORIZATION",
+  "model_version_unchanged": true,
+  "scientific_contract_unchanged": {
+    "decoder_topology": true,
+    "trainable_parameter_count": 2593,
+    "decoder_inputs": [
+      "detached_frozen_base_feature",
+      "hard_base_occupancy"
+    ],
+    "loss": true,
+    "dataset_free_input_populations": true,
+    "thresholds": true,
+    "development_updates": 320,
+    "holdout_updates": 400,
+    "optimizer_and_seed": true,
+    "final_inference_graph": true
+  },
+  "runner_evidence_changes": [
+    "recompute_all_76_numeric_gates_and_structural_gates_from_raw_result_fields",
+    "reject_duplicate_json_keys_nan_and_infinity",
+    "consume_each_execution_authority_once_with_training_started_receipt",
+    "audit_parameters_buffers_and_optimizer_state_before_and_after_updates",
+    "bind_a_deterministic_transitive_local_source_closure",
+    "bind_the_frozen_implementation_closure_before_authorization",
+    "allow_only_one_terminal_file_and_separate_execution_from_publication",
+    "derive_cli_status_and_decision_from_the_reloaded_recomputed_result"
+  ],
+  "attempt_semantics": {
+    "previous_formal_attempt_started": false,
+    "previous_development_result_exists": false,
+    "automatic_retry_allowed": false,
+    "r2_development_attempt_ordinal": 1
+  },
+  "authorization": {
+    "development_authorized": false,
+    "holdout_authorized": false,
+    "authorization_requires_frozen_r2_implementation_closure": true,
+    "authorization_requires_complete_r2_test_receipts": true
+  },
+  "upstream_bindings": {
+    "runner_preregistration": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evaluation_preregistration.json",
+      "file_sha256": "014a5df9b9b7088b504e53ef1921a2f0c43e9ca392997b3cde2085e50fa430bd",
+      "fingerprint": "3a3ca440e974a6810d047730ea993c553eb6266a8fb0e68d99a137842011a0f9"
+    },
+    "path_metric_clarification": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_path_and_metric_clarification.json",
+      "file_sha256": "b252391e65149f28340560912d09210c3f972b88360d1330610fd1696647e290",
+      "fingerprint": "e4e91db7b93eec33fac321cf07329e3afdb4f41e5b69f4e68e6510c2c20e4166"
+    },
+    "profile_independence_clarification": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_profile_independence_clarification.json",
+      "file_sha256": "20b1b31d610c2ec19ad46ab89b3973f6674bdb521a43455d4de0b094fc1efd9e",
+      "fingerprint": "de212d80195dc0e59a2ba44dc5b70bc87196c1b8dcdb0c24ee1380bf28087560"
+    }
+  },
+  "amendment_fingerprint_scope": "all_fields_except_amendment_fingerprint",
+  "amendment_fingerprint": "be45441ee860721dcb14a32940374877c00e2b7eb2b16259b86e24c4c58a42fc"
+}

@@ -15,10 +15,11 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import hashlib
-import json
+import math
 import os
 from pathlib import Path
 import sys
+import threading
 from typing import Mapping, Sequence
 
 import torch
@@ -42,6 +43,12 @@ from .nlcc_dataset_free_inputs import (
     build_strata,
     factual_indices_for_update,
 )
+from .nlcc_dataset_free_decision import (
+    PASS,
+    RecomputedDecision,
+    recompute_result_decision,
+    strict_json_loads,
+)
 from .nlcc_dataset_free_runner_config import (
     DEVELOPMENT,
     EXPECTED_ADDITIVE_PATHS,
@@ -57,9 +64,19 @@ from .nlcc_dataset_free_runner_config import (
     RUNNER_CLARIFICATION_FILE_SHA256,
     RUNNER_CLARIFICATION_FINGERPRINT,
     RUNNER_CLARIFICATION_REPO_PATH,
+    RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256,
+    RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT,
+    RUNNER_EVIDENCE_AMENDMENT_REPO_PATH,
     RUNNER_PREREGISTRATION_FILE_SHA256,
     RUNNER_PREREGISTRATION_FINGERPRINT,
     RUNNER_PREREGISTRATION_REPO_PATH,
+    development_runner_config,
+    holdout_runner_config,
+)
+from .nlcc_runner_source_closure import (
+    build_nlcc_runner_source_closure,
+    validate_source_closure_manifest,
+    verify_frozen_source_closure,
 )
 from .null_anchored_local_count_crossing_decoder import (
     CURELiteNullAnchoredLocalCountCrossingDecoder,
@@ -73,17 +90,33 @@ from .train.step import BranchBatch
 
 
 PRE_RUN_AUTHORIZATION_SCHEMA = (
-    "cure-lite.nlcc-v12.dataset-free-pre-run-authorization.v1"
+    "cure-lite.nlcc-v12.dataset-free-pre-run-authorization.v2"
 )
-ATTEMPT_SCHEMA = "cure-lite.nlcc-v12.dataset-free-attempt.v1"
-RESULT_SCHEMA = "cure-lite.nlcc-v12.dataset-free-result.v1"
-FAILURE_SCHEMA = "cure-lite.nlcc-v12.dataset-free-failure.v1"
-DECISION_SCHEMA = "cure-lite.nlcc-v12.dataset-free-decision.v1"
-COMPLETE_SCHEMA = "cure-lite.nlcc-v12.dataset-free-complete.v1"
+ATTEMPT_SCHEMA = "cure-lite.nlcc-v12.dataset-free-attempt.v2"
+TRAINING_STARTED_SCHEMA = (
+    "cure-lite.nlcc-v12.dataset-free-training-started.v1"
+)
+RESULT_SCHEMA = "cure-lite.nlcc-v12.dataset-free-result.v2"
+FAILURE_SCHEMA = "cure-lite.nlcc-v12.dataset-free-failure.v2"
+DECISION_SCHEMA = "cure-lite.nlcc-v12.dataset-free-decision.v2"
+COMPLETE_SCHEMA = "cure-lite.nlcc-v12.dataset-free-complete.v2"
+RUNNER_EVIDENCE_REVISION = "r2"
+RUNNER_IMPLEMENTATION_CLOSURE_REPO_PATH = (
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/"
+    "runner_implementation_closure_r1.json"
+)
+R0_VERIFICATION_RECEIPT_REPO_PATH = (
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/"
+    "runner_evidence_r2_r0_verification_receipt.json"
+)
 
 _ROOT = Path(__file__).resolve().parents[1]
 _INCOMPLETE = ".incomplete"
-_AUTHORITY_NONCES: set[object] = set()
+_AUTHORITY_CLAIMED = "CLAIMED"
+_AUTHORITY_TRAINING_STARTED = "TRAINING_STARTED"
+_AUTHORITY_SEALED = "SEALED"
+_AUTHORITY_STATES: dict[object, str] = {}
+_AUTHORITY_LOCK = threading.Lock()
 
 _FORBIDDEN_RUNTIME_MODULES = {
     "cure_lite.experiment.cache_pipeline",
@@ -116,6 +149,7 @@ REQUIRED_AUTH_SOURCE_PATHS = tuple(
             RUNNER_PREREGISTRATION_REPO_PATH,
             RUNNER_CLARIFICATION_REPO_PATH,
             PROFILE_INDEPENDENCE_REPO_PATH,
+            RUNNER_EVIDENCE_AMENDMENT_REPO_PATH,
         )
     )
 )
@@ -376,6 +410,7 @@ class PreRunAuthorization:
     repo_path: str
     file_sha256: str
     authorization_fingerprint: str
+    implementation_closure_fingerprint: str
     source_bindings: Mapping[str, str]
 
     def __post_init__(self) -> None:
@@ -383,7 +418,11 @@ class PreRunAuthorization:
             raise ValueError("authorization profile kind differs")
         if self.attempt_ordinal != 1:
             raise ValueError("only attempt ordinal one is allowed")
-        for name in ("file_sha256", "authorization_fingerprint"):
+        for name in (
+            "file_sha256",
+            "authorization_fingerprint",
+            "implementation_closure_fingerprint",
+        ):
             value = getattr(self, name)
             if len(value) != 64 or any(
                 character not in "0123456789abcdef" for character in value
@@ -395,20 +434,137 @@ class PreRunAuthorization:
             "repo_path": self.repo_path,
             "file_sha256": self.file_sha256,
             "authorization_fingerprint": self.authorization_fingerprint,
+            "implementation_closure_fingerprint": (
+                self.implementation_closure_fingerprint
+            ),
             "profile_id": self.profile_id,
             "profile_kind": self.profile_kind,
             "attempt_ordinal": self.attempt_ordinal,
         }
 
 
-def _source_bindings(repo_root: Path) -> dict[str, str]:
-    bindings: dict[str, str] = {}
-    for relative in REQUIRED_AUTH_SOURCE_PATHS:
-        path = repo_root / relative
-        if not path.is_file():
-            raise FileNotFoundError(f"required runner source is absent: {relative}")
-        bindings[relative] = file_sha256(path)
-    return bindings
+def _verified_implementation_closure(
+    repo_root: Path,
+) -> tuple[dict[str, object], dict[str, object]]:
+    closure_path = repo_root / RUNNER_IMPLEMENTATION_CLOSURE_REPO_PATH
+    if not closure_path.is_file():
+        raise FileNotFoundError(
+            "the frozen runner implementation closure is absent"
+        )
+    frozen = _load_json_object(
+        closure_path,
+        name="runner implementation closure",
+    )
+    frozen_fingerprint = validate_source_closure_manifest(frozen)
+    current = build_nlcc_runner_source_closure(repo_root)
+    verification = verify_frozen_source_closure(frozen, current)
+    binding = {
+        "repo_path": RUNNER_IMPLEMENTATION_CLOSURE_REPO_PATH,
+        "file_sha256": file_sha256(closure_path),
+        "closure_fingerprint": frozen_fingerprint,
+        "node_count": len(frozen["nodes"]),
+        "edge_count": len(frozen["edges"]),
+        "in_scope_closure_verified": (
+            verification.get("in_scope_closure_drift") is False
+        ),
+    }
+    return frozen, binding
+
+
+def _source_bindings(repo_root: Path) -> tuple[dict[str, str], dict[str, object]]:
+    closure, binding = _verified_implementation_closure(repo_root)
+    nodes = closure.get("nodes")
+    if not isinstance(nodes, list):
+        raise TypeError("runner implementation closure nodes must be an array")
+    source_bindings: dict[str, str] = {}
+    for node in nodes:
+        if not isinstance(node, Mapping):
+            raise TypeError("runner implementation closure node must be an object")
+        path = node.get("path")
+        sha256 = node.get("sha256")
+        if not isinstance(path, str) or not isinstance(sha256, str):
+            raise TypeError("runner implementation closure node differs")
+        source_bindings[path] = sha256
+    return source_bindings, binding
+
+
+def _verify_runner_evidence_amendment(
+    repo_root: Path,
+) -> dict[str, object]:
+    path = repo_root / RUNNER_EVIDENCE_AMENDMENT_REPO_PATH
+    payload = _load_json_object(path, name="runner evidence amendment")
+    unsigned = dict(payload)
+    observed = unsigned.pop("amendment_fingerprint", None)
+    if (
+        observed != RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT
+        or stable_fingerprint(unsigned) != observed
+        or file_sha256(path) != RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256
+    ):
+        raise RuntimeError("runner evidence amendment binding differs")
+    return {
+        "repo_path": RUNNER_EVIDENCE_AMENDMENT_REPO_PATH,
+        "file_sha256": RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256,
+        "amendment_fingerprint": observed,
+    }
+
+
+def _verify_r0_verification_receipt(
+    repo_root: Path,
+    closure_binding: Mapping[str, object],
+) -> dict[str, object]:
+    path = repo_root / R0_VERIFICATION_RECEIPT_REPO_PATH
+    payload = _load_json_object(path, name="R0 verification receipt")
+    unsigned = dict(payload)
+    observed = unsigned.pop("receipt_fingerprint", None)
+    if not isinstance(observed, str) or stable_fingerprint(unsigned) != observed:
+        raise RuntimeError("R0 verification receipt fingerprint differs")
+    if (
+        payload.get("method_id") != METHOD_ID
+        or payload.get("runner_evidence_revision") != RUNNER_EVIDENCE_REVISION
+        or payload.get("decision")
+        != "R0_PASS_DEVELOPMENT_AUTHORIZATION_ELIGIBLE"
+        or payload.get("all_pass") is not True
+    ):
+        raise RuntimeError("R0 verification receipt does not authorize development")
+    closure = payload.get("implementation_closure")
+    if not isinstance(closure, Mapping) or (
+        closure.get("file_sha256") != closure_binding.get("file_sha256")
+        or closure.get("closure_fingerprint")
+        != closure_binding.get("closure_fingerprint")
+        or closure.get("recomputed_in_scope_closure_drift") is not False
+    ):
+        raise RuntimeError("R0 receipt implementation closure differs")
+    test_receipts = payload.get("test_receipts")
+    if not isinstance(test_receipts, Mapping):
+        raise RuntimeError("R0 test receipts are absent")
+    for name in ("runner_evidence_targeted", "repository_full"):
+        receipt = test_receipts.get(name)
+        if not isinstance(receipt, Mapping):
+            raise RuntimeError(f"R0 {name} test receipt is absent")
+        relative = receipt.get("repo_path")
+        expected_sha = receipt.get("file_sha256")
+        if (
+            not isinstance(relative, str)
+            or not isinstance(expected_sha, str)
+            or not (repo_root / relative).is_file()
+            or file_sha256(repo_root / relative) != expected_sha
+            or receipt.get("failures") != 0
+            or receipt.get("errors") != 0
+        ):
+            raise RuntimeError(f"R0 {name} test receipt differs")
+    boundary = payload.get("execution_boundary")
+    if not isinstance(boundary, Mapping) or (
+        boundary.get("development_authorization_eligible") is not True
+        or boundary.get("development_training_started") is not False
+        or boundary.get("holdout_training_started") is not False
+        or boundary.get("D_R_accessed") is not False
+    ):
+        raise RuntimeError("R0 execution boundary differs")
+    return {
+        "repo_path": R0_VERIFICATION_RECEIPT_REPO_PATH,
+        "file_sha256": file_sha256(path),
+        "receipt_fingerprint": observed,
+    }
 
 
 def pre_run_authorization_payload(
@@ -418,10 +574,14 @@ def pre_run_authorization_payload(
 ) -> dict[str, object]:
     """Return, but never publish, the exact future authorization payload."""
 
-    source_bindings = _source_bindings(Path(repo_root))
+    root = Path(repo_root)
+    source_bindings, closure_binding = _source_bindings(root)
+    amendment_binding = _verify_runner_evidence_amendment(root)
+    r0_binding = _verify_r0_verification_receipt(root, closure_binding)
     payload: dict[str, object] = {
         "schema_version": PRE_RUN_AUTHORIZATION_SCHEMA,
         "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
         "profile_kind": config.profile.kind,
         "profile_id": config.profile.profile_id,
         "attempt_ordinal": 1,
@@ -448,9 +608,18 @@ def pre_run_authorization_payload(
             ),
             "input_freeze_file_sha256": INPUT_FREEZE_FILE_SHA256,
             "input_freeze_fingerprint": INPUT_FREEZE_FINGERPRINT,
+            "runner_evidence_amendment_file_sha256": (
+                RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256
+            ),
+            "runner_evidence_amendment_fingerprint": (
+                RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT
+            ),
         },
         "profile_binding": config.profile.manifest(),
         "source_bindings": source_bindings,
+        "runner_implementation_closure": closure_binding,
+        "runner_evidence_amendment": amendment_binding,
+        "r0_verification_receipt": r0_binding,
         "execution_contract": {
             "one_attempt": True,
             "automatic_retry": False,
@@ -464,7 +633,7 @@ def pre_run_authorization_payload(
 
 
 def _load_json_object(path: Path, *, name: str) -> dict[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
+    value = strict_json_loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise TypeError(f"{name} must contain one JSON object")
     return value
@@ -502,6 +671,9 @@ def load_pre_run_authorization(
         repo_path=str(path.relative_to(root)),
         file_sha256=file_sha256(path),
         authorization_fingerprint=observed,
+        implementation_closure_fingerprint=str(
+            payload["runner_implementation_closure"]["closure_fingerprint"]
+        ),
         source_bindings={str(key): str(value) for key, value in bindings.items()},
     )
 
@@ -557,6 +729,7 @@ def _attempt_payload(
     payload: dict[str, object] = {
         "schema_version": ATTEMPT_SCHEMA,
         "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
         "profile_kind": config.profile.kind,
         "profile_id": config.profile.profile_id,
         "attempt_ordinal": 1,
@@ -600,7 +773,13 @@ def verify_development_authorization_artifacts(
         / "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/"
         "development_regression_r1"
     )
-    required = {"attempt.json", "result.json", "decision.json", "COMPLETE.json"}
+    required = {
+        "attempt.json",
+        "training_started.json",
+        "result.json",
+        "decision.json",
+        "COMPLETE.json",
+    }
     observed = {path.name for path in directory.iterdir()} if directory.is_dir() else set()
     if observed != required:
         raise RuntimeError(
@@ -613,19 +792,26 @@ def verify_development_authorization_artifacts(
         raise RuntimeError("holdout may not consume development state")
     complete = _verify_complete_inventory(directory)
     attempt = _load_json_object(directory / "attempt.json", name="development attempt")
+    training_started = _load_json_object(
+        directory / "training_started.json",
+        name="development training start",
+    )
     result = _load_json_object(directory / "result.json", name="development result")
     decision = _load_json_object(
         directory / "decision.json", name="development decision"
     )
     if set(complete.get("files", {})) != {
         "attempt.json",
+        "training_started.json",
         "result.json",
         "decision.json",
     }:
         raise RuntimeError("development COMPLETE inventory is not exact")
     if (
         attempt.get("schema_version") != ATTEMPT_SCHEMA
+        or training_started.get("schema_version") != TRAINING_STARTED_SCHEMA
         or attempt.get("method_id") != METHOD_ID
+        or training_started.get("method_id") != METHOD_ID
         or attempt.get("profile_kind") != DEVELOPMENT
         or result.get("schema_version") != RESULT_SCHEMA
         or result.get("method_id") != METHOD_ID
@@ -636,11 +822,22 @@ def verify_development_authorization_artifacts(
     ):
         raise RuntimeError("development artifact identity differs")
     if (
-        result.get("all_pass") is not True
+        decision.get("status") != PASS
         or decision.get("all_pass") is not True
         or decision.get("decision") != "NLCC_V12_DEVELOPMENT_PASS"
     ):
         raise RuntimeError("development artifacts do not authorize holdout")
+    recomputed = recompute_result_decision(
+        result,
+        development_runner_config(),
+    )
+    if (
+        recomputed.status != PASS
+        or decision.get("gate_ledger") != recomputed.manifest()
+    ):
+        raise RuntimeError(
+            "development decision differs from raw-metric recomputation"
+        )
     attempt_unsigned = dict(attempt)
     attempt_fingerprint = attempt_unsigned.pop("attempt_fingerprint", None)
     if (
@@ -655,6 +852,17 @@ def verify_development_authorization_artifacts(
         or stable_fingerprint(result_unsigned) != result_fingerprint
     ):
         raise RuntimeError("development result fingerprint differs")
+    training_started_unsigned = dict(training_started)
+    training_started_fingerprint = training_started_unsigned.pop(
+        "training_started_fingerprint",
+        None,
+    )
+    if (
+        not isinstance(training_started_fingerprint, str)
+        or stable_fingerprint(training_started_unsigned)
+        != training_started_fingerprint
+    ):
+        raise RuntimeError("development training-start fingerprint differs")
     decision_unsigned = dict(decision)
     decision_fingerprint = decision_unsigned.pop("decision_fingerprint", None)
     if (
@@ -678,6 +886,7 @@ def verify_development_authorization_artifacts(
         "result_file_sha256": file_sha256(directory / "result.json"),
         "result_fingerprint": result_fingerprint,
         "attempt_fingerprint": attempt_fingerprint,
+        "training_started_fingerprint": training_started_fingerprint,
         "decision_fingerprint": decision_fingerprint,
         "complete_fingerprint": complete["complete_fingerprint"],
         "initial_decoder_fingerprint": initial_decoder_fingerprint,
@@ -720,7 +929,8 @@ def claim_execution(
     if not isinstance(observed, str) or stable_fingerprint(attempt_unsigned) != observed:
         raise RuntimeError("attempt fingerprint differs after reload")
     nonce = object()
-    _AUTHORITY_NONCES.add(nonce)
+    with _AUTHORITY_LOCK:
+        _AUTHORITY_STATES[nonce] = _AUTHORITY_CLAIMED
     return ExecutionAuthority(
         config_fingerprint=stable_fingerprint(config.manifest()),
         profile_id=config.profile.profile_id,
@@ -740,11 +950,20 @@ def claim_execution(
 def _require_authority(
     authority: ExecutionAuthority,
     config: NLCCDatasetFreeRunnerConfig,
+    *,
+    expected_state: str | None = None,
 ) -> None:
     if not isinstance(authority, ExecutionAuthority):
         raise TypeError("authority must be ExecutionAuthority")
-    if authority._nonce not in _AUTHORITY_NONCES:
+    with _AUTHORITY_LOCK:
+        state = _AUTHORITY_STATES.get(authority._nonce)
+    if state is None:
         raise RuntimeError("execution authority is not process-local and live")
+    if expected_state is not None and state != expected_state:
+        raise RuntimeError(
+            "execution authority state differs: "
+            f"expected {expected_state}, observed {state}"
+        )
     if authority.config_fingerprint != stable_fingerprint(config.manifest()):
         raise RuntimeError("execution authority config differs")
     if authority.profile_id != config.profile.profile_id:
@@ -752,6 +971,79 @@ def _require_authority(
     attempt = authority.artifact_directory / "attempt.json"
     if not attempt.is_file() or not (authority.artifact_directory / _INCOMPLETE).is_file():
         raise RuntimeError("attempt must be durable before optimizer construction")
+
+
+def _training_started_payload(
+    authority: ExecutionAuthority,
+    config: NLCCDatasetFreeRunnerConfig,
+) -> dict[str, object]:
+    attempt = _load_json_object(
+        authority.artifact_directory / "attempt.json",
+        name="attempt",
+    )
+    attempt_fingerprint = attempt.get("attempt_fingerprint")
+    if not isinstance(attempt_fingerprint, str):
+        raise RuntimeError("attempt fingerprint is absent before training")
+    authorization_binding = attempt.get("authorization_binding")
+    if not isinstance(authorization_binding, Mapping):
+        raise RuntimeError("attempt authorization binding is absent")
+    closure_fingerprint = authorization_binding.get(
+        "implementation_closure_fingerprint"
+    )
+    if not isinstance(closure_fingerprint, str):
+        raise RuntimeError("attempt implementation closure binding is absent")
+    payload: dict[str, object] = {
+        "schema_version": TRAINING_STARTED_SCHEMA,
+        "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
+        "profile_id": authority.profile_id,
+        "profile_kind": authority.profile_kind,
+        "attempt_fingerprint": attempt_fingerprint,
+        "implementation_closure_fingerprint": closure_fingerprint,
+        "config_fingerprint": stable_fingerprint(config.manifest()),
+        "state_transition": "CLAIMED_TO_TRAINING_STARTED",
+        "optimizer_constructed_before_receipt": False,
+        "automatic_retry_allowed": False,
+    }
+    payload["training_started_fingerprint"] = stable_fingerprint(payload)
+    return payload
+
+
+def _consume_authority_for_training(
+    authority: ExecutionAuthority,
+    config: NLCCDatasetFreeRunnerConfig,
+) -> dict[str, object]:
+    """Consume one live authority before constructing the optimizer."""
+
+    _require_authority(
+        authority,
+        config,
+        expected_state=_AUTHORITY_CLAIMED,
+    )
+    with _AUTHORITY_LOCK:
+        state = _AUTHORITY_STATES.get(authority._nonce)
+        if state != _AUTHORITY_CLAIMED:
+            raise RuntimeError("execution authority was already consumed")
+        _AUTHORITY_STATES[authority._nonce] = "TRAINING_STARTING"
+    payload = _training_started_payload(authority, config)
+    try:
+        _write_json_create_only(
+            authority.artifact_directory / "training_started.json",
+            payload,
+        )
+        reloaded = _load_json_object(
+            authority.artifact_directory / "training_started.json",
+            name="training started",
+        )
+        if reloaded != payload:
+            raise RuntimeError("durably reloaded training start differs")
+    except BaseException:
+        with _AUTHORITY_LOCK:
+            _AUTHORITY_STATES[authority._nonce] = "TRAINING_START_FAILED"
+        raise
+    with _AUTHORITY_LOCK:
+        _AUTHORITY_STATES[authority._nonce] = _AUTHORITY_TRAINING_STARTED
+    return payload
 
 
 @dataclass(frozen=True)
@@ -789,9 +1081,9 @@ def build_training_components(
     authority: ExecutionAuthority,
     config: NLCCDatasetFreeRunnerConfig,
 ) -> NLCCTrainingComponents:
-    """Construct a from-scratch decoder and fresh Adam after attempt claim."""
+    """Consume one authority, then construct a fresh decoder and Adam."""
 
-    _require_authority(authority, config)
+    _consume_authority_for_training(authority, config)
     with torch.random.fork_rng(devices=[]):
         torch.manual_seed(config.decoder_seed)
         decoder = CURELiteNullAnchoredLocalCountCrossingDecoder(
@@ -852,6 +1144,118 @@ def build_training_components(
         initial_decoder_fingerprint=initial,
         optimizer_state_initially_empty=True,
     )
+
+
+def _iter_optimizer_state_tensors(
+    value: object,
+    *,
+    path: str,
+) -> Sequence[tuple[str, Tensor]]:
+    if isinstance(value, Tensor):
+        return ((path, value),)
+    if isinstance(value, Mapping):
+        rows: list[tuple[str, Tensor]] = []
+        for key in sorted(value, key=lambda item: str(item)):
+            rows.extend(
+                _iter_optimizer_state_tensors(
+                    value[key],
+                    path=f"{path}.{key}",
+                )
+            )
+        return tuple(rows)
+    if isinstance(value, (tuple, list)):
+        rows = []
+        for index, item in enumerate(value):
+            rows.extend(
+                _iter_optimizer_state_tensors(
+                    item,
+                    path=f"{path}[{index}]",
+                )
+            )
+        return tuple(rows)
+    return ()
+
+
+def audit_finite_training_state(
+    decoder: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    *,
+    update_index: int,
+    phase: str,
+) -> dict[str, object]:
+    """Audit every tensor that can affect the next optimizer update."""
+
+    if phase not in {"before_first_update", "after_optimizer_step"}:
+        raise ValueError("unknown finite-state audit phase")
+    if isinstance(update_index, bool) or not isinstance(update_index, int):
+        raise TypeError("update_index must be an integer")
+
+    tensors: list[tuple[str, str, Tensor]] = []
+    for name, parameter in decoder.named_parameters():
+        tensors.append(("parameter", name, parameter))
+    for name, buffer in decoder.named_buffers():
+        tensors.append(("buffer", name, buffer))
+
+    parameter_names = {
+        id(parameter): name for name, parameter in decoder.named_parameters()
+    }
+    for parameter_index, (parameter, state) in enumerate(optimizer.state.items()):
+        parameter_name = parameter_names.get(
+            id(parameter),
+            f"optimizer_parameter_{parameter_index}",
+        )
+        for path, tensor in _iter_optimizer_state_tensors(
+            state,
+            path=parameter_name,
+        ):
+            tensors.append(("optimizer_state", path, tensor))
+
+    kind_counts = Counter(kind for kind, _, _ in tensors)
+    nonfinite_paths: list[str] = []
+    total_elements = 0
+    nonfinite_elements = 0
+    maximum_abs = 0.0
+    squared_l2 = 0.0
+    for kind, path, tensor in tensors:
+        detached = tensor.detach()
+        total_elements += int(detached.numel())
+        finite = torch.isfinite(detached)
+        count = int((~finite).sum().cpu())
+        nonfinite_elements += count
+        if count:
+            nonfinite_paths.append(f"{kind}:{path}")
+            continue
+        if detached.numel():
+            magnitude = detached.abs().double()
+            maximum_abs = max(
+                maximum_abs,
+                float(magnitude.max().cpu()),
+            )
+            squared_l2 += float((magnitude * magnitude).sum().cpu())
+
+    global_l2_norm = squared_l2**0.5
+    if not math.isfinite(maximum_abs) or not math.isfinite(global_l2_norm):
+        raise FloatingPointError("finite-state audit summary is non-finite")
+    audit = {
+        "phase": phase,
+        "update_index": update_index,
+        "parameter_tensor_count": int(kind_counts["parameter"]),
+        "buffer_tensor_count": int(kind_counts["buffer"]),
+        "optimizer_state_tensor_count": int(kind_counts["optimizer_state"]),
+        "total_tensor_count": len(tensors),
+        "total_element_count": total_elements,
+        "nonfinite_element_count": nonfinite_elements,
+        "nonfinite_tensor_paths": nonfinite_paths,
+        "maximum_absolute_value": maximum_abs,
+        "global_l2_norm": global_l2_norm,
+        "all_finite": nonfinite_elements == 0,
+    }
+    if nonfinite_paths:
+        raise FloatingPointError(
+            "non-finite training state after optimizer boundary: "
+            f"{nonfinite_paths}"
+        )
+    return audit
 
 
 def _minimum(value: Tensor, *, name: str) -> float:
@@ -1210,6 +1614,45 @@ def _field_range(
     }
 
 
+def _operator_field_observations(
+    fields: Sequence[NullAnchoredLocalCountCrossingDecoderFields],
+) -> dict[str, object]:
+    tensor_names = (
+        "stem_feature",
+        "trunk_feature",
+        "baseline_logits",
+        "raw_phase_evidence",
+        "null_anchored_reference",
+        "phase_relative_evidence",
+        "count_boundary",
+        "crossing_margin",
+        "active_phase_mask",
+        "recovery_factor",
+        "native_phase_evidence",
+        "evidence",
+        "logits",
+        "projected_occupancy",
+        "local_occupancy_count",
+    )
+    tensors = [
+        getattr(field, name)
+        for field in fields
+        for name in tensor_names
+    ]
+    return {
+        "forward_fields_call_count": len(fields),
+        "forward_fields_batch_sizes": [
+            int(field.logits.shape[0]) for field in fields
+        ],
+        "field_tensor_count": len(tensors),
+        "field_element_count": sum(int(value.numel()) for value in tensors),
+        "field_nonfinite_element_count": sum(
+            int((~torch.isfinite(value)).sum().cpu())
+            for value in tensors
+        ),
+    }
+
+
 def evaluate_trained_decoder(
     decoder: CURELiteNullAnchoredLocalCountCrossingDecoder,
     cache: NLCCMaterializedProfile,
@@ -1250,8 +1693,9 @@ def evaluate_trained_decoder(
         "recovery_factor": _field_range(
             (pair_fields, miss_fields, no_miss_fields), "recovery_factor"
         ),
-        "all_finite": True,
-        "same_three_final_forward_fields_calls": True,
+        **_operator_field_observations(
+            (pair_fields, miss_fields, no_miss_fields)
+        ),
     }
     return evaluate_cached_logits(
         cache,
@@ -1271,7 +1715,11 @@ def execute_authorized_profile(
     """Run the exact frozen profile; callers must publish its terminal state."""
 
     config = cache.config
-    _require_authority(authority, config)
+    _require_authority(
+        authority,
+        config,
+        expected_state=_AUTHORITY_CLAIMED,
+    )
     previous_threads = torch.get_num_threads()
     previous_deterministic = torch.are_deterministic_algorithms_enabled()
     try:
@@ -1296,6 +1744,17 @@ def execute_authorized_profile(
         decoder = components.decoder
         named_parameters = tuple(decoder.named_parameters())
         forward_sizes: list[int] = []
+        initial_finite_audit = audit_finite_training_state(
+            decoder,
+            components.optimizer,
+            update_index=-1,
+            phase="before_first_update",
+        )
+        final_finite_audit = initial_finite_audit
+        finite_state_audit_count = 1
+        finite_state_nonfinite_element_count = int(
+            initial_finite_audit["nonfinite_element_count"]
+        )
 
         def observe(_module: object, args: tuple[object, ...]) -> None:
             forward_sizes.append(int(args[0].shape[0]))
@@ -1317,6 +1776,16 @@ def execute_authorized_profile(
                     components.optimizer,
                     factual,
                     outcome,
+                )
+                final_finite_audit = audit_finite_training_state(
+                    decoder,
+                    components.optimizer,
+                    update_index=update_index,
+                    phase="after_optimizer_step",
+                )
+                finite_state_audit_count += 1
+                finite_state_nonfinite_element_count += int(
+                    final_finite_audit["nonfinite_element_count"]
                 )
                 if update_index == 0:
                     first_logs = dict(logs)
@@ -1378,24 +1847,43 @@ def execute_authorized_profile(
             tuple(forward_sizes[offset : offset + 3])
             for offset in range(0, len(forward_sizes), 3)
         )
-        feature_detach = (
-            cache.pair_population.pair_batch.feature.grad is None
-            and all(
-                batch.feature.grad is None
-                for batch in cache.factual_population.values()
-            )
+        pattern_counts = Counter(
+            ",".join(str(value) for value in pattern)
+            for pattern in patterns
         )
+        feature_tensors = (
+            cache.pair_population.pair_batch.feature,
+            *(
+                batch.feature
+                for batch in cache.factual_population.values()
+            ),
+        )
+        feature_cache_grad_tensor_count = sum(
+            value.grad is not None for value in feature_tensors
+        )
+        feature_detach = feature_cache_grad_tensor_count == 0
         structural = {
             "updates_executed": config.profile.updates,
             "expected_updates": config.profile.updates,
             "training_forward_call_count": len(forward_sizes),
             "expected_training_forward_call_count": 3 * config.profile.updates,
+            "training_forward_pattern_counts": dict(
+                sorted(pattern_counts.items())
+            ),
             "all_update_forward_patterns_4_4_4": (
                 len(patterns) == config.profile.updates
                 and all(pattern == (4, 4, 4) for pattern in patterns)
             ),
             "step_contract_failure_count": len(step_contract_failures),
             "gradient_failure_count": len(gradient_failures),
+            "finite_state_audit_count": finite_state_audit_count,
+            "expected_finite_state_audit_count": config.profile.updates + 1,
+            "finite_state_nonfinite_element_count": (
+                finite_state_nonfinite_element_count
+            ),
+            "feature_cache_grad_tensor_count": (
+                feature_cache_grad_tensor_count
+            ),
             "all_six_gradients_finite_nonzero_every_update": not gradient_failures,
             "feature_cache_leaves_remain_without_grad": feature_detach,
             "one_backward_and_one_step_per_update": not step_contract_failures,
@@ -1412,6 +1900,8 @@ def execute_authorized_profile(
                 and all(pattern == (4, 4, 4) for pattern in patterns)
                 and not step_contract_failures
                 and not gradient_failures
+                and finite_state_audit_count == config.profile.updates + 1
+                and finite_state_nonfinite_element_count == 0
                 and feature_detach
                 and components.optimizer_state_initially_empty
             ),
@@ -1430,6 +1920,7 @@ def execute_authorized_profile(
         result: dict[str, object] = {
             "schema_version": RESULT_SCHEMA,
             "method_id": METHOD_ID,
+            "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
             "profile_kind": config.profile.kind,
             "profile_id": config.profile.profile_id,
             "evidentiary_role": config.profile.evidentiary_role,
@@ -1449,6 +1940,15 @@ def execute_authorized_profile(
                 "gradient_maximum_l2": gradient_maximum,
                 "gradient_failures": gradient_failures,
                 "step_contract_failures": step_contract_failures,
+                "finite_state_audit": {
+                    "call_count": finite_state_audit_count,
+                    "expected_call_count": config.profile.updates + 1,
+                    "initial": initial_finite_audit,
+                    "final": final_finite_audit,
+                    "nonfinite_element_count": (
+                        finite_state_nonfinite_element_count
+                    ),
+                },
                 "first_update_logs": first_logs,
                 "last_update_logs": last_logs,
             },
@@ -1493,41 +1993,92 @@ def execute_authorized_profile(
         torch.set_num_threads(previous_threads)
 
 
+def _authority_config(
+    authority: ExecutionAuthority,
+) -> NLCCDatasetFreeRunnerConfig:
+    if authority.profile_kind == DEVELOPMENT:
+        config = development_runner_config()
+    elif authority.profile_kind == HOLDOUT:
+        config = holdout_runner_config()
+    else:
+        raise RuntimeError("execution authority profile kind differs")
+    if config.profile.profile_id != authority.profile_id:
+        raise RuntimeError("execution authority profile id differs")
+    return config
+
+
+def _validate_result_payload(
+    authority: ExecutionAuthority,
+    result: Mapping[str, object],
+) -> RecomputedDecision:
+    return recompute_result_decision(
+        result,
+        _authority_config(authority),
+    )
+
+
 def _seal_directory(
     authority: ExecutionAuthority,
     *,
     terminal_name: str,
 ) -> dict[str, object]:
     directory = authority.artifact_directory
+    with _AUTHORITY_LOCK:
+        authority_state = _AUTHORITY_STATES.get(authority._nonce)
+    if authority_state in {None, _AUTHORITY_SEALED}:
+        raise RuntimeError("execution authority cannot publish another terminal")
+    if terminal_name == "result.json" and (
+        authority_state != _AUTHORITY_TRAINING_STARTED
+        or not (directory / "training_started.json").is_file()
+    ):
+        raise RuntimeError("result publication requires a durable training start")
     terminal = _load_json_object(directory / terminal_name, name=terminal_name)
-    all_pass = terminal_name == "result.json" and terminal.get("all_pass") is True
+    recomputed: RecomputedDecision | None = None
     if terminal_name == "result.json":
-        unsigned = dict(terminal)
-        observed = unsigned.pop("result_fingerprint", None)
-        if not isinstance(observed, str) or stable_fingerprint(unsigned) != observed:
-            raise RuntimeError("result fingerprint differs before decision")
-    decision_prefix = (
-        "NLCC_V12_DEVELOPMENT"
-        if authority.profile_kind == DEVELOPMENT
-        else "NLCC_V12_HOLDOUT"
-    )
+        recomputed = _validate_result_payload(authority, terminal)
+        all_pass = recomputed.all_pass
+        terminal_status = recomputed.status
+        terminal_decision = recomputed.decision
+    else:
+        all_pass = False
+        terminal_status = "EXECUTION_FAILURE"
+        terminal_decision = (
+            "NLCC_V12_DEVELOPMENT_EXECUTION_FAILURE"
+            if authority.profile_kind == DEVELOPMENT
+            else "NLCC_V12_HOLDOUT_EXECUTION_FAILURE"
+        )
     decision: dict[str, object] = {
         "schema_version": DECISION_SCHEMA,
         "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
         "profile_id": authority.profile_id,
         "profile_kind": authority.profile_kind,
         "terminal_file": terminal_name,
         "terminal_file_sha256": file_sha256(directory / terminal_name),
-        "decision": f"{decision_prefix}_{'PASS' if all_pass else 'FAIL'}",
+        "status": terminal_status,
+        "decision": terminal_decision,
         "all_pass": all_pass,
         "recomputed_from_reloaded_terminal": True,
+        "gate_ledger": (
+            None if recomputed is None else recomputed.manifest()
+        ),
     }
     decision["decision_fingerprint"] = stable_fingerprint(decision)
     _write_json_create_only(directory / "decision.json", decision)
-    inventory_names = ("attempt.json", terminal_name, "decision.json")
+    inventory_names = (
+        "attempt.json",
+        *(
+            ("training_started.json",)
+            if (directory / "training_started.json").is_file()
+            else ()
+        ),
+        terminal_name,
+        "decision.json",
+    )
     complete: dict[str, object] = {
         "schema_version": COMPLETE_SCHEMA,
         "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
         "profile_id": authority.profile_id,
         "files": {
             name: file_sha256(directory / name) for name in inventory_names
@@ -1545,6 +2096,8 @@ def _seal_directory(
         raise RuntimeError("published artifact inventory contains extra files")
     (directory / _INCOMPLETE).unlink()
     _fsync_directory(directory)
+    with _AUTHORITY_LOCK:
+        _AUTHORITY_STATES[authority._nonce] = _AUTHORITY_SEALED
     return {
         "decision": decision,
         "complete": complete,
@@ -1556,14 +2109,22 @@ def publish_result(
     authority: ExecutionAuthority,
     result: Mapping[str, object],
 ) -> dict[str, object]:
-    if (authority.artifact_directory / "result.json").exists():
-        raise FileExistsError("result.json already exists")
+    directory = authority.artifact_directory
+    if (directory / "result.json").exists() or (directory / "failure.json").exists():
+        raise FileExistsError("one terminal file already exists")
+    with _AUTHORITY_LOCK:
+        state = _AUTHORITY_STATES.get(authority._nonce)
+    if state != _AUTHORITY_TRAINING_STARTED:
+        raise RuntimeError("result publication requires one consumed authority")
+    if not (directory / "training_started.json").is_file():
+        raise RuntimeError("result publication requires training_started.json")
     payload = dict(result)
     unsigned = dict(payload)
     observed = unsigned.pop("result_fingerprint", None)
     if not isinstance(observed, str) or stable_fingerprint(unsigned) != observed:
         raise ValueError("result fingerprint differs")
-    _write_json_create_only(authority.artifact_directory / "result.json", payload)
+    _validate_result_payload(authority, payload)
+    _write_json_create_only(directory / "result.json", payload)
     return _seal_directory(authority, terminal_name="result.json")
 
 
@@ -1571,9 +2132,13 @@ def publish_failure(
     authority: ExecutionAuthority,
     error: BaseException,
 ) -> dict[str, object]:
+    directory = authority.artifact_directory
+    if (directory / "result.json").exists() or (directory / "failure.json").exists():
+        raise FileExistsError("one terminal file already exists")
     failure: dict[str, object] = {
         "schema_version": FAILURE_SCHEMA,
         "method_id": METHOD_ID,
+        "runner_evidence_revision": RUNNER_EVIDENCE_REVISION,
         "profile_id": authority.profile_id,
         "profile_kind": authority.profile_kind,
         "status": "EXECUTION_EXCEPTION_NO_RETRY",
@@ -1582,7 +2147,7 @@ def publish_failure(
         "automatic_retry_allowed": False,
     }
     failure["failure_fingerprint"] = stable_fingerprint(failure)
-    _write_json_create_only(authority.artifact_directory / "failure.json", failure)
+    _write_json_create_only(directory / "failure.json", failure)
     return _seal_directory(authority, terminal_name="failure.json")
 
 
@@ -1595,11 +2160,17 @@ def preflight_profile(config: NLCCDatasetFreeRunnerConfig) -> dict[str, object]:
         RUNNER_CLARIFICATION_REPO_PATH: RUNNER_CLARIFICATION_FILE_SHA256,
         PROFILE_INDEPENDENCE_REPO_PATH: PROFILE_INDEPENDENCE_FILE_SHA256,
         INPUT_FREEZE_REPO_PATH: INPUT_FREEZE_FILE_SHA256,
+        RUNNER_EVIDENCE_AMENDMENT_REPO_PATH: (
+            RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256
+        ),
     }
     for relative, expected in bindings.items():
         path = _ROOT / relative
         if not path.is_file() or file_sha256(path) != expected:
             raise RuntimeError(f"frozen runner binding differs: {relative}")
+    amendment_binding = _verify_runner_evidence_amendment(_ROOT)
+    _, closure_binding = _verified_implementation_closure(_ROOT)
+    r0_binding = _verify_r0_verification_receipt(_ROOT, closure_binding)
     cache = materialize_profile(config)
     return {
         "method_id": METHOD_ID,
@@ -1607,6 +2178,9 @@ def preflight_profile(config: NLCCDatasetFreeRunnerConfig) -> dict[str, object]:
         "config_fingerprint": stable_fingerprint(config.manifest()),
         "materialized_cache": cache.manifest(),
         "runtime_import_boundary": boundary,
+        "runner_implementation_closure": closure_binding,
+        "runner_evidence_amendment": amendment_binding,
+        "r0_verification_receipt": r0_binding,
         "optimizer_constructed": False,
         "optimizer_updates": 0,
         "gate_metrics_observed": False,
@@ -1631,11 +2205,15 @@ def run_canonical_profile(
     )
     try:
         result = execute_authorized_profile(authority, cache)
-        sealed = publish_result(authority, result)
-        return sealed, 0 if result["all_pass"] is True else 2
+        _validate_result_payload(authority, result)
     except BaseException as error:
         sealed = publish_failure(authority, error)
         return sealed, 3
+    sealed = publish_result(authority, result)
+    decision = sealed.get("decision")
+    if not isinstance(decision, Mapping):
+        raise RuntimeError("sealed decision is absent")
+    return sealed, 0 if decision.get("all_pass") is True else 2
 
 
 __all__ = [
@@ -1648,8 +2226,13 @@ __all__ = [
     "NLCCTrainingComponents",
     "PRE_RUN_AUTHORIZATION_SCHEMA",
     "PreRunAuthorization",
+    "R0_VERIFICATION_RECEIPT_REPO_PATH",
     "REQUIRED_AUTH_SOURCE_PATHS",
     "RESULT_SCHEMA",
+    "RUNNER_EVIDENCE_REVISION",
+    "RUNNER_IMPLEMENTATION_CLOSURE_REPO_PATH",
+    "TRAINING_STARTED_SCHEMA",
+    "audit_finite_training_state",
     "build_training_components",
     "claim_execution",
     "decoder_fingerprint",

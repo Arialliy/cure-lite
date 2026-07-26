@@ -53,14 +53,29 @@ PROFILE_INDEPENDENCE_FILE_SHA256 = (
 PROFILE_INDEPENDENCE_FINGERPRINT = (
     "de212d80195dc0e59a2ba44dc5b70bc87196c1b8dcdb0c24ee1380bf28087560"
 )
+RUNNER_EVIDENCE_AMENDMENT_REPO_PATH = (
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/"
+    "dataset_free_runner_evidence_r2_amendment.json"
+)
+RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256 = (
+    "50915d76bd9286963a830278f4c905961ec4e8dbd22113bd45904668f0273cda"
+)
+RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT = (
+    "be45441ee860721dcb14a32940374877c00e2b7eb2b16259b86e24c4c58a42fc"
+)
 
 EXPECTED_ADDITIVE_PATHS = (
+    "cure_lite/nlcc_dataset_free_decision.py",
     "cure_lite/nlcc_dataset_free_runner_config.py",
     "cure_lite/nlcc_dataset_free_runner.py",
+    "cure_lite/nlcc_runner_source_closure.py",
     "tools/evaluate_nlcc_development_regression.py",
     "tools/evaluate_nlcc_exposure_holdout.py",
+    "tests_v12/test_nlcc_dataset_free_decision.py",
     "tests_v12/test_nlcc_dataset_free_runner_config.py",
     "tests_v12/test_nlcc_dataset_free_runner.py",
+    "tests_v12/test_nlcc_runner_finite_state.py",
+    "tests_v12/test_nlcc_runner_source_closure.py",
 )
 
 DEVELOPMENT = "development"
@@ -354,6 +369,11 @@ class NLCCDatasetFreeRunnerConfig:
                 "file_sha256": PROFILE_INDEPENDENCE_FILE_SHA256,
                 "fingerprint": PROFILE_INDEPENDENCE_FINGERPRINT,
             },
+            "runner_evidence_r2_amendment": {
+                "repo_path": RUNNER_EVIDENCE_AMENDMENT_REPO_PATH,
+                "file_sha256": RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256,
+                "fingerprint": RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT,
+            },
         }
 
 
@@ -392,6 +412,9 @@ __all__ = [
     "RUNNER_CLARIFICATION_FILE_SHA256",
     "RUNNER_CLARIFICATION_FINGERPRINT",
     "RUNNER_CLARIFICATION_REPO_PATH",
+    "RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256",
+    "RUNNER_EVIDENCE_AMENDMENT_FINGERPRINT",
+    "RUNNER_EVIDENCE_AMENDMENT_REPO_PATH",
     "development_runner_config",
     "holdout_runner_config",
 ]

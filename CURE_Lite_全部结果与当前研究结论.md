@@ -1,18 +1,60 @@
 # CURE-Lite 全部结果与当前研究结论
 
-> 生成日期：2026-07-26  
-> 仓库：`/home/md0/ly/cure_lite`  
-> 冻结上游提交：`a9dcfb23f44e2cbd54849464d0d47c7e2f43e499`  
-> 当前 Phase 1、synthetic-state failure attribution、hypothesis review、core-object redefinition 与 additive paired implementation 位于工作树，尚未提交  
-> 当前软件验证（本次工作树终端执行，非实验 receipt）：`723 passed in 183.17s`  
-> 结果范围：paired 训练核心、真实 \(D_R\) preflight、proposed/control bounded 执行、空间尾部 companion、正式联合 schedule/artifact、完整训练人口指纹、共同 \(D_V\) 比较协议、无恢复 runner、四个 800-epoch 正式训练任务和一次性 Wave A 揭示均已完成。Wave A 决定为 `PERFORMANCE_FAIL`；未读取 \(D_T\)，未设计 Full CURE，未接入其他 backbone。
+> 更新日期：2026-07-27
+> 仓库：`/home/md0/ly/cure_lite`
+> 当前源码基线：`538660aa7e200bd7acad8964af25121ea56142cf`；NLCC-v12 runner/evidence r2 与正式结果位于当前工作树
+> 当前软件验证收据：runner/evidence targeted `43 passed`；repository full `1105 passed`
+> 最新结果范围：NLCC-v12 的 R0 runner/evidence r2 已闭合；唯一一次
+> dataset-free Development 已完成并得到 `NLCC_V12_DEVELOPMENT_FAIL`。
+> Holdout、真实 \(D_R\)、32,000-step 暴露重放和 formal800 未获授权；未读取
+> 新的 \(D_V/D_T\)，未设计 Full CURE，未接入其他 detector。
 
-> **2026-07-26 最新补充：** 本文主体保留历史阶段完整记录；最新候选
-> CCFR-v11 的独立 dataset-free holdout 已完成并正式 FAIL。其权威结论优先于
-> 本文较早章节中的“下一步”表述。完整明细见
-> [CURE-Lite CCFR-v11 Exposure Holdout 正式负结果](CURE_Lite_CCFR_v11_Exposure_Holdout_正式负结果.md)。
+> **2026-07-27 最新补充：** 本文主体保留历史阶段完整记录；最新候选
+> NLCC-v12 的 dataset-free Development 已完整执行并正式 FAIL。该结论优先于
+> 本文较早章节及 CCFR-v11 追加中的“下一步”表述。完整明细见
+> [CURE-Lite NLCC-v12 Development 正式负结果](CURE_Lite_NLCC_v12_Development正式负结果.md)。
 
-## 最新追加：CCFR-v11 dataset-free holdout
+## 最新追加：NLCC-v12 dataset-free Development
+
+| 项目 | 权威结果 | 当前决定 |
+| --- | --- | --- |
+| R0 runner/evidence r2 | targeted 43/43、repository 1105/1105；R0-C1～C8 全部通过 | Development 执行资格成立 |
+| Development authorization | `authorized=true`；attempt ordinal = 1 | 只允许一次正式启动 |
+| Development 执行 | 320/320 updates；960/960 forwards；321/321 finite-state audits | 执行与训练结构完整 |
+| 结构门禁 | 25/25 passed | PASS |
+| 数值门禁 | 26/76 passed；50 failed | FAIL |
+| final groups | 0/8 passed | FAIL |
+| population objective | `1.286966323852539`，冻结要求 `<0.1` | FAIL |
+| factual-miss target | `0.28760308027267456`，冻结要求 `>0.95` | FAIL |
+| factual-miss background | `0.9996875524520874`，冻结要求 `<0.05` | FAIL |
+| factual-no-miss | `0.7426276206970215`，冻结要求 `<0.05` | FAIL |
+| 正式 decision | `NLCC_V12_DEVELOPMENT_FAIL` | 冻结 v12 负结果，不重跑 |
+| 后续授权 | Holdout / \(D_R\) / formal800 / Full CURE 均为 false | 停在 CURE-Lite 模型设计阶段 |
+
+从重新读取的 `result.json` 原始字段独立重算后，完整 gate ledger 与 sealed
+`decision.json` 逐值一致。六个适用 clean-D group 的变化方向均正确，且
+8/8 normalized-tail 门禁通过；但 paired 响应幅度、绝对端点、matched null、
+背景和 factual anchors 没有同时成立。因此本结果否定的是固定
+NLCC-v12 + PECO-v10 候选，不支持将失败唯一归因于某一个算子或 loss 项。
+
+正式目录只有 `attempt.json`、`training_started.json`、`result.json`、
+`decision.json` 和 `COMPLETE.json`；`result.json` 是唯一 terminal，无
+`failure.json` 或 `.incomplete`。运行没有读取数据集、\(D_R\)、\(D_V\) 或
+\(D_T\)，所以这不是检测性能结果。
+
+按冻结停止规则：
+
+```text
+NLCC_V12_DEVELOPMENT_FAIL
+  -> STOP_AND_PRESERVE_EVIDENCE
+  -> no automatic retry
+  -> no Holdout
+  -> no real D_R
+  -> no exposure replay or formal800
+  -> no Full CURE or cross-detector work
+```
+
+## 历史追加：CCFR-v11 dataset-free holdout
 
 | 项目 | 权威结果 | 当前决定 |
 | --- | --- | --- |
@@ -59,6 +101,9 @@
 | Wave A seed 42 | paired：147/170 TP、0/23 找回；最佳比较方法：154/170、7/23 | 约束通过，但 `-7/-7`，逐种子门槛失败 |
 | Wave A seed 43 | paired：152/170 TP、5/23 找回；最佳比较方法：152/170、5/23 | 约束通过，但 `0/0`，逐种子门槛失败 |
 | Wave A 总决定 | `PERFORMANCE_FAIL`; `all_seeds_pass=false`; `next_action=STOP_AND_PRESERVE_EVIDENCE` | 当前 paired 版本停止；不进入 Wave B/C、Full CURE 或跨 backbone |
+| NLCC-v12 runner/evidence r2 | R0-C1～C8 通过；43/43 targeted、1105/1105 repository tests | Development 运行结论可由原始字段独立重算 |
+| NLCC-v12 Development | 320/320 updates；25/25 structural gates；26/76 numeric gates；0/8 groups | `NLCC_V12_DEVELOPMENT_FAIL`；不重跑，不进入 Holdout |
+| NLCC-v12 后续阶段 | Holdout、真实 \(D_R\)、32,000-step exposure、formal800 均未运行 | 均因 Development stop rule 未获授权 |
 | P0-D | 未运行 | B/C 已失败，不能构造 S，也不能进入 exposure replay |
 | Full CURE | 未设计、未实现 | 当前 paired 版本未通过，仍停在 CURE-Lite |
 | 其他 IRSTD backbone | DNANet、UIUNet、MSHNet、SCTransNet 均未接入 | 目前没有跨 backbone 性能结论 |
@@ -1330,6 +1375,31 @@ COMPLETE fingerprint = 658f2ac7e26476003d9222342d6c73b82f5220301c0e137bb686f0f07
 重试。下一步回到 decoder 结构代码，不能通过修改本次门槛或重复运行 v3
 寻找正结果。
 
+### 14.19 NLCC-v12 runner/evidence r2 与 Development
+
+- [runner/evidence r2 amendment](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evidence_r2_amendment.json)
+- [implementation closure](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/runner_implementation_closure_r1.json)
+- [R0 verification receipt](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/runner_evidence_r2_r0_verification_receipt.json)
+- [Development authorization](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_pre_run_authorization.json)
+- [attempt](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/attempt.json)
+- [training started](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/training_started.json)
+- [raw result](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/result.json)
+- [sealed decision](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/decision.json)
+- [COMPLETE](protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/COMPLETE.json)
+- [正式负结果说明](CURE_Lite_NLCC_v12_Development正式负结果.md)
+
+R0 targeted JUnit 为 43/43，repository JUnit 为 1105/1105。Development
+完成 320/320 updates、960/960 training forwards 和 321/321 finite-state
+audits；25/25 structural gates 通过，26/76 numeric gates 通过，八个 groups
+均未整体通过。独立重算结果与 sealed decision 完全一致：
+
+```text
+decision = NLCC_V12_DEVELOPMENT_FAIL
+```
+
+Holdout pre-run authorization 与 `exposure_holdout_r1` 均不存在；后续阶段
+按停止规则未运行。
+
 ## 15. 无虚构检查
 
 - 文中所有性能数字来自仓库现有正式 receipt；
@@ -1346,4 +1416,7 @@ COMPLETE fingerprint = 658f2ac7e26476003d9222342d6c73b82f5220301c0e137bb686f0f07
 - P0-D、candidate S、S training、Wave B/C、冻结确认、\(D_T\)、Full CURE
   和跨 backbone 实验均明确标注为尚未发生；formal paired training 与本次
   \(D_V\) Wave A reveal 已明确标注为发生且失败；
+- NLCC-v12 明确标注为 dataset-free Development 已发生且失败；其
+  Holdout、真实 \(D_R\)、32,000-step exposure replay 和 formal800 明确
+  标注为 `NOT_AUTHORIZED / NOT_RUN`；
 - 未填写任何不存在的 NUAA-SIRST、NUDT-SIRST、\(D_T\) 或其他 detector 性能。

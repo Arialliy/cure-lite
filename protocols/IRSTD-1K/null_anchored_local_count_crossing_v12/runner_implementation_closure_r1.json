@@ -1,0 +1,1848 @@
+{
+  "analysis_roots": [
+    "cure_lite/nlcc_runner_source_closure.py",
+    "tools/evaluate_nlcc_development_regression.py",
+    "tools/evaluate_nlcc_exposure_holdout.py"
+  ],
+  "closure_fingerprint": "143ea8240e538b7c714d1691c3ef4deb4e63044b8ead6aaa11307fbff0264959",
+  "dynamic_imports": [],
+  "edges": [
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 5,
+      "module": ".calibration",
+      "to": "cure_lite/calibration.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 22,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 23,
+      "module": ".frozen_base",
+      "to": "cure_lite/frozen_base.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 24,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 25,
+      "module": ".intervention",
+      "to": "cure_lite/intervention.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 26,
+      "module": ".losses",
+      "to": "cure_lite/losses.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 27,
+      "module": ".matching",
+      "to": "cure_lite/matching.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 28,
+      "module": ".model",
+      "to": "cure_lite/model.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 29,
+      "module": ".occupancy",
+      "to": "cure_lite/occupancy.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 30,
+      "module": ".sampling",
+      "to": "cure_lite/sampling.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 36,
+      "module": ".supervision",
+      "to": "cure_lite/supervision.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 42,
+      "module": ".train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/__init__.py",
+      "kind": "relative_import",
+      "line": 50,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "package_initializer",
+      "line": 3,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "package_initializer",
+      "line": 4,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "package_initializer",
+      "line": 15,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "relative_import",
+      "line": 3,
+      "module": ".base_cache",
+      "to": "cure_lite/cache/base_cache.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "relative_import",
+      "line": 4,
+      "module": ".schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/cache/__init__.py",
+      "kind": "relative_import",
+      "line": 15,
+      "module": ".state_cache",
+      "to": "cure_lite/cache/state_cache.py"
+    },
+    {
+      "from": "cure_lite/cache/base_cache.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/base_cache.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/base_cache.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite.cache",
+      "to": "cure_lite/cache/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/base_cache.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/cache/base_cache.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": "..types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/cache/state_cache.py",
+      "kind": "package_initializer",
+      "line": 16,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/state_cache.py",
+      "kind": "package_initializer",
+      "line": 16,
+      "module": "cure_lite.cache",
+      "to": "cure_lite/cache/__init__.py"
+    },
+    {
+      "from": "cure_lite/cache/state_cache.py",
+      "kind": "relative_import",
+      "line": 16,
+      "module": ".schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "package_initializer",
+      "line": 15,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "package_initializer",
+      "line": 21,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".matching",
+      "to": "cure_lite/matching.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "relative_import",
+      "line": 15,
+      "module": ".metrics",
+      "to": "cure_lite/metrics.py"
+    },
+    {
+      "from": "cure_lite/calibration.py",
+      "kind": "relative_import",
+      "line": 21,
+      "module": ".occupancy",
+      "to": "cure_lite/occupancy.py"
+    },
+    {
+      "from": "cure_lite/decoder.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/decoder.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/factorized_decoder.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/factorized_decoder.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/factorized_decoder.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/factorized_decoder.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": ".factorized_config",
+      "to": "cure_lite/factorized_config.py"
+    },
+    {
+      "from": "cure_lite/frozen_base.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/frozen_base.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/instances.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/instances.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "package_initializer",
+      "line": 8,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "package_initializer",
+      "line": 10,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "package_initializer",
+      "line": 11,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "relative_import",
+      "line": 8,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "relative_import",
+      "line": 10,
+      "module": ".matching",
+      "to": "cure_lite/matching.py"
+    },
+    {
+      "from": "cure_lite/intervention.py",
+      "kind": "relative_import",
+      "line": 11,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/losses.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/losses.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "package_initializer",
+      "line": 15,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "package_initializer",
+      "line": 16,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "relative_import",
+      "line": 15,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "relative_import",
+      "line": 16,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/matching.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "package_initializer",
+      "line": 20,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "package_initializer",
+      "line": 21,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "relative_import",
+      "line": 19,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "relative_import",
+      "line": 20,
+      "module": ".matching",
+      "to": "cure_lite/matching.py"
+    },
+    {
+      "from": "cure_lite/metrics.py",
+      "kind": "relative_import",
+      "line": 21,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "package_initializer",
+      "line": 11,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "relative_import",
+      "line": 11,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": ".frozen_base",
+      "to": "cure_lite/frozen_base.py"
+    },
+    {
+      "from": "cure_lite/model.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_decision.py",
+      "kind": "package_initializer",
+      "line": 22,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_decision.py",
+      "kind": "package_initializer",
+      "line": 23,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_decision.py",
+      "kind": "package_initializer",
+      "line": 22,
+      "module": "cure_lite.cache",
+      "to": "cure_lite/cache/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_decision.py",
+      "kind": "relative_import",
+      "line": 22,
+      "module": ".cache.schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_decision.py",
+      "kind": "relative_import",
+      "line": 23,
+      "module": ".nlcc_dataset_free_runner_config",
+      "to": "cure_lite/nlcc_dataset_free_runner_config.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 23,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 24,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 25,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 29,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 30,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 23,
+      "module": "cure_lite.cache",
+      "to": "cure_lite/cache/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "relative_import",
+      "line": 23,
+      "module": ".cache.schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "relative_import",
+      "line": 24,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "relative_import",
+      "line": 25,
+      "module": ".paired_outcome_types",
+      "to": "cure_lite/paired_outcome_types.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "relative_import",
+      "line": 29,
+      "module": ".paired_types",
+      "to": "cure_lite/paired_types.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "package_initializer",
+      "line": 30,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_inputs.py",
+      "kind": "relative_import",
+      "line": 30,
+      "module": ".train.step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 28,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 29,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 30,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 31,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 46,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 52,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 76,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 81,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 85,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 86,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 87,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 88,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 89,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 189,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 193,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 28,
+      "module": "cure_lite.cache",
+      "to": "cure_lite/cache/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 28,
+      "module": ".cache.schema",
+      "to": "cure_lite/cache/schema.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 29,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 30,
+      "module": ".losses",
+      "to": "cure_lite/losses.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 46,
+      "module": ".nlcc_dataset_free_decision",
+      "to": "cure_lite/nlcc_dataset_free_decision.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 31,
+      "module": ".nlcc_dataset_free_inputs",
+      "to": "cure_lite/nlcc_dataset_free_inputs.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 52,
+      "module": ".nlcc_dataset_free_runner_config",
+      "to": "cure_lite/nlcc_dataset_free_runner_config.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 189,
+      "module": ".nlcc_development_inputs",
+      "to": "cure_lite/nlcc_development_inputs.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 193,
+      "module": ".nlcc_holdout_inputs",
+      "to": "cure_lite/nlcc_holdout_inputs.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 76,
+      "module": ".nlcc_runner_source_closure",
+      "to": "cure_lite/nlcc_runner_source_closure.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 81,
+      "module": ".null_anchored_local_count_crossing_decoder",
+      "to": "cure_lite/null_anchored_local_count_crossing_decoder.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 85,
+      "module": ".paired_endpoint_crossing_losses",
+      "to": "cure_lite/paired_endpoint_crossing_losses.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 86,
+      "module": ".paired_outcome_types",
+      "to": "cure_lite/paired_outcome_types.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 87,
+      "module": ".paired_types",
+      "to": "cure_lite/paired_types.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 88,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "package_initializer",
+      "line": 89,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 88,
+      "module": ".train.paired_outcome_step",
+      "to": "cure_lite/train/paired_outcome_step.py"
+    },
+    {
+      "from": "cure_lite/nlcc_dataset_free_runner.py",
+      "kind": "relative_import",
+      "line": 89,
+      "module": ".train.step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/nlcc_development_inputs.py",
+      "kind": "package_initializer",
+      "line": 5,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_development_inputs.py",
+      "kind": "relative_import",
+      "line": 5,
+      "module": ".nlcc_dataset_free_inputs",
+      "to": "cure_lite/nlcc_dataset_free_inputs.py"
+    },
+    {
+      "from": "cure_lite/nlcc_holdout_inputs.py",
+      "kind": "package_initializer",
+      "line": 5,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/nlcc_holdout_inputs.py",
+      "kind": "relative_import",
+      "line": 5,
+      "module": ".nlcc_dataset_free_inputs",
+      "to": "cure_lite/nlcc_dataset_free_inputs.py"
+    },
+    {
+      "from": "cure_lite/nlcc_runner_source_closure.py",
+      "kind": "root_package_initializer",
+      "line": 0,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_config.py",
+      "kind": "package_initializer",
+      "line": 7,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_config.py",
+      "kind": "relative_import",
+      "line": 7,
+      "module": ".factorized_config",
+      "to": "cure_lite/factorized_config.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": ".factorized_decoder",
+      "to": "cure_lite/factorized_decoder.py"
+    },
+    {
+      "from": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "kind": "relative_import",
+      "line": 19,
+      "module": ".null_anchored_local_count_crossing_config",
+      "to": "cure_lite/null_anchored_local_count_crossing_config.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "package_initializer",
+      "line": 8,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "package_initializer",
+      "line": 10,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "relative_import",
+      "line": 8,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/occupancy.py",
+      "kind": "relative_import",
+      "line": 10,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/paired_endpoint_crossing_losses.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/paired_endpoint_crossing_losses.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": ".paired_outcome_losses",
+      "to": "cure_lite/paired_outcome_losses.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_losses.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_losses.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_losses.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_losses.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".losses",
+      "to": "cure_lite/losses.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_types.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_types.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_types.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": ".decoder",
+      "to": "cure_lite/decoder.py"
+    },
+    {
+      "from": "cure_lite/paired_outcome_types.py",
+      "kind": "relative_import",
+      "line": 19,
+      "module": ".paired_types",
+      "to": "cure_lite/paired_types.py"
+    },
+    {
+      "from": "cure_lite/sampling.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/sampling.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/sampling.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/sampling.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "package_initializer",
+      "line": 8,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "package_initializer",
+      "line": 10,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "package_initializer",
+      "line": 11,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "relative_import",
+      "line": 8,
+      "module": ".config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": ".instances",
+      "to": "cure_lite/instances.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "relative_import",
+      "line": 10,
+      "module": ".matching",
+      "to": "cure_lite/matching.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "relative_import",
+      "line": 11,
+      "module": ".sampling",
+      "to": "cure_lite/sampling.py"
+    },
+    {
+      "from": "cure_lite/supervision.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": ".types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "package_initializer",
+      "line": 3,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "package_initializer",
+      "line": 4,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "package_initializer",
+      "line": 20,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "relative_import",
+      "line": 3,
+      "module": ".engine",
+      "to": "cure_lite/train/engine.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "relative_import",
+      "line": 4,
+      "module": ".paired_step",
+      "to": "cure_lite/train/paired_step.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".pools",
+      "to": "cure_lite/train/pools.py"
+    },
+    {
+      "from": "cure_lite/train/__init__.py",
+      "kind": "relative_import",
+      "line": 20,
+      "module": ".step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/train/engine.py",
+      "kind": "package_initializer",
+      "line": 9,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/engine.py",
+      "kind": "package_initializer",
+      "line": 10,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/engine.py",
+      "kind": "relative_import",
+      "line": 9,
+      "module": "..config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/train/engine.py",
+      "kind": "package_initializer",
+      "line": 10,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/engine.py",
+      "kind": "relative_import",
+      "line": 10,
+      "module": ".step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 20,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 26,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": "..losses",
+      "to": "cure_lite/losses.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": "..paired_outcome_losses",
+      "to": "cure_lite/paired_outcome_losses.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "relative_import",
+      "line": 19,
+      "module": "..paired_outcome_types",
+      "to": "cure_lite/paired_outcome_types.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 20,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "package_initializer",
+      "line": 26,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "relative_import",
+      "line": 20,
+      "module": ".paired_step",
+      "to": "cure_lite/train/paired_step.py"
+    },
+    {
+      "from": "cure_lite/train/paired_outcome_step.py",
+      "kind": "relative_import",
+      "line": 26,
+      "module": ".step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "package_initializer",
+      "line": 15,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "package_initializer",
+      "line": 16,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "package_initializer",
+      "line": 17,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "relative_import",
+      "line": 15,
+      "module": "..losses",
+      "to": "cure_lite/losses.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "relative_import",
+      "line": 16,
+      "module": "..paired_losses",
+      "to": "cure_lite/paired_losses.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "relative_import",
+      "line": 17,
+      "module": "..paired_types",
+      "to": "cure_lite/paired_types.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "package_initializer",
+      "line": 18,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/paired_step.py",
+      "kind": "relative_import",
+      "line": 18,
+      "module": ".step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "package_initializer",
+      "line": 13,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": "..sampling",
+      "to": "cure_lite/sampling.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "package_initializer",
+      "line": 14,
+      "module": "cure_lite.train",
+      "to": "cure_lite/train/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "relative_import",
+      "line": 14,
+      "module": ".step",
+      "to": "cure_lite/train/step.py"
+    },
+    {
+      "from": "cure_lite/train/pools.py",
+      "kind": "relative_import",
+      "line": 13,
+      "module": "..types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "cure_lite/train/step.py",
+      "kind": "package_initializer",
+      "line": 11,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/step.py",
+      "kind": "package_initializer",
+      "line": 12,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "cure_lite/train/step.py",
+      "kind": "relative_import",
+      "line": 11,
+      "module": "..config",
+      "to": "cure_lite/config.py"
+    },
+    {
+      "from": "cure_lite/train/step.py",
+      "kind": "relative_import",
+      "line": 12,
+      "module": "..types",
+      "to": "cure_lite/types.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_development_regression.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_development_regression.py",
+      "kind": "package_initializer",
+      "line": 23,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_development_regression.py",
+      "kind": "absolute_from_import",
+      "line": 19,
+      "module": "cure_lite.nlcc_dataset_free_runner",
+      "to": "cure_lite/nlcc_dataset_free_runner.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_development_regression.py",
+      "kind": "absolute_from_import",
+      "line": 23,
+      "module": "cure_lite.nlcc_dataset_free_runner_config",
+      "to": "cure_lite/nlcc_dataset_free_runner_config.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_exposure_holdout.py",
+      "kind": "package_initializer",
+      "line": 19,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_exposure_holdout.py",
+      "kind": "package_initializer",
+      "line": 23,
+      "module": "cure_lite",
+      "to": "cure_lite/__init__.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_exposure_holdout.py",
+      "kind": "absolute_from_import",
+      "line": 19,
+      "module": "cure_lite.nlcc_dataset_free_runner",
+      "to": "cure_lite/nlcc_dataset_free_runner.py"
+    },
+    {
+      "from": "tools/evaluate_nlcc_exposure_holdout.py",
+      "kind": "absolute_from_import",
+      "line": 23,
+      "module": "cure_lite.nlcc_dataset_free_runner_config",
+      "to": "cure_lite/nlcc_dataset_free_runner_config.py"
+    }
+  ],
+  "external_modules": [
+    "__future__",
+    "abc",
+    "argparse",
+    "ast",
+    "collections",
+    "dataclasses",
+    "hashlib",
+    "importlib",
+    "json",
+    "math",
+    "numbers",
+    "numpy",
+    "os",
+    "pathlib",
+    "safetensors",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "threading",
+    "torch",
+    "typing"
+  ],
+  "formal_roots": [
+    "tools/evaluate_nlcc_development_regression.py",
+    "tools/evaluate_nlcc_exposure_holdout.py"
+  ],
+  "in_scope_dirty_paths": [
+    "cure_lite/nlcc_dataset_free_decision.py",
+    "cure_lite/nlcc_dataset_free_runner.py",
+    "cure_lite/nlcc_dataset_free_runner_config.py",
+    "cure_lite/nlcc_runner_source_closure.py"
+  ],
+  "nodes": [
+    {
+      "path": "cure_lite/__init__.py",
+      "sha256": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3"
+    },
+    {
+      "path": "cure_lite/cache/__init__.py",
+      "sha256": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd"
+    },
+    {
+      "path": "cure_lite/cache/base_cache.py",
+      "sha256": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd"
+    },
+    {
+      "path": "cure_lite/cache/schema.py",
+      "sha256": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7"
+    },
+    {
+      "path": "cure_lite/cache/state_cache.py",
+      "sha256": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189"
+    },
+    {
+      "path": "cure_lite/calibration.py",
+      "sha256": "b94c492e91c4934d75c85abef5c25449f82c421e871c5ab3e8ca136515b2f6bf"
+    },
+    {
+      "path": "cure_lite/config.py",
+      "sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+    },
+    {
+      "path": "cure_lite/decoder.py",
+      "sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+    },
+    {
+      "path": "cure_lite/factorized_config.py",
+      "sha256": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246"
+    },
+    {
+      "path": "cure_lite/factorized_decoder.py",
+      "sha256": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9"
+    },
+    {
+      "path": "cure_lite/frozen_base.py",
+      "sha256": "969bc2b0ccbb4c38cb2ee07353c7162f80b3f1041ff8c9c1ccf9b14ea689b050"
+    },
+    {
+      "path": "cure_lite/instances.py",
+      "sha256": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721"
+    },
+    {
+      "path": "cure_lite/intervention.py",
+      "sha256": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215"
+    },
+    {
+      "path": "cure_lite/losses.py",
+      "sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9"
+    },
+    {
+      "path": "cure_lite/matching.py",
+      "sha256": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06"
+    },
+    {
+      "path": "cure_lite/metrics.py",
+      "sha256": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b"
+    },
+    {
+      "path": "cure_lite/model.py",
+      "sha256": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53"
+    },
+    {
+      "path": "cure_lite/nlcc_dataset_free_decision.py",
+      "sha256": "fc796e25d9eca62c7ed4f5ae965e47f1860774095430cbde27c0a2b4372953c6"
+    },
+    {
+      "path": "cure_lite/nlcc_dataset_free_inputs.py",
+      "sha256": "2690d6a7c0f537fa0d33f302f8805868b710482e1a61410483964a82e956398d"
+    },
+    {
+      "path": "cure_lite/nlcc_dataset_free_runner.py",
+      "sha256": "389fce7770c79f2a0eaad1309977ccf6c84cb03f4d8a3ceb8ef3dc1d73741ea3"
+    },
+    {
+      "path": "cure_lite/nlcc_dataset_free_runner_config.py",
+      "sha256": "c4393b6c8d14f3264a3cb33e3fc116abbc0484e9be1196db8720b688c4d4743d"
+    },
+    {
+      "path": "cure_lite/nlcc_development_inputs.py",
+      "sha256": "7dace28b9d2892de54ed86e613144cbfc7766befe023a24ce44cabd5759f7779"
+    },
+    {
+      "path": "cure_lite/nlcc_holdout_inputs.py",
+      "sha256": "d682634bdc8435892b357de62e81945611aeaa48195523ddd57dd1ab3a16f13a"
+    },
+    {
+      "path": "cure_lite/nlcc_runner_source_closure.py",
+      "sha256": "9e790672623df99a940c501688b5c2adf5197011e8b67497ac9a9a1dccafe4e9"
+    },
+    {
+      "path": "cure_lite/null_anchored_local_count_crossing_config.py",
+      "sha256": "37dbfe7f45b9077ad077fcea2e5ceab876ec1770eb1703a70a36190ceb100241"
+    },
+    {
+      "path": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+      "sha256": "d12cae59b7fd7d5da7d3b8565ea11ac976e26cdd2d3f802e223019d0a7818feb"
+    },
+    {
+      "path": "cure_lite/occupancy.py",
+      "sha256": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76"
+    },
+    {
+      "path": "cure_lite/paired_endpoint_crossing_losses.py",
+      "sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205"
+    },
+    {
+      "path": "cure_lite/paired_losses.py",
+      "sha256": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3"
+    },
+    {
+      "path": "cure_lite/paired_outcome_losses.py",
+      "sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e"
+    },
+    {
+      "path": "cure_lite/paired_outcome_types.py",
+      "sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a"
+    },
+    {
+      "path": "cure_lite/paired_types.py",
+      "sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+    },
+    {
+      "path": "cure_lite/sampling.py",
+      "sha256": "f48104dafedd9fd230726e1f80d884524135dd280d7ed53bc527df23eff4809f"
+    },
+    {
+      "path": "cure_lite/supervision.py",
+      "sha256": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a"
+    },
+    {
+      "path": "cure_lite/train/__init__.py",
+      "sha256": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+    },
+    {
+      "path": "cure_lite/train/engine.py",
+      "sha256": "78334aecf62c8797d8f1e77cbe80624ce7da4d9d0cb82d4272e2962f042f54e8"
+    },
+    {
+      "path": "cure_lite/train/paired_outcome_step.py",
+      "sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265"
+    },
+    {
+      "path": "cure_lite/train/paired_step.py",
+      "sha256": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139"
+    },
+    {
+      "path": "cure_lite/train/pools.py",
+      "sha256": "8d3789f125c264492f68649ecf7bf1844e8afe622821d7ad391bf274bb2b6ffe"
+    },
+    {
+      "path": "cure_lite/train/step.py",
+      "sha256": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe"
+    },
+    {
+      "path": "cure_lite/types.py",
+      "sha256": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb"
+    },
+    {
+      "path": "tools/evaluate_nlcc_development_regression.py",
+      "sha256": "a3f9c470a5ae982b97a9dc9cd3bcbeb85c9860399884214d841775d7927c35ae"
+    },
+    {
+      "path": "tools/evaluate_nlcc_exposure_holdout.py",
+      "sha256": "c80bb3c85ce44204a808d4390d3c43a0b7406681db2d67f8732e8aaf85523e67"
+    }
+  ],
+  "out_of_scope_dirty_paths": [
+    "CURE_Lite_NLCC_v12_代码审查与下一步研究计划.md",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evidence_r2_amendment.json",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/runner_evidence_r2_r0_verification_receipt.json",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_root_runner_evidence_r2.junit.xml",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_runner_evidence_r2_targeted.junit.xml",
+    "tests_v12/test_nlcc_dataset_free_decision.py",
+    "tests_v12/test_nlcc_dataset_free_runner.py",
+    "tests_v12/test_nlcc_dataset_free_runner_config.py",
+    "tests_v12/test_nlcc_runner_finite_state.py",
+    "tests_v12/test_nlcc_runner_source_closure.py"
+  ],
+  "repository_commit": "538660aa7e200bd7acad8964af25121ea56142cf",
+  "repository_dirty": true,
+  "repository_dirty_paths": [
+    "CURE_Lite_NLCC_v12_代码审查与下一步研究计划.md",
+    "cure_lite/nlcc_dataset_free_decision.py",
+    "cure_lite/nlcc_dataset_free_runner.py",
+    "cure_lite/nlcc_dataset_free_runner_config.py",
+    "cure_lite/nlcc_runner_source_closure.py",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evidence_r2_amendment.json",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/runner_evidence_r2_r0_verification_receipt.json",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_root_runner_evidence_r2.junit.xml",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_runner_evidence_r2_targeted.junit.xml",
+    "tests_v12/test_nlcc_dataset_free_decision.py",
+    "tests_v12/test_nlcc_dataset_free_runner.py",
+    "tests_v12/test_nlcc_dataset_free_runner_config.py",
+    "tests_v12/test_nlcc_runner_finite_state.py",
+    "tests_v12/test_nlcc_runner_source_closure.py"
+  ],
+  "required_paths": [
+    "cure_lite/__init__.py",
+    "cure_lite/cache/__init__.py",
+    "cure_lite/decoder.py",
+    "cure_lite/factorized_config.py",
+    "cure_lite/factorized_decoder.py",
+    "cure_lite/nlcc_dataset_free_decision.py",
+    "cure_lite/nlcc_dataset_free_inputs.py",
+    "cure_lite/nlcc_dataset_free_runner.py",
+    "cure_lite/nlcc_dataset_free_runner_config.py",
+    "cure_lite/nlcc_development_inputs.py",
+    "cure_lite/nlcc_holdout_inputs.py",
+    "cure_lite/null_anchored_local_count_crossing_config.py",
+    "cure_lite/null_anchored_local_count_crossing_decoder.py",
+    "cure_lite/train/__init__.py"
+  ],
+  "schema_version": "cure-lite.nlcc-v12.runner-source-closure.v1",
+  "unresolved_local_imports": []
+}

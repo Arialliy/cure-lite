@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from cure_lite.cache.schema import stable_fingerprint
+from cure_lite.nlcc_dataset_free_decision import InvalidResultError
 from cure_lite.nlcc_dataset_free_inputs import (
     build_factual_batches,
     build_outcome_batch,
@@ -22,6 +23,7 @@ from cure_lite.nlcc_dataset_free_runner import (
     evaluate_trained_decoder,
     load_pre_run_authorization,
     materialize_profile,
+    publish_failure,
     publish_result,
     runtime_import_boundary,
 )
@@ -55,6 +57,7 @@ def _authorization(config) -> PreRunAuthorization:
         repo_path=config.profile.pre_run_authorization,
         file_sha256=ZERO_SHA,
         authorization_fingerprint=ZERO_SHA,
+        implementation_closure_fingerprint=ZERO_SHA,
         source_bindings={},
     )
 
@@ -304,24 +307,104 @@ def test_create_only_claim_is_concurrent_safe_and_precedes_adam(
         claim_execution(config, _authorization(config), repo_root=tmp_path)
 
     original_adam = torch.optim.Adam
-    observed = {"attempt_exists_at_optimizer_construction": False}
+    training_started = authority.artifact_directory / "training_started.json"
+    observed = {
+        "attempt_exists_at_optimizer_construction": False,
+        "training_start_exists_at_optimizer_construction": False,
+    }
 
     def checked_adam(*args, **kwargs):
         observed["attempt_exists_at_optimizer_construction"] = attempt.is_file()
+        observed["training_start_exists_at_optimizer_construction"] = (
+            training_started.is_file()
+        )
         return original_adam(*args, **kwargs)
 
     monkeypatch.setattr(torch.optim, "Adam", checked_adam)
     components = build_training_components(authority, config)
     assert observed["attempt_exists_at_optimizer_construction"] is True
+    assert observed["training_start_exists_at_optimizer_construction"] is True
     assert components.optimizer_state_initially_empty is True
     assert not components.optimizer.state
+    with pytest.raises(RuntimeError, match="state differs|already consumed"):
+        build_training_components(authority, config)
 
 
 def _passing_result(
-    config,
+    cache,
     *,
     initial_decoder_fingerprint: str = "1" * 64,
 ) -> dict[str, object]:
+    config = cache.config
+    plus, minus, miss_logits, no_miss_logits = _passing_logits(cache)
+    structural = {
+        "updates_executed": config.profile.updates,
+        "expected_updates": config.profile.updates,
+        "training_forward_call_count": 3 * config.profile.updates,
+        "expected_training_forward_call_count": 3 * config.profile.updates,
+        "training_forward_pattern_counts": {"4,4,4": config.profile.updates},
+        "all_update_forward_patterns_4_4_4": True,
+        "step_contract_failure_count": 0,
+        "gradient_failure_count": 0,
+        "finite_state_audit_count": config.profile.updates + 1,
+        "expected_finite_state_audit_count": config.profile.updates + 1,
+        "finite_state_nonfinite_element_count": 0,
+        "all_six_gradients_finite_nonzero_every_update": True,
+        "feature_cache_grad_tensor_count": 0,
+        "feature_cache_leaves_remain_without_grad": True,
+        "one_backward_and_one_step_per_update": True,
+        "population_builder_reentry": False,
+        "from_scratch_seed_42": True,
+        "fresh_adam_state_before_first_update": True,
+        "development_checkpoint_loaded": False,
+        "development_optimizer_state_loaded": False,
+        "all_pass": True,
+    }
+    miss = cache.factual_population["factual_miss"]
+    no_miss = cache.factual_population["factual_no_miss"]
+    final = evaluate_cached_logits(
+        cache,
+        logits_plus=plus,
+        logits_minus=minus,
+        factual_miss_logits=miss_logits,
+        factual_no_miss_logits=no_miss_logits,
+        structural_training_contract=structural,
+        operator_field_diagnostics={
+            "crossing_margin": {"minimum": -1.0, "maximum": 1.0},
+            "recovery_factor": {"minimum": 0.1, "maximum": 2.0},
+            "forward_fields_call_count": 3,
+            "forward_fields_batch_sizes": [
+                2 * len(cache.specs),
+                int(miss.feature.shape[0]),
+                int(no_miss.feature.shape[0]),
+            ],
+            "field_tensor_count": 45,
+            "field_element_count": 1,
+            "field_nonfinite_element_count": 0,
+        },
+    )
+    initial_audit = {
+        "phase": "before_first_update",
+        "update_index": -1,
+        "parameter_tensor_count": 6,
+        "buffer_tensor_count": 0,
+        "optimizer_state_tensor_count": 0,
+        "total_tensor_count": 6,
+        "total_element_count": 2593,
+        "nonfinite_element_count": 0,
+        "nonfinite_tensor_paths": [],
+        "maximum_absolute_value": 1.0,
+        "global_l2_norm": 1.0,
+        "all_finite": True,
+    }
+    final_audit = {
+        **initial_audit,
+        "phase": "after_optimizer_step",
+        "update_index": config.profile.updates - 1,
+        "optimizer_state_tensor_count": 18,
+        "total_tensor_count": 24,
+        "total_element_count": 3 * 2593 + 6,
+    }
     result = {
         "schema_version": RESULT_SCHEMA,
         "method_id": "nlcc_v12",
@@ -329,7 +412,21 @@ def _passing_result(
         "profile_kind": config.profile.kind,
         "decision": "NLCC_V12_DEVELOPMENT_PASS",
         "all_pass": True,
-        "unit_only_no_training": True,
+        "config": config.manifest(),
+        "materialized_cache": cache.manifest(),
+        "training": {
+            "structural_contract": structural,
+            "gradient_failures": [],
+            "step_contract_failures": [],
+            "finite_state_audit": {
+                "call_count": config.profile.updates + 1,
+                "expected_call_count": config.profile.updates + 1,
+                "initial": initial_audit,
+                "final": final_audit,
+                "nonfinite_element_count": 0,
+            },
+        },
+        "final_evaluation": final,
         "initial_decoder_fingerprint": initial_decoder_fingerprint,
     }
     result["result_fingerprint"] = stable_fingerprint(result)
@@ -357,7 +454,7 @@ def test_holdout_requires_sealed_development_pass_and_starts_from_scratch(
     publish_result(
         development_authority,
         _passing_result(
-            development,
+            materialize_profile(development),
             initial_decoder_fingerprint=(
                 development_components.initial_decoder_fingerprint
             ),
@@ -387,10 +484,15 @@ def test_result_publication_is_create_only_and_independently_sealed(
 ) -> None:
     config = development_runner_config()
     authority = claim_execution(config, _authorization(config), repo_root=tmp_path)
-    sealed = publish_result(authority, _passing_result(config))
+    build_training_components(authority, config)
+    sealed = publish_result(
+        authority,
+        _passing_result(materialize_profile(config)),
+    )
     directory = authority.artifact_directory
     assert {path.name for path in directory.iterdir()} == {
         "attempt.json",
+        "training_started.json",
         "result.json",
         "decision.json",
         "COMPLETE.json",
@@ -398,8 +500,48 @@ def test_result_publication_is_create_only_and_independently_sealed(
     assert sealed["decision"]["all_pass"] is True
     assert sealed["complete"]["files"].keys() == {
         "attempt.json",
+        "training_started.json",
         "result.json",
         "decision.json",
     }
     with pytest.raises(FileExistsError):
-        publish_result(authority, _passing_result(config))
+        publish_result(authority, _passing_result(materialize_profile(config)))
+
+
+def test_result_publication_rejects_skeletal_or_derived_only_pass(
+    tmp_path: Path,
+) -> None:
+    config = development_runner_config()
+    authority = claim_execution(config, _authorization(config), repo_root=tmp_path)
+    build_training_components(authority, config)
+    result = _passing_result(materialize_profile(config))
+    result.pop("final_evaluation")
+    result.pop("result_fingerprint")
+    result["result_fingerprint"] = stable_fingerprint(result)
+
+    with pytest.raises(InvalidResultError, match="missing keys"):
+        publish_result(authority, result)
+    assert not (authority.artifact_directory / "result.json").exists()
+
+
+def test_existing_result_terminal_blocks_failure_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from cure_lite import nlcc_dataset_free_runner as runner
+
+    config = development_runner_config()
+    authority = claim_execution(config, _authorization(config), repo_root=tmp_path)
+    build_training_components(authority, config)
+
+    def fail_after_result_write(*args, **kwargs):
+        raise RuntimeError("simulated seal failure")
+
+    monkeypatch.setattr(runner, "_seal_directory", fail_after_result_write)
+    with pytest.raises(RuntimeError, match="simulated seal failure"):
+        publish_result(authority, _passing_result(materialize_profile(config)))
+    assert (authority.artifact_directory / "result.json").is_file()
+    assert not (authority.artifact_directory / "failure.json").exists()
+    with pytest.raises(FileExistsError, match="terminal"):
+        publish_failure(authority, RuntimeError("must not create second terminal"))
+    assert not (authority.artifact_directory / "failure.json").exists()

@@ -13,6 +13,7 @@ from cure_lite.nlcc_dataset_free_runner_config import (
     NLCCDatasetFreeThresholds,
     PROFILE_INDEPENDENCE_FILE_SHA256,
     RUNNER_CLARIFICATION_FILE_SHA256,
+    RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256,
     RUNNER_PREREGISTRATION_FILE_SHA256,
     development_runner_config,
     holdout_runner_config,
@@ -103,7 +104,7 @@ def test_runner_rejects_hyperparameter_or_state_carry_override() -> None:
         replace(config, development_state_carry_into_holdout=True)
 
 
-def test_effective_paths_and_all_three_runner_receipts_are_bound() -> None:
+def test_effective_paths_and_all_runner_receipts_are_bound() -> None:
     assert "cure_lite/nlcc_dataset_free_runner.py" in EXPECTED_ADDITIVE_PATHS
     assert "cure_lite/experiment/nlcc_dataset_free_runner.py" not in (
         EXPECTED_ADDITIVE_PATHS
@@ -121,6 +122,9 @@ def test_effective_paths_and_all_three_runner_receipts_are_bound() -> None:
     )
     assert manifest["profile_independence_clarification"]["file_sha256"] == (
         PROFILE_INDEPENDENCE_FILE_SHA256
+    )
+    assert manifest["runner_evidence_r2_amendment"]["file_sha256"] == (
+        RUNNER_EVIDENCE_AMENDMENT_FILE_SHA256
     )
 
 

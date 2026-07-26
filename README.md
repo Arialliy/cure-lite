@@ -12,8 +12,8 @@ CURE-Lite mechanism design and development verification
   -> cross-backbone and multi-dataset verification, only after Full CURE exists
 ```
 
-Full CURE has not been designed or implemented. The current paired route has
-not been integrated with DNANet, UIUNet, MSHNet, or SCTransNet, and no formal
+Full CURE has not been designed or implemented. No CURE-Lite candidate has
+earned cross-detector authorization, and no formal
 cross-backbone experiment has started. The repository retains a historical
 MSHNet adapter, but it is outside the paired core and is not current integration
 evidence. The project-owned reference U-Net is only the frozen Base used to
@@ -22,11 +22,39 @@ claim.
 
 ## Current status
 
-### Current node: paired CURE-Lite core
+### Latest node: NLCC-v12 Development complete; gate failed
+
+The runner/evidence r2 closure passed its frozen R0 requirements and the sole
+320-update NLCC-v12 dataset-free Development attempt completed:
+
+```text
+updates / training forwards / finite-state audits = 320 / 960 / 321
+structural gates                                  = 25 / 25 passed
+numeric gates                                     = 26 / 76 passed
+final groups                                      = 0 / 8 passed
+decision                                          = NLCC_V12_DEVELOPMENT_FAIL
+```
+
+The result was independently recomputed from reloaded raw fields and sealed as
+one terminal artifact. It is a valid model-gate failure, not an execution
+failure and not a real-dataset performance result. The stop rule forbids an
+automatic retry and does not authorize the independent exposure holdout, real
+`D_R`, the `800 x 40` replay, formal800, Full CURE, or cross-detector work.
+
+See
+[the formal NLCC-v12 Development result](CURE_Lite_NLCC_v12_Development正式负结果.md)
+and
+[the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
+
+The CURE problem statement remains open, but any continuation must define a
+new frozen CURE-Lite model version and restart at Development. The failed v12
+state equation cannot be changed and rerun under the same version.
+
+### Historical node: paired CURE-Lite core
 
 The marginal-selection route studied by v0.1/v0.2 and P0 is frozen as
-historical negative evidence. The current CURE-Lite candidate keeps the same
-frozen Base, residual decoder, and one-pass inference graph, but changes the
+historical negative evidence. The later paired CURE-Lite candidate kept the same
+frozen Base, residual decoder, and one-pass inference graph, but changed the
 learning object to a same-source coverage response:
 
 ```text
@@ -351,6 +379,24 @@ Python 3.10 or newer is required.
 python -m pip install -e ".[test]"
 python -m pytest -q
 ```
+
+### Repository guide
+
+- `cure_lite/`: core models, decoders, training components, cache contracts,
+  reference Base, and experiment runners;
+- `tools/`: create-only protocol, training, evaluation, audit, and replay
+  entry points;
+- `protocols/IRSTD-1K/`: frozen configurations, decision rules, receipts, and
+  sealed result records;
+- `tests/` and `tests_v8/` through `tests_v12/`: shared regression tests and
+  mechanism-version-specific verification;
+- `datasets/`: local benchmark data used by the frozen manifests; and
+- top-level `CURE_Lite_*.md` files: model designs, formal results, audits, and
+  next-step research records.
+
+Generated runs, build products, caches, and temporary replay directories are
+excluded from version control. Protocol receipts and formal result records are
+tracked because they define the evidence trail summarized above.
 
 See [STAGE.md](STAGE.md) for the stage boundary,
 [VALIDATION.md](VALIDATION.md) for the exact evidence gates, and

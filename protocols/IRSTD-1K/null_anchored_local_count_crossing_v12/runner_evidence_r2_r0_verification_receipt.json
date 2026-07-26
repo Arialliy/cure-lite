@@ -1,0 +1,92 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.runner-evidence-r2-r0-verification-receipt.v1",
+  "method_id": "nlcc_v12",
+  "runner_evidence_revision": "r2",
+  "created_date": "2026-07-26",
+  "decision": "R0_PASS_DEVELOPMENT_AUTHORIZATION_ELIGIBLE",
+  "all_pass": true,
+  "model_contract": {
+    "model_version": "nlcc_v12",
+    "model_graph_changed": false,
+    "loss_changed": false,
+    "input_population_changed": false,
+    "scientific_thresholds_changed": false,
+    "training_updates_changed": false,
+    "trainable_parameters": 2593
+  },
+  "runner_closure_gates": {
+    "R0-C1_raw_metric_and_structural_recomputation": true,
+    "R0-C2_exact_once_training_start": true,
+    "R0-C3_post_step_finite_state_audit": true,
+    "R0-C4_transitive_local_source_closure": true,
+    "R0-C5_closure_frozen_before_authorization": true,
+    "R0-C6_single_terminal_publication": true,
+    "R0-C7_strict_json_and_recomputed_exit_status": true,
+    "R0-C8_runner_protocol_model_revision_separation": true
+  },
+  "implementation_closure": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/runner_implementation_closure_r1.json",
+    "file_sha256": "238f34f7f96968ccdba27037717cdaa1ec85888f5e02a7f6f46f499125315aaa",
+    "closure_fingerprint": "143ea8240e538b7c714d1691c3ef4deb4e63044b8ead6aaa11307fbff0264959",
+    "node_count": 43,
+    "edge_count": 226,
+    "recomputed_in_scope_closure_drift": false
+  },
+  "runner_evidence_amendment": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evidence_r2_amendment.json",
+    "file_sha256": "50915d76bd9286963a830278f4c905961ec4e8dbd22113bd45904668f0273cda",
+    "amendment_fingerprint": "be45441ee860721dcb14a32940374877c00e2b7eb2b16259b86e24c4c58a42fc"
+  },
+  "test_receipts": {
+    "runner_evidence_targeted": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_runner_evidence_r2_targeted.junit.xml",
+      "file_sha256": "e2ddf38536f9b13b492eb090b02c2b2a9a3410c8b0f7ac5c4b0164c4e186b99a",
+      "tests": 43,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_seconds": 6.309
+    },
+    "repository_full": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_root_runner_evidence_r2.junit.xml",
+      "file_sha256": "59c602063486bf57b2e627348a839f56555b476ef982ce224e9a6d6ba86e6365",
+      "tests": 1105,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_seconds": 648.069
+    }
+  },
+  "preflight": {
+    "development": {
+      "config_fingerprint": "8b36d9c395e71bb94ea6d02d184da4370ec2b2659bafedd78af15826f9eda15f",
+      "pair_rows": 32,
+      "updates": 320,
+      "optimizer_constructed": false,
+      "optimizer_updates": 0,
+      "artifact_directory_created": false,
+      "all_pass": true
+    },
+    "holdout": {
+      "config_fingerprint": "75f847e040e45cfeb3dae3b90154300c8952e56b366cce148ba1974e591ca5b3",
+      "pair_rows": 222,
+      "updates": 400,
+      "optimizer_constructed": false,
+      "optimizer_updates": 0,
+      "artifact_directory_created": false,
+      "all_pass": true
+    }
+  },
+  "execution_boundary": {
+    "development_training_started": false,
+    "holdout_training_started": false,
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "model_success_established": false,
+    "development_authorization_eligible": true,
+    "holdout_authorization_eligible": false
+  },
+  "receipt_fingerprint_scope": "all_fields_except_receipt_fingerprint",
+  "receipt_fingerprint": "4805059fc1536301a40db17e6b957cc2d7167bb8a722fe681ccda83140501123"
+}

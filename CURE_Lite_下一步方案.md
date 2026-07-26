@@ -3,7 +3,57 @@
 > 依据代码快照 `a9dcfb23f44e2cbd54849464d0d47c7e2f43e499`、geometry-safe P0、CURE-Lite v0.1/v0.2 与 synthetic-state failure-attribution 的正式产物修订。  
 > 本文件以研究执行方案为主；已完成阶段的数值仅用于绑定当前决策，完整结果见 `CURE_Lite_全部结果与当前研究结论.md`。未在权威产物中出现的数值不得写成结果。
 
-## 最新状态（2026-07-26）：CCFR-v11 停在 dataset-free 门禁
+## 最新状态（2026-07-27）：NLCC-v12 停在 Development 门禁
+
+CCFR-v11 负结果后建立的 NLCC-v12 已完成 runner/evidence r2 闭合，并执行
+了唯一一次冻结的 320-update dataset-free Development：
+
+```text
+R0-C1--R0-C8                  = PASS
+targeted tests                = 43 / 43
+repository tests              = 1105 / 1105
+updates                       = 320 / 320
+training forwards             = 960 / 960
+finite-state audits           = 321 / 321
+structural gates              = 25 / 25 PASS
+numeric gates                 = 26 / 76 PASS
+final groups                  = 0 / 8 PASS
+decision                      = NLCC_V12_DEVELOPMENT_FAIL
+Holdout authorized            = false
+real D_R authorized           = false
+formal800 authorized          = false
+Full CURE authorized          = false
+```
+
+这是有效的模型门禁负结果，不是执行异常，也不是真实检测性能结果。当前必须：
+
+- 冻结 NLCC-v12 结果，不重跑、不放宽阈值；
+- 不创建 Holdout authorization；
+- 不读取新的真实 \(D_R/D_V/D_T\) 结果；
+- 不运行 32,000-step exposure replay 或 seed 42/43 formal800；
+- 不开始 Full CURE、其他 detector 或三数据集工作；
+- 先对“方向正确但绝对端点、matched null、背景与 factual anchors 未同时
+  成立”做固定失败归因；任何机制修改建立新的 CURE-Lite 模型版本。
+
+完整结果见
+[NLCC-v12 Development 正式负结果](CURE_Lite_NLCC_v12_Development正式负结果.md)。
+
+总研究主线没有改变：
+
+```text
+新 CURE-Lite 核心候选
+  -> dataset-free Development
+  -> 独立 exposure Holdout
+  -> IRSTD-1K D_R 受控验证
+  -> 800×40 暴露重放
+  -> seed 42/43、800 epoch 逐种子确认
+  -> CURE-Lite 冻结
+  -> Full CURE 设计与冻结
+  -> NUAA-SIRST / NUDT-SIRST / IRSTD-1K
+  -> 多个 IRSTD detector 分别重训验证
+```
+
+## 历史状态（2026-07-26）：CCFR-v11 停在 dataset-free 门禁
 
 在历史 paired/Wave A 负结果之后建立的最新 CURE-Lite 候选是 CCFR-v11
 （Coverage-Conditioned Feature Release）。其代码级 development regression

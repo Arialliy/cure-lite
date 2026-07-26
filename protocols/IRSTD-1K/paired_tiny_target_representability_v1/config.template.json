@@ -1,0 +1,381 @@
+{
+  "schema_version": "cure-lite-paired-tiny-target-representability-config-template-v1",
+  "artifact_kind": "non_executable_config_template",
+  "template_status": "requires_separate_materialization_and_preflight_before_execution",
+  "audit_name": "stride_four_tiny_target_representability",
+  "temporal_semantics": {
+    "designation": "late_compliance_audit",
+    "original_required_timing": "before_paired_training",
+    "original_required_timing_was_met": false,
+    "historical_paired_training_and_wave_a_already_occurred": true,
+    "retroactive_gate_satisfaction_is_possible": false,
+    "purpose": "prospective_structural_diagnosis_only",
+    "pass_cannot_change_historical_wave_a_decision": true,
+    "pass_cannot_authorize_historical_paired_training": true,
+    "pass_cannot_authorize_confirmation": true,
+    "pass_cannot_authorize_full_cure": true,
+    "pass_cannot_authorize_cross_backbone_evaluation": true
+  },
+  "frozen_existing_bindings": {
+    "paired_objective": {
+      "repo_path": "protocols/IRSTD-1K/paired_objective_v1/proposal_receipt.json",
+      "file_sha256": "e4f289a7d960df1c778ae88f20cc66d13e2062194b8300c0b7a257ad20b5c7b2",
+      "receipt_fingerprint": "5a2f357911fb5f1dc1a946b3dbad429d256c390677d238b2f395fe90ce91fac8"
+    },
+    "existing_source_files": [
+      {
+        "repo_path": "cure_lite/decoder.py",
+        "file_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+      },
+      {
+        "repo_path": "cure_lite/metrics.py",
+        "file_sha256": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b"
+      },
+      {
+        "repo_path": "cure_lite/matching.py",
+        "file_sha256": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06"
+      },
+      {
+        "repo_path": "cure_lite/config.py",
+        "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+      }
+    ],
+    "binding_policy": "every_bound_path_and_sha_must_match_before_materialization_or_execution"
+  },
+  "scope": {
+    "uses_only_canonical_synthetic_binary_geometry": true,
+    "runtime_dataset_access": false,
+    "runtime_split_access": [],
+    "D_R_access": false,
+    "D_V_access": false,
+    "D_T_access": false,
+    "checkpoint_access": false,
+    "model_weight_access": false,
+    "training": false,
+    "calibration": false,
+    "learned_model_inference": false,
+    "full_cure": false,
+    "backbone_integration": false,
+    "backbone_comparison": false,
+    "decoder_architecture_change": false,
+    "loss_change": false,
+    "target_change": false,
+    "target_dilation": false,
+    "post_result_tuning": false
+  },
+  "canonical_geometry": {
+    "output_grid": {
+      "height": 256,
+      "width": 256
+    },
+    "low_resolution_grid": {
+      "height": 64,
+      "width": 64
+    },
+    "nominal_stride": {
+      "height": 4,
+      "width": 4
+    },
+    "target_pixel_areas": [
+      1,
+      2,
+      3
+    ],
+    "target_connectivity": 8,
+    "target_component_count": 1
+  },
+  "shape_catalog": {
+    "construction": "recursive_exhaustive_cc8_growth_with_translation_normalization_only",
+    "seed": [
+      [
+        0,
+        0
+      ]
+    ],
+    "growth_rule": "for_area_n_plus_1_add_each_unoccupied_cc8_neighbor_to_each_area_n_shape_then_normalize_and_deduplicate",
+    "normalization_rule": "subtract_minimum_row_and_minimum_column_then_sort_coordinate_pairs_lexicographically",
+    "deduplication_rule": "exact_normalized_coordinate_tuple_equality",
+    "rotation_quotient": false,
+    "reflection_quotient": false,
+    "orientation_is_preserved": true,
+    "expected_shape_count_by_area": {
+      "1": 1,
+      "2": 4,
+      "3": 20
+    },
+    "expected_total_oriented_shapes": 25,
+    "shape_order": "ascending_area_then_lexicographic_normalized_coordinate_tuple",
+    "count_mismatch_status": "INCONCLUSIVE"
+  },
+  "concrete_placement_catalog": {
+    "placement_rule": "place_each_normalized_shape_at_every_integer_origin_for_which_all_target_pixels_are_inside_the_256_by_256_grid",
+    "row_origin_interval": "inclusive_0_through_256_minus_shape_height",
+    "column_origin_interval": "inclusive_0_through_256_minus_shape_width",
+    "expected_total_concrete_placements": 1622566,
+    "every_concrete_placement_must_be_covered_exactly_once": true,
+    "missing_or_duplicate_placement_status": "INCONCLUSIVE"
+  },
+  "bilinear_operator": {
+    "source_grid": [
+      64,
+      64
+    ],
+    "destination_grid": [
+      256,
+      256
+    ],
+    "mode": "bilinear",
+    "align_corners": false,
+    "antialias": false,
+    "batch_and_channel_axes": "independent",
+    "coordinate_rule_per_axis": "source_coordinate_equals_(destination_index_plus_0.5)_times_64_divided_by_256_minus_0.5_with_pytorch_border_clamping",
+    "operator_construction": "separable_outer_product_of_the_exact_one_dimensional_linear_weights",
+    "coefficient_encoding": {
+      "representation": "exact_integer_numerator_after_coalescing_clamped_duplicate_source_indices",
+      "common_denominator": 64,
+      "floating_tolerance_for_operator_identity": 0.0
+    },
+    "active_low_resolution_nodes": "exact_union_of_nonzero_operator_columns_across_all_target_pixel_rows",
+    "active_node_bound": [
+      -1.0,
+      1.0
+    ],
+    "all_nonactive_low_resolution_nodes_are_fixed_to": -1.0,
+    "reduced_affine_response": "u_equals_A_active_times_x_active_plus_A_inactive_times_minus_one"
+  },
+  "capacity_oracle_scope": {
+    "oracle": "free_64_by_64_logit_field_followed_by_the_frozen_bilinear_output_operator",
+    "not_the_learned_decoder": true,
+    "PASS_interpretation": "the_output_grid_has_a_feasible_binary_representation_upper_bound_only",
+    "PASS_does_not_prove_decoder_learnability": true,
+    "threshold_invariance": "bilinear_constant_preservation_allows_any_finite_logit_threshold_to_be_shifted_to_zero_and_any_finite_sign_pattern_to_be_positively_rescaled_into_the_normalized_bounds",
+    "worst_case_budget_scope": "every_single_placement_must_individually_satisfy_a_full_256_by_256_image_budget",
+    "STRUCTURAL_FAIL_scope": "failure_of_this_prefrozen_per_placement_stress_gate_not_a_claim_of_impossibility_on_every_dataset_distribution"
+  },
+  "monotone_localization_proof_contract": {
+    "bilinear_coefficients_are_nonnegative": true,
+    "inactive_node_definition": "zero_coefficient_on_every_target_output_row",
+    "setting_inactive_nodes_to_minus_one_leaves_every_target_row_unchanged": true,
+    "setting_inactive_nodes_to_minus_one_can_only_decrease_background_rows": true,
+    "inclusive_background_positive_count_cannot_increase": true,
+    "finite_sign_solution_margin_opening": "before_localization_shrink_the_full_grid_toward_zero_to_open_the_bounds_then_add_a_sufficiently_small_positive_constant; this_makes_targets_positive_while_preserving_all_strictly_negative_backgrounds; localization_then_preserves_targets_and_only_decreases_backgrounds_so_the_finite_result_has_a_positive_common_target_and_negative_background_margin",
+    "exactness_implication": "any_lower_count_free_grid_sign_solution_would_produce_a_positive_margin_witness_in_the_localized_descending_count_search",
+    "localized_selected_margin_is_not_a_free_grid_maximum": true
+  },
+  "exact_translation_equivalence": {
+    "enabled": true,
+    "purpose": "solve_each_proven_exact_operator_case_once_without_dropping_any_concrete_placement",
+    "equivalence_key_must_include": [
+      "complete_reduced_affine_operator_coefficient_matrix_after_substituting_all_nonactive_nodes_with_minus_one",
+      "complete_target_pixel_indicator",
+      "active_low_resolution_node_relative_coordinates",
+      "output_pixel_relative_coordinates",
+      "all_border_clamping_context",
+      "shape_coordinate_tuple"
+    ],
+    "coordinate_canonicalization": "joint_integer_translation_only",
+    "coefficient_comparison": "exact_encoded_integer_equality",
+    "heuristic_stride_phase_reduction_is_forbidden": true,
+    "rotation_or_reflection_equivalence_is_forbidden": true,
+    "class_count": "derived_not_gate",
+    "required_multiplicity_sum": 1622566,
+    "multiplicity_must_equal_the_number_of_concrete_placements_in_each_exact_class": true,
+    "coverage_or_signature_failure_status": "INCONCLUSIVE"
+  },
+  "milp": {
+    "solver_api": "scipy.optimize.milp",
+    "solver_backend": "HiGHS",
+    "numeric_dtype": "float64",
+    "big_m": 2.0,
+    "certifying_margin_min": 0.000001,
+    "gamma_search_bounds": [0.0, 1.0],
+    "margin_objective_scale": 1000000000.0,
+    "continuous_variables": {
+      "x": {
+        "domain": [
+          -1.0,
+          1.0
+        ],
+        "indices": "active_low_resolution_nodes_only"
+      },
+      "gamma": {
+        "stage_1_relaxation_domain": [0.0, 0.0],
+        "valid_upper_domain": [0.000001, 1.0],
+        "exactness_search_domain": [0.0, 1.0]
+      }
+    },
+    "binary_variables": {
+      "z_background_positive": {
+        "domain": [
+          0,
+          1
+        ],
+        "indices": "non_target_output_rows_with_at_least_one_nonzero_active_node_coefficient"
+      }
+    },
+    "constant_background_rows": "all_other_non_target_rows_are_analytically_minus_one_and_have_z_equal_to_zero",
+    "inclusive_threshold_semantics": {
+      "prediction_rule": "output_logit_greater_than_or_equal_to_zero",
+      "target_rows_with_margin": "u_t_greater_than_or_equal_to_gamma",
+      "target_rows_in_relaxation": "u_t_greater_than_or_equal_to_zero",
+      "background_upper_with_margin": "u_b_less_than_or_equal_to_minus_gamma_plus_big_m_times_z_b",
+      "background_upper_in_relaxation": "u_b_less_than_or_equal_to_big_m_times_z_b",
+      "background_lower_in_all_stages": "u_b_greater_than_or_equal_to_minus_big_m_times_(1_minus_z_b)",
+      "z_zero_semantics": "strictly_negative_after_positive_margin_certificate",
+      "z_one_semantics": "nonnegative_inclusive_threshold_background"
+    },
+    "stage_1": {
+      "name": "threshold_tie_relaxed_lower_bound",
+      "objective": "minimize_sum_of_z_background_positive",
+      "gamma_fixed_to": 0.0,
+      "target_and_background_zero_ties_may_be_assigned_to_z_zero": true,
+      "interpretation": "certified_lower_bound_only_not_yet_an_attainable_inclusive_threshold_count",
+      "required_solver_status": "optimal",
+      "optimal_count_must_be_finite_nonnegative_and_integer": true
+    },
+    "valid_upper": {
+      "name": "margin_separated_count_upper_bound",
+      "objective": "minimize_sum_of_z_background_positive",
+      "gamma_lower_bound": 0.000001,
+      "interpretation": "attainable_inclusive_threshold_count_upper_bound",
+      "required_solver_status": "optimal"
+    },
+    "exactness_search": {
+      "name": "descending_lower_count_exclusion",
+      "count_cap": "current_attainable_upper_minus_one",
+      "objective": "maximize_1000000000_times_gamma",
+      "zero_margin_certificate": "reconstructed_gamma_and_scaled_primal_objective_and_scaled_dual_bound_must_all_equal_float64_zero_exactly",
+      "any_positive_margin_status": "INCONCLUSIVE",
+      "positive_margin_at_least_1e-6_interpretation": "contradicts_the_preceding_optimal_valid_upper_certificate",
+      "positive_margin_below_1e-6_interpretation": "leaves_the_inclusive_threshold_count_unresolved",
+      "repeat_rule": "none;the_optimal_valid_upper_is_never_silently_replaced_by_a_contradictory_search_result",
+      "stop_rule": "only_the_frozen_exact_float64_zero_triple_closes_the_count_gap;every_nonzero_margin_is_INCONCLUSIVE",
+      "selected_witness": "initial_valid_upper_only",
+      "selected_margin_is_free_grid_maximum_claim": false
+    },
+    "primary_count_claim": "tolerance_certified_irreducible_count_only_after_the_relaxed_lower_bound_and_descending_positive_margin_search_close_the_count_gap",
+    "symbolic_real_arithmetic_exactness_claim": false,
+    "solver_options": {
+      "presolve": true,
+      "mip_rel_gap": 0.0,
+      "primal_feasibility_tolerance": 1e-09,
+      "dual_feasibility_tolerance": 1e-09,
+      "mip_feasibility_tolerance": 1e-09,
+      "threads": 1,
+      "parallel": false,
+      "random_seed": 0,
+      "output_flag": false,
+      "time_limit": "none",
+      "node_limit": "none"
+    },
+    "optimal_certificate_requirements": [
+      "scipy_status_equals_0",
+      "success_is_true",
+      "objective_is_finite",
+      "all_primal_variables_are_finite",
+      "absolute_primal_dual_objective_gap_not_greater_than_1e-8_when_dual_bound_is_available_otherwise_reported_relative_mip_gap_not_greater_than_1e-9",
+      "each_count_reconstructs_to_its_reported_integer_objective_or_cap",
+      "all_variable_bounds_and_integrality_constraints_reconstruct",
+      "all_target_background_and_count_constraints_reconstruct",
+      "scaled_margin_objective_reconstructs_when_used"
+    ],
+    "serialized_solver_trace_role": "reconstructs_the_recorded_primal_witness_and_numeric_state_machine_but_is_not_by_itself_an_independent_global_optimality_proof",
+    "public_case_replay_requirement": "reinvoke_the_bound_solver_for_the_same_case_and_require_the_complete_certificate_payload_to_match",
+    "formal_all_case_replay_requirement": "after_two_distinct_complete_execution_roots_are_byte_identical_reinvoke_the_bound_solver_for_all_6400_cases_and_require_every_complete_certificate_payload_to_match",
+    "reconstruction_tolerances": {
+      "bound_absolute_tolerance": 1e-08,
+      "linear_constraint_absolute_tolerance": 1e-08,
+      "integrality_absolute_tolerance": 1e-08,
+      "objective_absolute_tolerance": 1e-08,
+      "gamma_absolute_tolerance": 1e-08
+    },
+    "nonoptimal_nonfinite_or_failed_reconstruction_status": "INCONCLUSIVE",
+    "proposal_contract_reason_class_for_inconclusive": "COMPUTATIONALLY_INCONCLUSIVE"
+  },
+  "prediction_and_metric_reconstruction": {
+    "prediction_mask": "the_complete_reconstructed_256_by_256_output_logit_field_greater_than_or_equal_to_zero",
+    "direct_logit_recheck": "target_rows_must_be_at_least_gamma_and_must_be_nonnegative;z_zero_background_rows_must_be_at_most_minus_gamma_and_must_be_strictly_negative;z_one_background_rows_must_be_nonnegative;the_actual_output_sign_mask_must_equal_z_pixel_by_pixel",
+    "component_connectivity": 8,
+    "minimum_component_area": 1,
+    "matching": {
+      "max_centroid_distance": 3.0,
+      "distance_comparison": "strictly_less_than",
+      "distance_quantization": 1000000,
+      "iou_quantization": 1000000,
+      "objective_order": [
+        "maximum_cardinality",
+        "minimum_quantized_centroid_distance",
+        "maximum_quantized_iou",
+        "lexicographically_smallest_sorted_gt_prediction_pair_list"
+      ]
+    },
+    "metric_denominator_pixels": 65536,
+    "metric_denominator_megapixels": 0.065536,
+    "retention": "fraction_of_target_pixels_present_in_prediction",
+    "retention_semantics": "target_pixel_recall_not_stage_a_anchor_retention",
+    "stage_a_anchor_retention_applicable": false,
+    "pixel_fa": "pixels_in_unmatched_predicted_components_divided_by_65536",
+    "raw_background_fa": "predicted_pixels_outside_the_target_divided_by_65536",
+    "fp_components_per_mp": "unmatched_predicted_components_divided_by_0.065536",
+    "target_component_must_be_matched": true,
+    "metric_computation_must_use_bound_existing_metrics_and_matching_semantics": true
+  },
+  "prefrozen_case_budgets": {
+    "retention": 1.0,
+    "pixel_fa_max": 0.0001,
+    "raw_background_fa_max": 0.0001,
+    "fp_components_per_mp_max": 100.0,
+    "maximum_false_addition_pixels": 6,
+    "budget_violation": false,
+    "application": "every_exact_equivalence_class_individually_without_averaging_or_multiplicity_weighted_compensation"
+  },
+  "case_decision": {
+    "PASS": "the_tolerance_certified_irreducible_false_addition_count_is_at_most_6_and_the_selected_attainable_witness_satisfies_every_prefrozen_case_budget",
+    "STRUCTURAL_FAIL": "the_tolerance_certified_irreducible_false_addition_count_is_greater_than_6_so_raw_background_fa_exceeds_1e-4_under_the_prefrozen_stress_gate",
+    "INCONCLUSIVE": "catalog_operator_equivalence_solver_numeric_exactness_or_reconstruction_requirements_are_not_fully_satisfied_or_a_count_at_most_6_has_only_a_secondary_budget_failing_selected_witness",
+    "secondary_metric_tie_rule": "a_matching_or_component_failure_of_one_selected_minimum_count_witness_does_not_prove_all_minimum_count_witnesses_fail",
+    "budget_violations_must_be_explicit": true
+  },
+  "all_case_decision": {
+    "PASS": "catalog_and_exact_equivalence_checks_pass_and_every_exact_equivalence_class_is_PASS",
+    "STRUCTURAL_FAIL": "catalog_and_exact_equivalence_checks_pass_and_at_least_one_exact_equivalence_class_is_STRUCTURAL_FAIL_with_no_INCONCLUSIVE_class",
+    "INCONCLUSIVE": "any_catalog_equivalence_solver_numeric_or_reconstruction_condition_is_INCONCLUSIVE",
+    "aggregation_rule": "all_case_conjunction_no_mean_no_quantile_no_majority_vote",
+    "formal_comparison_requires_distinct_roots": true,
+    "formal_comparison_requires_independent_bound_solver_replay": true,
+    "structural_failure_witnesses_must_list_every_failing_class_and_all_covered_concrete_placement_multiplicities": true
+  },
+  "authorization_semantics": {
+    "historical_authorization": "none",
+    "PASS_authorizes": "no_historical_or_downstream_action",
+    "STRUCTURAL_FAIL_requires": "record_structural_capacity_failure_without_changing_target_or_dilation",
+    "INCONCLUSIVE_requires": "stop_and_resolve_the_computational_or_protocol_defect_without_interpreting_capacity",
+    "training_authorized": false,
+    "D_V_or_D_T_evaluation_authorized": false,
+    "calibration_or_inference_authorized": false,
+    "full_cure_authorized": false,
+    "backbone_integration_authorized": false
+  },
+  "execution_policy": {
+    "deterministic_process_workers": 16,
+    "dynamic_cpu_discovery": false,
+    "process_start_method": "spawn",
+    "process_chunksize": 1,
+    "case_result_order": "catalog_order",
+    "parent_only_artifact_writer": true,
+    "worker_recycling": false,
+    "solver_threads_per_process": 1,
+    "solver_parallel": false,
+    "solver_random_seed": 0,
+    "solver_output_flag": false
+  },
+  "future_materialization_requirements": [
+    "copy_this_template_to_a_separate_final_config_without_modifying_this_template",
+    "bind_the_future_audit_implementation_and_runner_to_their_actual_file_sha256_values",
+    "compute_and_record_the_final_materialized_config_fingerprint",
+    "validate_all_existing_bindings",
+    "validate_shape_and_concrete_placement_catalog_counts",
+    "validate_exact_equivalence_multiplicity_coverage",
+    "complete_a_separate_preflight_before_any_solver_execution"
+  ]
+}

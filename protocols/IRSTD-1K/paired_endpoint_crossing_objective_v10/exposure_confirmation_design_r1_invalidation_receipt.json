@@ -1,0 +1,73 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-design-r1-invalidation-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "R1_DESIGN_FROZEN_BEFORE_AUTHORITY_RUN_AND_SUPERSEDED",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R1_DESIGN_INVALIDATED",
+  "r1_design_binding": {
+    "config_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_config.json",
+    "config_file_sha256": "200d9200e668b8bae6b9bbb18578612a810ca48c4c528cb556e2421cc0835875",
+    "config_fingerprint": "b0203f82e41d2db3e16a425fd2e02110750d220d7beec5037ae17f0b900efc6f",
+    "design_receipt_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_receipt.json",
+    "design_receipt_file_sha256": "19bc1d962cb581ee8efde5d309a20da95ba7287654668860ade8e08a072a0f61",
+    "design_receipt_fingerprint": "2f1f9de03eeaa412d6ec40a8a0348aeb76f2afdbc407a59d516ab134fd2bfe62"
+  },
+  "r1_source_binding": {
+    "population_repo_path": "cure_lite/experiment/peco_exposure_confirmation.py",
+    "population_file_sha256": "87ef1f11c1d8ea192314b0765630d45ff7b441f314fecaf9fb6fac27214f2168",
+    "evaluator_repo_path": "tools/evaluate_peco_exposure_confirmation.py",
+    "evaluator_file_sha256": "b1b91f5ae86adc70a6883ac9e88b10b049003a325341fab1c6a81c85f6e7667e",
+    "test_repo_path": "tests_v10/test_peco_exposure_confirmation.py",
+    "test_file_sha256": "97a09072c6cb45324b0cdfce58ed20b3e21ec5f447cc3f542b343163f3a75cfa"
+  },
+  "authority_run_status": {
+    "result_exists": false,
+    "training_performed": false,
+    "dataset_accessed": false,
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false
+  },
+  "blocking_findings": [
+    {
+      "id": "adam_defaults_not_enforced",
+      "finding": "only_lr_was_explicitly_passed_to_Adam",
+      "risk": "runtime_defaults_could_differ_from_the_frozen_optimizer_contract",
+      "required_correction": "explicitly_pass_and_fail_fast_check_all_frozen_Adam_fields"
+    },
+    {
+      "id": "execution_closure_incomplete",
+      "finding": "implementation_closure_pre_run_receipt_and_unique_output_path_were_missing",
+      "risk": "the_authority_result_would_not_bind_the_complete_local_import_execution",
+      "required_correction": "bind_the_observed_local_import_graph_and_require_one_create_only_canonical_output"
+    }
+  ],
+  "allowed_r2_changes": {
+    "explicit_Adam_arguments_and_exact_pre_training_contract_check": true,
+    "complete_local_import_graph_binding": true,
+    "implementation_closure_and_pre_run_receipt": true,
+    "single_canonical_create_only_output": true,
+    "exact_eight_group_set_and_count_gate": true,
+    "model_change": false,
+    "decoder_change": false,
+    "loss_change": false,
+    "population_change": false,
+    "schedule_change": false,
+    "seed_change": false,
+    "learning_rate_change": false,
+    "update_count_change": false,
+    "scientific_threshold_change": false,
+    "automatic_retry": false
+  },
+  "execution_boundary": {
+    "r2_confirmation_run_currently_authorized": false,
+    "deterministic_dry_run": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "2f7237b49c38cfb6f3255af7f25ccec499208723b1163fc1c3fc80c8033e67fd"
+}

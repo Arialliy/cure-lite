@@ -1,0 +1,155 @@
+{
+  "schema_version": "cure-lite-pr-svef-v6-real-dr-bounded-negative-closure-v1",
+  "method_id": "pr_svef_v6",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "phase_status": "FROZEN_REAL_D_R_BOUNDED_NEGATIVE_RESULT",
+  "decision": "PRSVEF_V6_BOUNDED_MODEL_CODE_GATE_FAIL",
+  "execution": {
+    "device": "cuda:0",
+    "gpu_index": 0,
+    "temperature_pause_celsius": 82,
+    "temperature_resume_celsius": 75,
+    "maximum_recorded_temperature_celsius": 42,
+    "optimizer_updates_completed": 400,
+    "expected_optimizer_updates": 400,
+    "backward_calls": 400,
+    "optimizer_steps": 400,
+    "real_D_R_run_count": 1,
+    "automatic_retry_performed": false
+  },
+  "authorization_binding": {
+    "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_code_authorization_receipt.json",
+    "file_sha256": "a428bb406766b468a3607e26ca1671ba527e2adf72460d686fbb41b71129fbdb",
+    "receipt_fingerprint": "0eaf4d3dc7dbe7f7a9339b8cbb1fb214e0132f797f53451d36114f804cffb75c"
+  },
+  "artifact_binding": {
+    "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_pr_svef_v6_bounded_r1",
+    "incomplete_marker_present": true,
+    "complete_file_sha256": "f791eb1df62808927b5bf4c804543e3c1edc3776153f45df3cbb7924576c0132",
+    "complete_fingerprint": "0ff48307719590f3070c18cddb01fe153bc3a017284a1f711b148115a53934ca",
+    "artifact_file_count": 12,
+    "result_file_sha256": "cafdfa4d4ddbd845b21343b8972eec20fa095619d31a9b36881ab7294667572a",
+    "result_fingerprint": "627530b8c6d594f02a8a11e551f9465294b9c18237695971eb7412afbaccf8cf",
+    "result_receipt_fingerprint": "af0a23976ddc52df64d42c9d4b96b9979275113979b47e7f558b3d001e4524a0",
+    "decision_file_sha256": "c097b17d1c4f5a0bb10ced20ebff895f7867a9fc28db7561871a303872d7c736",
+    "decision_receipt_fingerprint": "3e097409fe9fba1fdeb8cc2de977f89d85eba4a3ccbfb50d1d0327a15b9cbcf8"
+  },
+  "gate_summary": {
+    "structural_execution_pass": true,
+    "computational_model_code_gate_pass": false,
+    "structural_check_count": 26,
+    "structural_failed_count": 0,
+    "computational_gate_count": 12,
+    "computational_passed_count": 6,
+    "computational_failed_count": 6,
+    "passed": {
+      "factual_miss_anchor_final_over_initial": {
+        "value": 0.4429345276895811,
+        "direction": "max",
+        "threshold": 0.75
+      },
+      "factual_no_miss_anchor_final_over_initial": {
+        "value": 0.04116380758481577,
+        "direction": "max",
+        "threshold": 0.75
+      },
+      "plus_baseline_final_over_initial": {
+        "value": 0.4059222923948151,
+        "direction": "max",
+        "threshold": 0.75
+      },
+      "clean_zero_macro_mean_abs_delta": {
+        "value": 0.03799536263788896,
+        "direction": "max",
+        "threshold": 0.05
+      },
+      "component_null_context_macro_mean_abs_delta": {
+        "value": 0.000029557791646331322,
+        "direction": "max",
+        "threshold": 0.05
+      },
+      "identity_null_max_abs_delta": {
+        "value": 0.0,
+        "direction": "max",
+        "threshold": 1e-7
+      }
+    },
+    "failed": {
+      "clean_transition_final_over_initial": {
+        "value": 0.8662147294432316,
+        "direction": "max",
+        "threshold": 0.5
+      },
+      "clean_mean_delta_on_D": {
+        "value": 0.13345966250891403,
+        "direction": "min",
+        "threshold": 0.5
+      },
+      "clean_pairs_delta_at_least_0_25_fraction": {
+        "value": 0.0970873786407767,
+        "direction": "min",
+        "threshold": 0.75
+      },
+      "component_null_footprint_macro_mean_abs_delta": {
+        "value": 0.07581874425522983,
+        "direction": "max",
+        "threshold": 0.05
+      },
+      "component_null_footprint_global_max_abs_delta": {
+        "value": 0.7903342843055725,
+        "direction": "max",
+        "threshold": 0.25
+      },
+      "clean_joint_D_ge_0_25_and_H_le_0_05_fraction": {
+        "value": 0.02912621359223301,
+        "direction": "min",
+        "threshold": 0.75
+      }
+    },
+    "gradients": {
+      "minimum_update_l2_norm": 0.11100128365523186,
+      "maximum_update_l2_norm": 2.5037824243326896,
+      "nonfinite_updates": 0,
+      "zero_norm_updates": 0
+    }
+  },
+  "publication_diagnostic": {
+    "cli_exit_code": 1,
+    "complete_evidence_written_before_final_loader": true,
+    "unmodified_strict_loader_status": "FAIL_POST_EXECUTION_AUTHORIZATION_BINDING_SHAPE_MISMATCH",
+    "cause": "published implementation receipt contains receipt_fingerprint while pre-run authorization binds the unsigned implementation object",
+    "read_only_normalized_loader_status": "PASS",
+    "normalization": "remove only the publication wrapper receipt_fingerprint before reusing the pre-run authorization verifier",
+    "method_gate_decision_independent_of_publication_issue": true,
+    "publication_repair_performed": false,
+    "incomplete_marker_removed": false,
+    "artifact_receipts_rewritten": false
+  },
+  "boundary": {
+    "not_detection_performance_evidence": true,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "calibration_performed": false,
+    "inference_performed": false,
+    "Pd_or_FA_established": false,
+    "formal_800_authorized": false,
+    "full_cure_authorized": false,
+    "other_detector_integration_authorized": false,
+    "same_version_retry_authorized": false,
+    "threshold_relaxation_authorized": false
+  },
+  "next_action": {
+    "freeze_v6_negative_result": true,
+    "preserve_original_incomplete_publication_state": true,
+    "model_code_redesign_required": true,
+    "required_new_version": true,
+    "target_problem": "increase clean outcome D separation while suppressing component-null footprint leakage"
+  },
+  "report_binding": {
+    "repo_path": "CURE_Lite_PRSVEF_v6_真实DR_Bounded负结果.md",
+    "file_sha256": "81e83282faafa7257e7bc0a4e18cfd00d0bb8043ee5bed3fd2a8ed36393bd54d"
+  },
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "receipt_fingerprint": "f73fd4cedaa6d3b618a41b2c1b3c329ee65ddc7dec37dad47ea4e3dd26072368"
+}

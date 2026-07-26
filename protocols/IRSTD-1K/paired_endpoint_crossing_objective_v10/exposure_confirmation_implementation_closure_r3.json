@@ -1,0 +1,98 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r3-implementation-closure-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "R3_SERIALIZATION_CORRECTION_CLOSED_BEFORE_SINGLE_AUTHORITY_RUN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R3_IMPLEMENTATION_CLOSED",
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_config_r2.json",
+    "file_sha256": "0d05e8caf05f37278ab018292edaf46ad5f7707b0c5d58e49572a5664638c876",
+    "config_fingerprint": "dba4d8ac7be556a85f80943f4e4d010ffa21cf357bb1b7c0b17a5108d1190cef"
+  },
+  "design_receipt_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_receipt_r2.json",
+    "file_sha256": "5ecab166a15b56e715b278ca00f0ab04aa9e096308e054b85d88ec0e9ab15804",
+    "receipt_fingerprint": "d9c18b4b42724751e02f6cf2f17c046b531f5d84cbe87858b4cacf2fb87e366b"
+  },
+  "r1_invalidation_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_r1_invalidation_receipt.json",
+    "file_sha256": "21bdfa2774eeb20139bb30cb30d39c502b98ab3439576ba61a1fbbade42c5e5a",
+    "receipt_fingerprint": "2f7237b49c38cfb6f3255af7f25ccec499208723b1163fc1c3fc80c8033e67fd",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R1_DESIGN_INVALIDATED"
+  },
+  "r2_execution_failure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_r2_execution_failure_receipt.json",
+    "file_sha256": "a419fb84f62b900f7797e06de07d68c4e540f65684319a622b9829df294fbdf7",
+    "receipt_fingerprint": "6d4bc2cb4282a4ee1ab7b8674f99f9d675c8d88c4a434a5c4ac8f04bdae31ff7",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_RESULT_NOT_PRODUCED"
+  },
+  "inherited_r2_implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_implementation_closure_r2.json",
+    "file_sha256": "3b0707d4aa9611d84f26a7c42e23b2b36a60a0f76c10ecced938afdf11925c88",
+    "receipt_fingerprint": "d0d8621585e4a3022679f5fdae12dd0ef357fcf653fa4ac249a46480b4a97315"
+  },
+  "development_r2_prerequisite_binding": {
+    "result_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result_r2.json",
+    "result_file_sha256": "5034ac2decaa0e4cd4e8f5d605608c3a76e55b8e264a7783650195232ba975d7",
+    "result_fingerprint": "b7b384abccd55829174e97c65c02c906349c5b1e1c4d75ffaa70eab87313e6c2",
+    "result_decision": "PECO_V10_DEVELOPMENT_REGRESSION_PASS",
+    "receipt_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r2_result_receipt.json",
+    "receipt_file_sha256": "949aed18519bc4dceadf6fe40a0bdb49f11861ec2eb235dca4ad5ae47705bae7",
+    "receipt_fingerprint": "2de255b2579f5fbbeebd5c1f4ded9a0a147bbfa487842f97ed30c76f23a9d468",
+    "receipt_decision": "PECO_V10_DEVELOPMENT_R2_CORRECTION_PASS"
+  },
+  "corrected_source_bindings": [
+    {
+      "repo_path": "tests_v10/test_peco_exposure_confirmation.py",
+      "file_sha256": "b1a0de658c5f150c438c533108b4cee0f1c489d04eaf8d11b5cde1d73fe51af2"
+    },
+    {
+      "repo_path": "tools/evaluate_peco_exposure_confirmation.py",
+      "file_sha256": "db19e4a09416b37e761ba53f7218128ee366f046ac0958e9c439c8045cfb8326"
+    }
+  ],
+  "effective_source_closure": {
+    "inherited_source_count": 62,
+    "corrected_source_count": 2,
+    "effective_bound_source_count": 64,
+    "all_observed_local_imports_must_be_bound": true,
+    "unchanged_sources_must_retain_r2_sha256": true
+  },
+  "correction_scope": {
+    "component_histogram_keys_canonicalized_as_strings": true,
+    "non_string_result_mapping_key_regression_test_added": true,
+    "result_schema_and_canonical_output_versioned_to_r3": true,
+    "r3_closure_and_pre_run_chain_required": true,
+    "model_changed": false,
+    "decoder_changed": false,
+    "loss_changed": false,
+    "population_changed": false,
+    "schedule_changed": false,
+    "optimizer_changed": false,
+    "seed_changed": false,
+    "learning_rate_changed": false,
+    "updates_changed": false,
+    "thresholds_changed": false
+  },
+  "scope_limitations": {
+    "exact_v8_update_order_replayed": false,
+    "exact_v8_source_structure_replayed": false,
+    "synthetic_role_features_intentionally_separable": true,
+    "pass_scope": "dataset_free_exposure_matched_constructive_learnability_only"
+  },
+  "authorization": {
+    "authority_run_count": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r3.json",
+    "automatic_retry_allowed": false,
+    "deterministic_dry_run_currently_authorized": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "receipt_fingerprint": "178a13edcf68799f72e2cb0df1ec50661790a21d571f194f1ff7c7fc7fcc03c4"
+}

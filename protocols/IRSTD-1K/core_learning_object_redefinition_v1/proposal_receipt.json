@@ -1,0 +1,265 @@
+{
+  "schema_version": "cure-lite-core-learning-object-redefinition-proposal-v1",
+  "proposal_id": "irstd1k-dr-core-learning-object-redefinition-v1",
+  "stage_role": "non-authorizing-read-only-core-object-definition",
+  "dataset": "IRSTD-1K",
+  "evidence_split": "D_R",
+  "new_runtime_data_access": [],
+  "base_commit": "a9dcfb23f44e2cbd54849464d0d47c7e2f43e499",
+  "evidence_binding": {
+    "prior_h0_receipt_file_sha256": "25197bbc52016c9eec2b891745b6eb421797c47566a7d4e0d41261c7453888ad",
+    "prior_h0_receipt_fingerprint": "4addd47f9e9bae221b0e100be105ad03fbaf865bfa86e6dd2b209d9c014a2c35",
+    "geometry_safe_p0_bc_decision_file_sha256": "a3c00cb0c628413d14b00377a0ed50e9156f72c0d0cb24e3fdb638632c1febb0",
+    "geometry_safe_p0_bc_decision_receipt_fingerprint": "b1b00f7d520a992bcfc348a2ecca9033d479f44baedbe4140c519a6b277987c1",
+    "failure_attribution_decision_file_sha256": "1be8e74cfc77a0bb236151c7434f0a2fed0027825c8b3e2023d00559f5111c37",
+    "failure_attribution_decision_receipt_fingerprint": "a714eb25fcebdee93b50dc0ecf61ff2bf307022c709480e35f1940242e2f24a4",
+    "historical_d_v_count_results_path": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_m_v02_s42/receipts/results.json",
+    "historical_d_v_count_results_file_sha256": "fa40628c72acd7e3e2083674e9eea344e27312875cb5679e0763e8cef5acc8b0",
+    "historical_d_v_count_results_fingerprint": "7df1da6f2976085f5191386aa206af6db43b3bb8ecb31264b564f54f9b2340c2",
+    "frozen_stage_a_budget_config_path": "protocols/IRSTD-1K/stage_a_seed42/stage_a_config.json",
+    "frozen_stage_a_budget_config_file_sha256": "c10c331833324dde72e9efe8602b55f0410d9aa2c7db258a9726baf0fd7d4db1",
+    "formal_p0_a1": "pass",
+    "formal_p0_b": "fail",
+    "formal_p0_c": "fail",
+    "formal_p0_d": "not_evaluated",
+    "prior_review_outcome": "H0"
+  },
+  "reviewed_source_binding": {
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/model.py": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/losses.py": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+    "cure_lite/supervision.py": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a",
+    "cure_lite/intervention.py": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215",
+    "cure_lite/matching.py": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06",
+    "cure_lite/instances.py": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721",
+    "cure_lite/experiment/geometry_safe_catalog.py": "74900b28c0049d29e8591bd6c654111677833f33fd180f2317a22e8ac88ea6ba",
+    "cure_lite/types.py": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb",
+    "cure_lite/experiment/training_pipeline.py": "cb557b3d675e97e232de3da7f5b8c545254a99a19e2becfe38414d8bc1d334f8"
+  },
+  "problem_redefinition": {
+    "old_learning_unit": "independent_factual_or_legal_state",
+    "old_legal_state_role": "factual_like_synthetic_example",
+    "old_failure": "legal_states_are_not_exchangeable_with_factual_misses_and_pair_identity_does_not_enter_the_loss",
+    "new_learning_unit": "same_source_coverage_before_after_pair",
+    "new_question": "how_one_shared_completion_operator_responds_to_removing_one_verified_coverage_component",
+    "does_not_claim_deleted_endpoint_is_a_factual_miss": true,
+    "does_not_require_factual_legal_exchangeability": true,
+    "does_not_reinterpret_prior_p0_b_c": true
+  },
+  "core_learning_object": {
+    "candidate_id": "same_source_discrete_coverage_response",
+    "operator_name": "coverage_conditioned_completion_operator",
+    "epistemic_status": "conceptually_admissible_not_implemented_not_empirically_supported",
+    "operator_inputs": [
+      "detached_frozen_feature_F",
+      "projected_binary_occupancy_Pi_O"
+    ],
+    "operator_output": "sigmoid_decoder_output_before_hard_mask_Q",
+    "operator_output_range": "[0,1]",
+    "output_is_calibrated_probability": false,
+    "ground_truth_completion_semantics": "union_of_valid_writable_pixels_of_gt_instances_unmatched_under_the_current_occupancy",
+    "ground_truth_completion_formula": "R_G_V(O)=union_{j_in_unmatched(M(O,G))}(G_j_intersect_V_intersect_not_O)",
+    "natural_state_role": "zero_order_absolute_anchor_for_Q",
+    "legal_pair_definition": "O_plus=O; O_minus=O_without_C_g; F_is_exactly_shared",
+    "legal_pair_requirements": [
+      "geometry_safe_bijective_target_lineage",
+      "one_complete_matched_prediction_component_removed",
+      "all_other_target_component_matches_unchanged",
+      "selected_target_becomes_the_only_new_unmatched_target",
+      "deleted_component_has_zero_valid_domain_intersection_with_every_preexisting_unmatched_gt_instance",
+      "occupancy_edit_is_visible_after_projection_to_the_feature_grid"
+    ],
+    "actual_label_increment": "D_g=R_G_V(O_minus)_setminus_R_G_V(O_plus)",
+    "positive_response_region_for_an_admissible_clean_pair": "A_g=V_intersect_G_g_intersect_not_O_minus",
+    "exact_clean_pair_identity": "D_g=A_g_only_when_the_explicit_preexisting_unmatched_gt_noninterference_requirement_holds",
+    "positive_pair_eligibility_invariant": "D_g_equals_A_g",
+    "null_pair_label_rule": "a_null_pair_is_admissible_only_when_its_actual_valid_domain_label_increment_D_g_is_empty",
+    "discrete_response": "Delta_g_Q=Q(F,Pi_O_minus)-Q(F,Pi_O_plus)",
+    "desired_functional_equation": "Delta_g_Q_approximates_D_g_equal_A_g_for_admissible_clean_pairs_and_has_zero_target_response_outside_A_g_on_the_frozen_valid_domain",
+    "pairwise_gradient_requirement": "both_pre_mask_endpoints_share_parameters_remain_attached_and_enter_one_nonseparable_objective",
+    "factual_legal_pairwise_claim": false,
+    "feature_occupancy_interaction_identified": false,
+    "detector_independence_scope": "same_algorithm_and_contract_retrained_for_each_detector_not_zero_shot_transfer",
+    "novelty_status": "unsearched"
+  },
+  "why_this_is_one_mechanism": {
+    "single_shared_operator": true,
+    "single_new_principle": "coverage_response_equivariance_under_one_component_removal",
+    "natural_and_legal_units_are_two_orders_of_supervision_for_the_same_operator": true,
+    "adds_attention_module": false,
+    "adds_second_decoder": false,
+    "adds_feature_edit": false,
+    "adds_marginal_sampler_S": false,
+    "changes_inference_graph": false
+  },
+  "non_reduction_contract": {
+    "hard_mask_before_difference_forbidden": true,
+    "stop_gradient_on_either_endpoint_forbidden": true,
+    "independent_endpoint_losses_alone_are_not_pairwise": true,
+    "marginal_reweighting_is_not_the_mechanism": true,
+    "pair_identity_must_change_the_joint_loss_and_gradient": true,
+    "ordinary_residual_erm_remains_the_zero_order_control": true,
+    "independent_post_deletion_erm_is_the_matched_state_control": true
+  },
+  "known_nonidentifiabilities_and_shortcuts": [
+    {
+      "id": "additive_feature_offset",
+      "statement": "Delta_g_Q_is_invariant_to_Q_prime_equal_Q_plus_A_of_F",
+      "required_control": "retain_frozen_factual_and_no_miss_absolute_anchors"
+    },
+    {
+      "id": "hard_mask_mechanical_response",
+      "statement": "for_any_constant_raw_score_c_in_zero_one_post_mask_difference_is_exactly_c_times_O_plus_minus_O_minus_without_a_pairwise_feature_response",
+      "required_control": "compute_Delta_on_raw_pre_mask_outputs"
+    },
+    {
+      "id": "occupancy_only_hole_copy",
+      "statement": "a_same_interface_finite_logit_operator_Q_O_equal_sigmoid_D_O_of_Pi_O_can_learn_a_response_without_using_F_but_no_exact_binary_copy_identity_is_claimed",
+      "required_control": "capacity_output_grid_and_compute_matched_occupancy_only_feature_only_false_positive_deletion_and_target_label_permutation_controls"
+    },
+    {
+      "id": "detected_to_factual_transport",
+      "statement": "a_response_learned_at_detected_target_features_need_not_help_natural_factual_misses",
+      "required_control": "strict_group_held_out_factual_gain_over_factual_only_and_independent_endpoint_controls"
+    },
+    {
+      "id": "nonlocal_decoder_response",
+      "statement": "group_normalization_and_spatial_convolutions_can_propagate_a_local_occupancy_edit_beyond_the_removed_component",
+      "required_control": "freeze_the_response_evaluation_domain_from_the_architecture_before_results"
+    },
+    {
+      "id": "cross_target_uncovering",
+      "statement": "a_removed_matched_component_can_also_uncover_pixels_of_a_preexisting_unmatched_gt_without_changing_match_identity",
+      "required_control": "reject_or_separately_audit_every_pair_with_valid_domain_overlap_between_the_removed_component_and_any_preexisting_unmatched_gt_instance"
+    }
+  ],
+  "candidate_review": {
+    "mathematical_object_complete": "pass_at_concept_level",
+    "decoder_actionability": "pass_at_interface_level",
+    "pair_nonfactorization": "conditional_pass_requires_future_objective_contract",
+    "single_mechanism": "pass_at_concept_level",
+    "state_preservation": "pass_for_feature_cache_lineage_and_inference_definition",
+    "factual_transport": "not_established",
+    "shortcut_exclusion": "not_established",
+    "implementation_readiness": "fail_not_yet_specified",
+    "empirical_mechanism_support": "not_evaluated",
+    "paper_novelty": "unsearched",
+    "decision": "retain_one_candidate_for_a_separate_non_authorizing_paired_objective_protocol"
+  },
+  "required_next_protocol_freezes": [
+    "Q_remains_sigmoid_decoder_output_before_hard_mask_with_no_alternative_scale",
+    "exact_zero_order_anchor_set_and_normalization",
+    "exact_nonseparable_pair_objective",
+    "exact_positive_and_zero_response_domains",
+    "actual_label_increment_and_pairwise_preexisting_unmatched_gt_noninterference_audit",
+    "both_endpoint_gradient_path_with_no_stop_gradient",
+    "architecture_derived_response_evaluation_domain",
+    "fixed_pair_and_null_component_catalogs_with_every_null_pair_verified_by_empty_actual_valid_domain_label_increment",
+    "fixed_pair_exposure_and_compute_matched_controls",
+    "occupancy_only_feature_only_independent_endpoint_and_permutation_controls",
+    "group_held_out_factual_transfer_measure",
+    "failure_stop_rules_before_any_runtime_metric",
+    "inference_remains_single_Q_forward_hard_mask_threshold_and_hard_union"
+  ],
+  "predeclared_falsification_conditions": [
+    "the_pair_objective_is_algebraically_separable_into_independent_state_losses",
+    "the_pair_identity_does_not_change_the_loss_or_gradient_on_a_nondegenerate_toy_case",
+    "the_difference_is_computed_after_the_occupancy_hard_mask",
+    "either_endpoint_is_detached_or_used_as_a_fixed_teacher",
+    "an_occupancy_only_control_matches_the_full_operator_response",
+    "an_independent_endpoint_control_matches_the_coupled_pair_objective_under_equal_states_exposure_and_compute",
+    "the_pair_objective_improves_deleted_endpoint_fidelity_but_not_group_held_out_natural_factual_misses",
+    "background_or_other_target_response_exceeds_the_prefrozen_retention_or_false_addition_constraint",
+    "a_clean_positive_pair_overlaps_any_preexisting_unmatched_gt_in_the_valid_domain_or_the_pairwise_noninterference_check_is_not_bound_to_the_receipt",
+    "the_definition_requires_detector_specific_layer_names_channel_semantics_or_fixed_stride",
+    "any_runtime_form_weight_or_threshold_is_selected_from_D_V_or_after_observing_the_same_D_R_gate"
+  ],
+  "future_stage_entry_gate": {
+    "role": "performance_gate_to_freeze_cure_lite_before_full_cure_design",
+    "historical_d_v_target_count": 170,
+    "historical_d_v_anchor_miss_count": 23,
+    "development_seeds": [
+      42,
+      43
+    ],
+    "per_seed_gate_not_mean_gate": true,
+    "minimum_additional_true_targets_over_the_best_matched_comparator_per_seed": 2,
+    "equivalent_minimum_pd_margin_on_the_current_d_v": 0.011764705882352941,
+    "minimum_additional_recovered_anchor_misses_over_the_best_matched_comparator_per_seed": 2,
+    "equivalent_minimum_anchor_recovery_rate_margin": 0.08695652173913043,
+    "required_comparators": [
+      "Base_at_budget",
+      "factual_only",
+      "factual_exposure_matched",
+      "geometry_matched_independent_endpoint_erm",
+      "old_independent_uniform_legal"
+    ],
+    "constraints": {
+      "retention": 1.0,
+      "pixel_fa_max": 0.0001,
+      "raw_background_fa_max": 0.0001,
+      "fp_components_per_mp_max": 100.0,
+      "budget_violation": false
+    },
+    "historical_stage_a_minimum_retention": 0.99,
+    "retention_one_is_a_stricter_new_stage_gate_not_the_historical_budget": true,
+    "development_pass_authorizes_only": "freeze_and_confirmation_not_full_cure",
+    "confirmation_required_before_full_cure": [
+      "a_prefrozen_additional_decoder_seed_set_for_optimization_stability",
+      "strict_positive_paired_effect_for_every_confirmation_seed",
+      "grouped_factual_recovery_interval_excludes_zero",
+      "one_untouched_split_evaluation_after_the_cure_lite_method_is_frozen"
+    ],
+    "one_seed_or_mean_only_improvement_is_insufficient": true,
+    "one_additional_target_per_seed_is_insufficient": true
+  },
+  "scientific_status": {
+    "prior_h0_review": "complete_and_unchanged",
+    "old_factual_legal_exchangeability_route": "stopped",
+    "core_learning_object_redefinition": "one_conceptually_admissible_candidate_retained",
+    "paired_objective_protocol": "not_yet_drafted",
+    "paired_objective_implemented": false,
+    "cure_lite_mechanism": "not_established",
+    "cure_lite_method": "not_designed_successfully_yet",
+    "full_cure": "not_started",
+    "paper_core": "not_established"
+  },
+  "next_action": "draft_and_freeze_a_separate_non_authorizing_paired_objective_protocol",
+  "performed": {
+    "new_metric_computation_performed": false,
+    "new_data_access_performed": false,
+    "pairwise_objective_implemented": false,
+    "decoder_modified": false,
+    "loss_modified": false,
+    "transformation_constructed": false,
+    "candidate_s_constructed": false,
+    "p0_d_executed": false,
+    "training_performed": false,
+    "calibration_performed": false,
+    "inference_performed": false,
+    "d_v_accessed": false,
+    "d_t_accessed": false,
+    "full_cure_started": false,
+    "backbone_integration_performed": false
+  },
+  "authorization": {
+    "authorizes_separate_read_only_paired_objective_protocol_draft": true,
+    "authorizes_new_metric_computation": false,
+    "authorizes_pairwise_objective_implementation": false,
+    "authorizes_decoder_modification": false,
+    "authorizes_loss_modification": false,
+    "authorizes_transformation_construction": false,
+    "authorizes_candidate_s_construction": false,
+    "authorizes_p0_d": false,
+    "authorizes_training": false,
+    "authorizes_calibration": false,
+    "authorizes_inference": false,
+    "authorizes_d_v_evaluation": false,
+    "authorizes_d_t_access": false,
+    "authorizes_full_cure": false,
+    "authorizes_backbone_integration": false
+  },
+  "receipt_fingerprint_scope": "all-fields-except-receipt-fingerprint",
+  "receipt_fingerprint": "62461b5514b45d4082ea4001c4e8324b2f5ad0542a4ae11891b3db4fda980ef9"
+}

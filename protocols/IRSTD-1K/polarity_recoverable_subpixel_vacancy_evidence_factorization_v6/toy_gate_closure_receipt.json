@@ -1,0 +1,108 @@
+{
+  "schema_version": "cure-lite-pr-svef-v6-toy-gate-closure-v1",
+  "artifact_kind": "frozen_toy_model_code_gate_positive_closure",
+  "method_id": "pr_svef_v6",
+  "phase_status": "FROZEN_TOY_GATE_PASS",
+  "decision": "PRSVEF_V6_TOY_GATE_PASS",
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/toy_gate_result.json",
+    "file_sha256": "675856650ebee518c9290d82562bca662d521e049da4ebc87cc3b7f186d9cead",
+    "schema_version": "cure-lite-pr-svef-v6-toy-gate-result-v1",
+    "result_fingerprint": "c8239340ad19b98d9cbc0aab01e1421971938bea065e0b4a575047146677f5d3",
+    "process_replay_count": 3,
+    "byte_identical": true,
+    "cli_exit_code": 0
+  },
+  "gate_summary": {
+    "implementation_contract_pass": true,
+    "structural_code_tests_pass": true,
+    "focused_test_count": 28,
+    "focused_test_status": "PASS",
+    "toy_gate_pass": true,
+    "passed_case_count": 3,
+    "failed_case_count": 0,
+    "passed_cases": [
+      "one_pixel",
+      "two_pixels",
+      "three_pixels"
+    ],
+    "failed_cases": [],
+    "bounded_code_creation_authorized": true,
+    "real_D_R_bounded_authorized": false
+  },
+  "protocol_bindings": {
+    "design_document": {
+      "repo_path": "CURE_Lite_PRSVEF_v6_模型与代码设计.md",
+      "file_sha256": "86dcfc6c72bec57723f1ee9a98496c74b168330b70d2f9e9dbddc3fb96842c8d"
+    },
+    "proposal": {
+      "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/proposal_receipt.json",
+      "file_sha256": "7641329070a1f9b94a350b705fd374d361cd1abf5af342ab9fb067fb10c0e1b8",
+      "proposal_fingerprint": "873c54950259f87863738ccede23132dbfb1f985ac4e27baf4ce8c24e1c7b71b"
+    },
+    "toy_config": {
+      "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/toy_config.json",
+      "file_sha256": "a12e0b98e6edc1f69d01a671c25c50dbc4816f779be32f09529d3683df104292",
+      "config_fingerprint": "c4268325a65a53a3d89017a4371fd237191fd34ffea43572b2fb252a5c0106a4"
+    },
+    "toy_result_report": {
+      "repo_path": "CURE_Lite_PRSVEF_v6_Toy门禁结果.md",
+      "file_sha256": "a66124328eeb6cb77b26cd49146aaab0124aa8ac22d5718418cd56556d96b84f"
+    },
+    "predecessor_v5_closure": {
+      "repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/toy_gate_closure_receipt.json",
+      "file_sha256": "caf84ff0b57535b162ccf8f1c8d873f758a7b5a23e1b92bc543ead8be677035e",
+      "receipt_fingerprint": "cc44eb59e318f190adda3ed82a6283ab5d47d84710a480e986c63686770a0054"
+    }
+  },
+  "implementation_bindings": {
+    "cure_lite/recoverable_factorized_config.py": "bd4470e24ca6322f2186f40ce769105b2778e9f0aedb1f31adac9b68e564b536",
+    "cure_lite/recoverable_factorized_decoder.py": "8e9c9a904614b3212a00bc853aa378202bf67205e150ab351f0586e98eb0b877",
+    "tools/evaluate_recoverable_factorized_toy_gate.py": "f8cc16719c8315789ccbab74c3924127488733b6eecbf85253c29785514d4b06"
+  },
+  "verification_test_bindings": {
+    "tests/test_recoverable_factorized_config.py": "af908e2de8b6fd6e26d5ae3c793ed6a4b43eae710e4cec40adad931ce4e3ed3c",
+    "tests/test_recoverable_factorized_decoder.py": "eeaa9e6f64c31f26e40a33ca69181d8db40641d236c2265d7ec8dd141f1d33a3",
+    "tests/test_recoverable_factorized_model.py": "52a2e0e92f28522dfff073eed4a3e0152de648983683e34fea5f69dae02499a3",
+    "tests/test_recoverable_factorized_outcome_toy_overfit.py": "927df6d017660f293bd7bbefd5e01d48161db60aa60f1ec65c11a5c65fbbf52a"
+  },
+  "frozen_operator": {
+    "forward": "softplus(square(relu(raw_evidence)))-log(2), explicit zero for raw<=0",
+    "backward": "raw>0:2*raw*sigmoid(raw^2); raw<=0:sigmoid(raw)",
+    "zero_boundary": "raw=0 uses recovery branch with gradient 0.5",
+    "parameter_count": 4385,
+    "parameters_added": 0,
+    "modules_added": 0,
+    "loss_terms_added": 0,
+    "inference_branches_added": 0
+  },
+  "execution_environment": {
+    "git_head": "a9dcfb23f44e2cbd54849464d0d47c7e2f43e499",
+    "python_version": "3.12.3",
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "cuda_build_version": "13.0",
+    "pytest_version": "9.1.1"
+  },
+  "focused_test_evidence": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests/test_recoverable_factorized_config.py tests/test_recoverable_factorized_decoder.py tests/test_recoverable_factorized_model.py tests/test_recoverable_factorized_outcome_toy_overfit.py",
+    "result": "28 passed in 19.71s"
+  },
+  "boundary": {
+    "D_R_accessed_by_toy_gate": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "real_D_R_status": "NOT_RUN_TOY_PHASE",
+    "real_D_R_bounded_authorized": false,
+    "bounded_code_creation_authorized": true,
+    "detection_performance_evaluated": false,
+    "calibration_performed": false,
+    "formal_800_authorized": false,
+    "full_cure_authorized": false,
+    "other_detector_integration_authorized": false,
+    "automatic_retry_performed": false
+  },
+  "next_action": "implement_and_validate_v6_bounded_executor_before_any_real_D_R_run",
+  "receipt_fingerprint": "46760ddffc0fd65c3a4b036a152c7fe966c1d236ab851e6fb7b9faa93d0b3ad3"
+}

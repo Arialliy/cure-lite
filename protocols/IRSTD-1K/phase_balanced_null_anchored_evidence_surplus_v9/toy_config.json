@@ -1,0 +1,119 @@
+{
+  "schema_version": "cure-lite-pb-naes-v9-toy-config-v1",
+  "method_id": "pb_naes_v9",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/proposal_receipt.json",
+    "file_sha256": "7bb563907f8b037ca2feac5ae356c5b3e3ed52cf945dfdaa2d7fa503131e02c5",
+    "proposal_fingerprint": "90dd2931d2e8aa5ed76e86165b8d68363d7735e522b0a7cca228cc04269de5e6"
+  },
+  "operator": {
+    "name": "phase_balanced_implicit_null_recoverable_surplus",
+    "phase_count": "P=feature_stride_squared",
+    "phase_intensity": "x_j=exp(raw_phase_j)",
+    "implicit_null": "P fixed unit-intensity null mass; no learned null coordinate",
+    "balanced_reference": "m=(P+sum_phase(x))/(2P)=(1+mean_phase(x))/2",
+    "occupancy_count": "C=ones3x3*project_max(occupancy)",
+    "signed_surplus": "z_j=(x_j-m)/(1+C)",
+    "forward_evidence": "e_j=max(z_j,0)",
+    "backward_carrier": "d_e_j/d_z_j=1 on the complete finite axis via direct signed-surplus detach construction",
+    "composition": "baseline_plus_pixelshuffle_phase_evidence",
+    "trainable_parameters_added": 0,
+    "parameter_tensors_added": 0,
+    "search_parameters_added": 0
+  },
+  "cases": [
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_one_pixel",
+      "clean_pixels": [[1, 2]]
+    },
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_two_pixels",
+      "clean_pixels": [[1, 2], [2, 1]]
+    },
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_three_pixels",
+      "clean_pixels": [[1, 2], [2, 1], [2, 2]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_one_pixel",
+      "clean_pixels": [[1, 6]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_two_pixels",
+      "clean_pixels": [[1, 6], [2, 5]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_three_pixels",
+      "clean_pixels": [[1, 6], [2, 5], [2, 6]]
+    }
+  ],
+  "decoder": {
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "trunk_residual_scale": 0.5,
+    "baseline_probability": 0.1,
+    "vacancy_kernel_size": 3,
+    "expected_parameter_tensors": 6,
+    "expected_parameter_count": 2593
+  },
+  "optimization": {
+    "seed": 7817,
+    "optimizer": "adam",
+    "updates_per_case": 320,
+    "learning_rate": 0.004,
+    "weight_decay": 0.0,
+    "loss": "unchanged_outcome_complete_transition_plus_absolute_factual",
+    "training_step": "unchanged_outcome_complete_train_step",
+    "automatic_retry_allowed": false
+  },
+  "thresholds": {
+    "total_loss_max_exclusive": 0.1,
+    "plus_completion_min_exclusive": 0.95,
+    "plus_background_max_exclusive": 0.05,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max_exclusive": 0.05,
+    "clean_D_mean_min_inclusive": 0.8,
+    "clean_H_max_abs_max_inclusive": 0.05,
+    "clean_G_max_abs_max_inclusive": 0.05,
+    "component_H_max_abs_max_inclusive": 0.05,
+    "component_G_max_abs_max_inclusive": 0.05
+  },
+  "operator_thresholds": {
+    "float64_formula_max_abs_error": 1e-12,
+    "float32_capacity_max_relative_error": 1e-6,
+    "inactive_coordinate_gradient_min_exclusive": 1e-12,
+    "count_support_outside_max_abs_delta": 0.0,
+    "uniform_zero_max_abs_evidence": 0.0,
+    "uniform_negative_max_abs_evidence": 0.0
+  },
+  "decision_rule": {
+    "required_passed_case_count": 6,
+    "required_passed_family_count": 2,
+    "per_case_all_checks_required": true,
+    "mean_cannot_override_case_failure": true,
+    "counterexample_audit_required": true,
+    "numerical_audit_required": true,
+    "pass_decision": "PB_NAES_V9_TOY_GATE_PASS",
+    "fail_decision": "PB_NAES_V9_TOY_GATE_FAIL"
+  },
+  "execution_boundary": {
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "config_fingerprint": "8af91f01925c258d1be9d9ec590d7aedabbc17d7ad3028e7f581731fa3925406"
+}

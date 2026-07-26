@@ -1,0 +1,91 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r2-pre-run-verification-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "VERIFIED_BEFORE_SINGLE_R2_AUTHORITY_RUN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_PRE_RUN_PASS",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_implementation_closure_r2.json",
+    "file_sha256": "3b0707d4aa9611d84f26a7c42e23b2b36a60a0f76c10ecced938afdf11925c88",
+    "receipt_fingerprint": "d0d8621585e4a3022679f5fdae12dd0ef357fcf653fa4ac249a46480b4a97315",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_IMPLEMENTATION_CLOSED"
+  },
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_config_r2.json",
+    "file_sha256": "0d05e8caf05f37278ab018292edaf46ad5f7707b0c5d58e49572a5664638c876",
+    "config_fingerprint": "dba4d8ac7be556a85f80943f4e4d010ffa21cf357bb1b7c0b17a5108d1190cef"
+  },
+  "design_receipt_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_receipt_r2.json",
+    "file_sha256": "5ecab166a15b56e715b278ca00f0ab04aa9e096308e054b85d88ec0e9ab15804",
+    "receipt_fingerprint": "d9c18b4b42724751e02f6cf2f17c046b531f5d84cbe87858b4cacf2fb87e366b"
+  },
+  "test_evidence": [
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v10",
+      "passed": 35,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 5.20
+    },
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v8/test_conservative_factorized_config.py tests_v8/test_conservative_factorized_decoder.py tests_v8/test_conservative_factorized_model.py tests_v8/test_conservative_factorized_support_toy.py tests_v8/test_conservative_factorized_toy_overfit.py tests/test_paired_outcome_losses.py tests/test_paired_outcome_step.py",
+      "passed": 49,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 45.85
+    }
+  ],
+  "clean_import_preflight": {
+    "bound_source_count": 64,
+    "observed_local_import_count": 63,
+    "observed_local_import_fingerprint": "bb693eb72f41290a500b77e852663b6f525d32b1339025ea40bd12f38d5a5b6e",
+    "unbound_local_import_count": 0,
+    "passed": true
+  },
+  "resolved_run_blockers": {
+    "all_frozen_Adam_fields_explicitly_passed": true,
+    "exact_Adam_contract_checked_before_training": true,
+    "complete_observed_local_import_graph_bound": true,
+    "single_canonical_create_only_output_enforced": true,
+    "exact_eight_group_set_pair_counts_and_slot_counts_enforced": true
+  },
+  "unchanged_scientific_contract": {
+    "model_changed": false,
+    "decoder_changed": false,
+    "loss_changed": false,
+    "population_changed": false,
+    "schedule_changed": false,
+    "seed_changed": false,
+    "learning_rate_changed": false,
+    "updates_changed": false,
+    "thresholds_changed": false
+  },
+  "scope_limitations": {
+    "exact_v8_update_order_replayed": false,
+    "exact_v8_source_structure_replayed": false,
+    "synthetic_role_features_intentionally_separable": true,
+    "pass_scope": "dataset_free_exposure_matched_constructive_learnability_only"
+  },
+  "runtime": {
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "device": "cpu",
+    "dataset_accessed": false,
+    "confirmation_training_executed": false
+  },
+  "authorization": {
+    "canonical_authority_run": true,
+    "authority_run_count": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r2.json",
+    "automatic_retry_allowed": false,
+    "deterministic_dry_run_currently_authorized": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "7872118c4589ca0688e1db1d8a0bef35e9c428af85ceafeef1c66c15f8beceb0"
+}

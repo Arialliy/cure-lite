@@ -1,0 +1,163 @@
+{
+  "schema_version": "cure-lite-paired-formal-runner-config-v1",
+  "protocol_id": "irstd1k-dr-paired-formal-runner-v1",
+  "dataset": "IRSTD-1K",
+  "training_split": "D_R",
+  "seeds": [
+    42,
+    43
+  ],
+  "methods": [
+    "paired_difference",
+    "independent_endpoint",
+    "after_only",
+    "zero_feature",
+    "coordinate_basis",
+    "feature_only",
+    "target_permutation",
+    "plus_detach",
+    "minus_detach"
+  ],
+  "preflight_binding": {
+    "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_preflight_v1_r1",
+    "complete_file_sha256": "8bdc7039a36175f56fdee7f1d83fac71b611b3f7c17998ac1dcf4449a9d7fd09",
+    "complete_fingerprint": "6cbee7c0ae65fb18054f9da1681b0a9150a639aebf829e6c33d9687a15fe41dd",
+    "config_fingerprint": "838de620cd1cce04c68eae3e9bb3dbf547998b966a79a5707199ea1ebcea9999",
+    "method_bindings_fingerprint": "18385315d26ee81ba1ae3f040c7850fa4fdd34ff0d8ee4f723fd292e3da61331",
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "seed42_formal_schedule_fingerprint": "35ed3c818c1e126b4bdb2ae584b8c296795c60493862d558dae2edd224ba2309",
+    "seed43_formal_schedule_fingerprint": "f8485dfca0bc531f97cc7ad18b216b99f662cb71eb1569b6b8601ff3d5fe50c4"
+  },
+  "control_preflight_binding": {
+    "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_control_preflight_v1_r1",
+    "complete_file_sha256": "b10b50a29e5c4d6ff0e9d9b27b902fc3da9ad99e52305ff82ab203adcea75aff",
+    "complete_fingerprint": "da39a286c3d117b6d25d6ecb52af2eccef06609d966d06517037cd30c4707cfc",
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "dct_basis_fingerprint": "24d9e9bfe99d864c49167b3b9d088847eb2802e060f7148a5596a2d3970beb39",
+    "target_permutation_plan_fingerprint": "4932cc226753700916feb712ff99b1192f7d38927476e8041b6adc7fcd915798",
+    "target_assignment_fingerprint": "71a64207fc6b7ca114e3023dd9ab761e27edcdf0c24dbc367bb91186bb01757c",
+    "provider_fingerprint": "5bc73c4c74873468c204d81f4bf2a1b081285b67304eb89112e71077f0b11376"
+  },
+  "paired_objective_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_objective_v1/proposal_receipt.json",
+    "file_sha256": "e4f289a7d960df1c778ae88f20cc66d13e2062194b8300c0b7a257ad20b5c7b2",
+    "receipt_fingerprint": "5a2f357911fb5f1dc1a946b3dbad429d256c390677d238b2f395fe90ce91fac8"
+  },
+  "catalog_reconstruction_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_formal_preflight_v1/config.json",
+    "file_sha256": "24154d7173624ff7301287ceba55cec066322c1e375f3c9e213bf99d5f6669c1",
+    "config_fingerprint": "838de620cd1cce04c68eae3e9bb3dbf547998b966a79a5707199ea1ebcea9999"
+  },
+  "evaluation_protocol_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_formal_evaluation_v1/config.json",
+    "file_sha256": "a322530eec57ffa6f8a34684a19e96b5881c06aa876a17956a2f8625283199cc",
+    "comparison_protocol_fingerprint": "cb2fb09c3ec7dbbb0f057d94f7f159e2b4a733296e6ea4a144d6302387014884"
+  },
+  "model": {
+    "decoder_config": {
+      "feature_channels": 64,
+      "width": 32,
+      "groups": 8
+    },
+    "absolute_loss_config": {
+      "dice_weight": 1.0,
+      "epsilon": 1e-06
+    },
+    "paired_loss_id": "balanced_pre_mask_score_difference_regression_v1"
+  },
+  "optimization": {
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "initialization_device": "cpu",
+    "same_seed_same_initial_bytes_across_methods": true
+  },
+  "budget": {
+    "epochs": 800,
+    "steps_per_epoch": 40,
+    "optimizer_updates": 32000,
+    "factual_miss_states_per_update": 4,
+    "factual_no_miss_states_per_update": 4,
+    "clean_pairs_per_update": 2,
+    "paired_endpoint_states_per_update": 4,
+    "decoder_states_per_update": 12,
+    "decoder_forwards_per_update": 3,
+    "backward_calls": 32000,
+    "optimizer_steps": 32000
+  },
+  "initial_decoder_fingerprints": {
+    "42": "9afae6598fb8368304fac46c14d09195e7a4968daf0f7f104da9985f30c81b2e",
+    "43": "49cd82bfc85cedc4921d11fc6e6dafcd3adcb6b695f1d15ff49320e5491b1cfd"
+  },
+  "runtime_input_fingerprints": {
+    "42": "3e8cf36b63693fcb27b3ea33c9ae55ebb6ac25a6ed1d56ca30b04ae4868028f5",
+    "43": "31fa83894c60357ba89dcbd9f9355bf94a019a1b01879d463aac599019decc5f"
+  },
+  "implementation_binding": {
+    "cure_lite/cache/base_cache.py": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd",
+    "cure_lite/cache/schema.py": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7",
+    "cure_lite/cache/state_cache.py": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189",
+    "cure_lite/config.py": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+    "cure_lite/data.py": "ee66eb16de36dcb8fc36e51a57282530ee8082359994b4522b78ee27ff3be241",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/experiment/artifacts.py": "e0be26abf0c9446acad50e8f0668e8de7ddeb39e6ff3d6f0a2c0ae95c7acf516",
+    "cure_lite/experiment/cache_pipeline.py": "c6acebe1e173542ebaec548e64a2c0fee388544d1b8fbdb03f2b62454a7b2389",
+    "cure_lite/experiment/geometry_catalog_protocol.py": "58216be7379fa61399b50a148dd09e5d1f6d04bb72bc65cfb6b0d695aea10627",
+    "cure_lite/experiment/geometry_safe_catalog.py": "74900b28c0049d29e8591bd6c654111677833f33fd180f2317a22e8ac88ea6ba",
+    "cure_lite/experiment/paired_artifacts.py": "6c4ccfdfcb9abf50bb9e3370c654d549fdcfe4c394bd53c4608137f5004f0fc4",
+    "cure_lite/experiment/paired_bounded_learnability.py": "1214b9c961d0415ec18a697d469cea54fe53186884e8c46b687de9a3300752d8",
+    "cure_lite/experiment/paired_catalog.py": "1bac9f474af9035b9a275573a69325dbcfec6e4cf596d2524363168b5707eefe",
+    "cure_lite/experiment/paired_exposure.py": "71da61d0d39b400ec67f4d5cf1af8a6b8d5b1e676bb770656c280ea1e4078311",
+    "cure_lite/experiment/paired_formal_controls.py": "e59b2d009e1226665772ef153c299a22e93bac87428a25196cf646c32683859d",
+    "cure_lite/experiment/paired_formal_evaluation.py": "ad33d8014b20b96b43f8f4803e99e8358349c2db3c913945553d8c520e191396",
+    "cure_lite/experiment/paired_formal_preflight.py": "eb4bf5c6bb15ef8434fa26500191315fefc5f178778aba0323bd632129b526bc",
+    "cure_lite/experiment/paired_formal_runner.py": "a98821240e56d9efef82f8381f2a8119359895d59c80d0004dfc86ec2280ab54",
+    "cure_lite/experiment/paired_formal_schedule.py": "d1f3d3b4dc82901ffe0b1800f0c1f5b47be709229e90a8c14cfe59d4f541daca",
+    "cure_lite/experiment/paired_formal_training.py": "469bd2b4f5428591c86b6cb52075c339f44302c3236eeaafea4c325ad586353d",
+    "cure_lite/experiment/paired_preflight.py": "1fe7d24a6f054dc8cfa2a2111c271e6da672e23146aa4c7d468f02ef47b0e4af",
+    "cure_lite/experiment/training_pipeline.py": "cb557b3d675e97e232de3da7f5b8c545254a99a19e2becfe38414d8bc1d334f8",
+    "cure_lite/instances.py": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721",
+    "cure_lite/intervention.py": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215",
+    "cure_lite/losses.py": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+    "cure_lite/matching.py": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06",
+    "cure_lite/model.py": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "cure_lite/occupancy.py": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76",
+    "cure_lite/paired_control_inputs.py": "99c89ad9861803ce4908f061f3931594f3424bfff07ba7b24b3b57dcf5abf44d",
+    "cure_lite/paired_control_losses.py": "9234f345292ca73c931047f47e458d99c94124df13d1ea426c4cc4b5079cacc5",
+    "cure_lite/paired_losses.py": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/sampling.py": "f48104dafedd9fd230726e1f80d884524135dd280d7ed53bc527df23eff4809f",
+    "cure_lite/splits.py": "891fb2f2b07e0ee850c31f734b4fd70abc13625cccf62a38dba11b8ced0bca99",
+    "cure_lite/supervision.py": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a",
+    "cure_lite/train/paired_control_step.py": "19060a3ac8537f80e8ef95aa2ba96686c70ec600ecec47a1f241664643c2e004",
+    "cure_lite/train/paired_pools.py": "c9aa176093ac2fefa51975b48d74d89d300723292bf029b8a7a6969650ed84fd",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "cure_lite/train/pools.py": "8d3789f125c264492f68649ecf7bf1844e8afe622821d7ad391bf274bb2b6ffe",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/types.py": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb",
+    "tools/run_paired_bounded_learnability.py": "534c5f7380710380843102ce8245cc3949d27337d4bfa042a75a412484a516a3",
+    "tools/run_paired_formal_preflight.py": "3029da71b05efe66667e9a1f2c201b4784f564ab8e19e92aa9b113f43b3d2490",
+    "tools/run_paired_formal_training.py": "c0744fa2992f0b2e60e630107fd70c86b4b45b6158dc8976c9ef0207d35c938e",
+    "tools/run_paired_preflight.py": "27c3804386e66cf8bf4e34d5109dcba65dd399bf9e0ce75a9cfc8b44255db17e"
+  },
+  "execution_policy": {
+    "create_only_output": true,
+    "failed_attempt_directory_reuse": false,
+    "checkpoint_written": false,
+    "resume": false,
+    "overwrite": false,
+    "partial_horizon": false,
+    "allow_scientific_overrides": false,
+    "runtime_splits": [
+      "D_R"
+    ],
+    "allow_D_V": false,
+    "allow_D_T": false,
+    "allow_calibration": false,
+    "allow_inference": false,
+    "allow_wave_decision": false,
+    "complete_written_last": true
+  },
+  "config_fingerprint_scope": "all-fields-except-config_fingerprint",
+  "config_fingerprint": "760940a9f1e6c370ee869653205e6f60b0333501d33055eb80797f8a8ce1bd23"
+}

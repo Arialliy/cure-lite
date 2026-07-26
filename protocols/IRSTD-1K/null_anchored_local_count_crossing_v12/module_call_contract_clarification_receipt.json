@@ -1,0 +1,51 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.module-call-contract-clarification.v1",
+  "method_id": "nlcc_v12",
+  "stage_id": "unit_implementation_contract_clarification",
+  "created_date": "2026-07-26",
+  "status": "FROZEN_BEFORE_DATASET_FREE_INPUT_IMPLEMENTATION",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/proposal_receipt.json",
+    "file_sha256": "3a357709227dd04e6ca5ca9416ba840b8f35ff7147f2e6064f5ce889c4ebc38c"
+  },
+  "design_binding": {
+    "repo_path": "CURE_Lite_NLCC_v12_模型与代码设计.md",
+    "file_sha256": "8e9381dbcb8d649fcb1ac10308420f5144b84c74462c12bad2adc2a9faa0fddb"
+  },
+  "clarification": {
+    "original_shorthand": "每个既有 module 只调用一次",
+    "precise_contract": "each trainable conv, norm, and head is called exactly once per decoder forward; the one shared parameter-free PixelShuffle is called exactly twice, once for the baseline phase tensor and once for the evidence phase tensor, exactly as in the active-v4 topology",
+    "trainable_module_call_counts": {
+      "stem": 1,
+      "stem_norm": 1,
+      "depthwise": 1,
+      "depthwise_norm": 1,
+      "pointwise": 1,
+      "baseline_head": 1,
+      "evidence_head": 1
+    },
+    "parameter_free_module_call_counts": {
+      "pixel_shuffle": 2
+    }
+  },
+  "change_scope": {
+    "equation_changed": false,
+    "module_topology_changed": false,
+    "parameter_or_state_changed": false,
+    "forward_result_changed": false,
+    "training_or_inference_changed": false,
+    "threshold_changed": false,
+    "wording_only": true
+  },
+  "authorization": {
+    "dataset_free_input_protocol_implementation": true,
+    "dataset_free_training": false,
+    "real_D_R": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "clarification_fingerprint_scope": "all_fields_except_clarification_fingerprint",
+  "clarification_fingerprint": "8bae87796359a17ee94244fe5516bfb206ce5c0ca098e0acc39f20c8137efb24"
+}

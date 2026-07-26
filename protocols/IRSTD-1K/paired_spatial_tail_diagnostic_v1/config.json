@@ -1,0 +1,106 @@
+{
+  "schema_version": "cure-lite-paired-spatial-tail-diagnostic-config-v1",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "purpose": "descriptive-spatial-tail-companion-to-frozen-bounded-proposed-run",
+  "input_binding": {
+    "bounded_config_path": "protocols/IRSTD-1K/paired_bounded_learnability_v1/config.json",
+    "bounded_config_file_sha256": "90bb22fb6e46add584b99b24f54b9926a9cda8e63d73eda5a67447f6668eabd5",
+    "bounded_config_fingerprint": "0c2895c843bcd5ed5dd3865118e8006d8bc3a2d74665052cddb2c1572f007785",
+    "authority_root_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_bounded_learnability_v1_r1",
+    "replay_root_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_bounded_learnability_v1_r2",
+    "authority_complete_file_sha256": "49202fe26ef39cce8ae140305da09b80ad88496ca2d239683669850991b858e9",
+    "replay_complete_file_sha256": "49202fe26ef39cce8ae140305da09b80ad88496ca2d239683669850991b858e9",
+    "authority_complete_fingerprint": "c4ddf1d87d04ab57b574d9abc4f4602a75fa43ee9cfa3e94fb54698322d02215",
+    "authority_result_relative_path": "receipts/result.json",
+    "authority_result_file_sha256": "aefc7dfce73a8a16b4c586e6febb762ebaae8f23318030c460af4a1842e7a1ea",
+    "authority_result_receipt_fingerprint": "b2ba230c0457175dbcdb967bc488c5570bd0539a3ace0cfb7ba3dd9d2f3b72cb",
+    "authority_micro_population_file_sha256": "ce07316f98db6cee94c94222205026ce0736dc530b05083a47f78b939c594085",
+    "authority_micro_population_fingerprint": "95989b35db2126ca83dff7f543f7f78386308a586b042693644de07f5f99e8c5",
+    "authority_schedule_file_sha256": "344f95b3d86061b15d6f2419becb1c7efa3cf079622e8dd11c4568be77153f43",
+    "authority_schedule_fingerprint": "dae59aba5cc6b92a643c034cfeac4e014176e7083a93102c8deea6507890fa40",
+    "authority_final_decoder_fingerprint": "308fcf47de6656be730eeba430c612ab200e983e62634eeaae720ad63b1a27b0",
+    "require_authority_replay_byte_identity": true,
+    "required_bounded_decision": "COMPUTATIONAL_LEARNABILITY_PASS"
+  },
+  "replay_contract": {
+    "optimizer": "adam",
+    "seed": 42,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "epochs": 10,
+    "steps_per_epoch": 40,
+    "optimizer_updates": 400,
+    "training_decoder_forward_calls": 1200,
+    "training_decoder_state_evaluations": 4800,
+    "micro_population_per_kind": 16,
+    "reuse_exact_bounded_population_and_schedule": true,
+    "require_exact_initial_decoder_fingerprint": true,
+    "require_exact_final_decoder_fingerprint": true,
+    "require_exact_standard_initial_final_metrics": true,
+    "require_exact_training_trace": true,
+    "checkpoint_recovery": false,
+    "checkpoint_persistence": false,
+    "budget_extension": false
+  },
+  "diagnostic": {
+    "absolute_delta_thresholds": [
+      0.1,
+      0.25,
+      0.5
+    ],
+    "quantiles": [
+      0.5,
+      0.9,
+      0.99,
+      0.999
+    ],
+    "deleted_component_neighborhood_radii_px": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "connected_component_connectivity": 8,
+    "projected_cell_output_mapping": "nearest-output-support-of-xor-projected-endpoints-v1",
+    "thresholds_are_descriptive_not_gates": true,
+    "populations": [
+      "clean_positive",
+      "component_null",
+      "identity_null"
+    ],
+    "snapshots": [
+      "initial",
+      "final"
+    ],
+    "diagnostic_decoder_forward_calls": 6,
+    "diagnostic_decoder_state_evaluations": 192
+  },
+  "decision_semantics": {
+    "success_status": "SPATIAL_TAIL_DIAGNOSTIC_COMPLETE",
+    "failure_status": "SPATIAL_TAIL_DIAGNOSTIC_EXECUTION_ERROR",
+    "retroactive_bounded_gate_added": false,
+    "bounded_decision_may_change": false,
+    "authorizes_formal_800": false,
+    "authorizes_D_V_or_D_T": false,
+    "is_performance_evidence": false,
+    "spatial_values_are_descriptive": true
+  },
+  "execution_policy": {
+    "create_only_output": true,
+    "allowed_runtime_splits": [
+      "D_R"
+    ],
+    "train_fresh_decoder_only": true,
+    "allow_D_V": false,
+    "allow_D_T": false,
+    "allow_calibration": false,
+    "allow_performance_evaluation": false,
+    "allow_formal_800": false,
+    "allow_full_cure": false,
+    "allow_backbone_integration": false,
+    "overwrite_existing_bounded_artifacts": false
+  },
+  "config_fingerprint_scope": "all-fields-except-config_fingerprint",
+  "config_fingerprint": "16d86d98833daadf9a13e85ec26809ddf97fb266673fe280c2bc6180d04b413c"
+}

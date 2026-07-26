@@ -1,0 +1,37 @@
+{
+  "schema_version": "cure-lite-cr-lvec-v7-sync-benchmark-invalidation-v1",
+  "artifact_kind": "engineering_benchmark_invalidation",
+  "method_id": "cr_lvec_v7",
+  "invalidated_result": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/sync_benchmark_result.json",
+    "file_sha256": "3ce6329c35b29a631576baa648766dabf6b958e210e5a06b6250b04130aa281e",
+    "result_fingerprint": "5c2c0b356093a64874d618ff9eb9f99c27bb38bd24f41b0039aa09c89be49206",
+    "schema_version": "cure-lite-cr-lvec-v7-sync-benchmark-v1"
+  },
+  "status": "INVALIDATED_NOT_EVIDENCE",
+  "reason": "cuda_deterministic_runtime_was_not_frozen",
+  "observed_failure": {
+    "decoder_forward_bit_exact_to_current": true,
+    "decoder_parameter_gradient_bit_exact_to_current": false
+  },
+  "scope": {
+    "method_or_model_failure": false,
+    "latency_conclusion_authorized": false,
+    "bounded_execution_authorized": false,
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false
+  },
+  "replacement_policy": {
+    "required_schema_version": "cure-lite-cr-lvec-v7-sync-benchmark-v2",
+    "deterministic_algorithms_required": true,
+    "cudnn_benchmark_required": false,
+    "cudnn_deterministic_required": true,
+    "tf32_required": false,
+    "full_decoder_forward_bit_exact_required": true,
+    "all_parameter_gradients_bit_exact_required": true,
+    "create_new_result_instead_of_overwriting_v1": true
+  },
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "receipt_fingerprint": "0695d5e7df5ada484aa4440c9a6d671a0c16459c90cf51a403dea70e7e7f5de4"
+}

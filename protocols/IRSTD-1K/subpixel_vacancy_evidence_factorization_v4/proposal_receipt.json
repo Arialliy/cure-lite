@@ -1,0 +1,258 @@
+{
+  "schema_version": "cure-lite-svef-v4-proposal-v1",
+  "method_id": "svef_v4",
+  "method_name": "Subpixel Vacancy-Evidence Factorization",
+  "method_abbreviation": "SVEF",
+  "proposal_fingerprint": "d10ecd79f217ac692d965de1475529a1b9e0f6a38e8909db25560ec31bb28ccf",
+  "proposal_fingerprint_scope": {
+    "schema_version": "cure-lite-svef-v4-proposal-v1",
+    "method_id": "svef_v4",
+    "document_sha256": "a2f7ea886d4224600f42ace6b6c8aa1768e315ab6c0e5e8d89cd69f6d5d8f728",
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "v3_result_fingerprint": "0c5d7d72c19eb6eee0469aecf41257f4905b5db18a09fe5c3d0ff1bc853d4139",
+    "architecture": {
+      "family": "shared_subpixel_feature_baseline_times_fixed_local_vacancy_evidence_v1",
+      "baseline": "negative_softplus_feature_field",
+      "evidence": "zero_anchored_squared_softplus_feature_field",
+      "vacancy": "nearest_lift_inverse_one_plus_3x3_projected_occupancy_count",
+      "occupancy_learned_path": false,
+      "shared_decoder_count": 1
+    },
+    "D_R_reachability": {
+      "clean_pairs_full_D_reachable": 206,
+      "clean_pairs_total": 206,
+      "clean_D_pixels_reachable": 2551,
+      "clean_D_pixels_total": 2551,
+      "factual_anchors_reachable": 16,
+      "factual_anchors_total": 16,
+      "kernel_size": 3,
+      "clean_changed_support_mean_fraction": 0.00330182
+    },
+    "status": "specified_not_implemented"
+  },
+  "design_document": {
+    "path": "CURE_Lite_SVEF_v4_\u6a21\u578b\u4e0e\u4ee3\u7801\u8bbe\u8ba1.md",
+    "sha256": "a2f7ea886d4224600f42ace6b6c8aa1768e315ab6c0e5e8d89cd69f6d5d8f728"
+  },
+  "scope": {
+    "dataset": "IRSTD-1K",
+    "split": "D_R",
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "base_or_backbone_update_allowed": false,
+    "decoder_topology_change_allowed": true,
+    "loss_change_allowed": false,
+    "paired_training_change_allowed": false,
+    "inference_composition_change_allowed": false,
+    "calibration_change_allowed": false,
+    "formal_800_allowed_by_proposal": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "frozen_dependencies": {
+    "v3_design_document_sha256": "cd4de1f4d0523e9aeab1e8ada6d4600b4c3f275262f902357ad63a621aa6ef32",
+    "v3_proposal_file_sha256": "dff143f2f1e5afb27c67695b687dd05bf201ae7a6bc41715998e4d78df1f3de5",
+    "v3_proposal_fingerprint": "870ebb721e50343e74f7a2a9c5dd719e466fc318ac5d24e5ac00a5ec145d5fc0",
+    "v3_bounded_config_file_sha256": "a0068e44db91c8ce20fd1790abddb5a0d2c56e3a878cd9464ffedfeee0bf7be6",
+    "v3_complete_fingerprint": "658f2ac7e26476003d9222342d6c73b82f5220301c0e137bb686f0f07cff4d17",
+    "v3_result_fingerprint": "0c5d7d72c19eb6eee0469aecf41257f4905b5db18a09fe5c3d0ff1bc853d4139",
+    "decoder_v1_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "model_v1_sha256": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "paired_outcome_types_v3_sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a",
+    "paired_outcome_losses_v3_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "paired_outcome_step_v3_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "paired_outcome_inputs_v3_sha256": "8ed2e9c74f867f3bf1888fc9ae2fb6d391d36888092f62cf86011e41e1195ac7",
+    "paired_outcome_schedule_v3_sha256": "3074ff5ffc60a3d7f728c11be1abc4b6c87313163c11b48f5fe58447f22684a5",
+    "paired_outcome_tool_v3_sha256": "c5d1e98159e75d1a7dbc269c8063e6b78f3f9e52b71bb77eb16324377e8203a0",
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "prepared_catalog_fingerprint": "4955e5b4f1749b5f267db0ac1f031335a16cc48a470d6446ca6c99d04a5e85ed",
+    "anchor_population_fingerprint": "d251ed9061dd373aa0bf0e4ceeebbafc7ca32a4bab72c2f24601a20868d6d1cd"
+  },
+  "decoder_contract": {
+    "input": {
+      "feature": "float[B,C,h,w], detached inside decoder",
+      "occupancy": "bool[B,1,H,W]",
+      "pair_kind_input": false,
+      "ground_truth_input": false,
+      "base_probability_input": false
+    },
+    "output": "float logits[B,1,H,W]",
+    "adapter_parameters": [
+      "feature_channels",
+      "feature_stride"
+    ],
+    "current_reference_instance": {
+      "feature_channels": 64,
+      "feature_stride": 4,
+      "feature_grid": [
+        64,
+        64
+      ],
+      "evaluation_grid": [
+        256,
+        256
+      ],
+      "native_subpixel_path_required": true
+    },
+    "detector_neutral_meaning": "same decoder family instantiated from each adapter-bound channel and integer isotropic stride contract",
+    "same_checkpoint_cross_backbone_claim": false
+  },
+  "architecture": {
+    "width": 32,
+    "groups": 8,
+    "groupnorm_affine": false,
+    "all_convolution_bias": false,
+    "trunk": [
+      "conv1x1_C_to_32",
+      "groupnorm8",
+      "silu",
+      "depthwise_conv3x3_32",
+      "groupnorm8",
+      "silu",
+      "pointwise_conv1x1_32_to_32",
+      "fixed_residual_scale_0.5"
+    ],
+    "head_phase_channels": "feature_stride_squared",
+    "baseline_head": "conv1x1_32_to_s_squared_then_pixelshuffle_s",
+    "evidence_head": "conv1x1_32_to_s_squared_then_pixelshuffle_s",
+    "baseline_formula": "-softplus(beta_raw + b_hi)",
+    "evidence_formula": "softplus(square(e_raw_hi))-log(2)",
+    "vacancy_formula": "nearest(1/(1+conv_ones_3x3(project_max(occupancy))))",
+    "logit_formula": "baseline + evidence * vacancy",
+    "resize_policy": "resize_baseline_and_raw_evidence_separately_then_transform_and_multiply_final_grid_v1",
+    "resize_after_multiplication_allowed": false,
+    "learned_occupancy_parameters": 0,
+    "parameter_count_formula": "32*C + 1313 + 64*s^2"
+  },
+  "initialization": {
+    "baseline_probability": 0.1,
+    "baseline_head": "zeros",
+    "evidence_head": "xavier_normal_gain_0.25",
+    "trunk": "kaiming_normal_relu",
+    "beta_raw": "inverse_softplus(-logit(0.1))",
+    "vacancy_kernel": "fixed_ones_3x3_buffer"
+  },
+  "structural_properties": {
+    "zero_feature_occupancy_invariance": true,
+    "identity_endpoint_exactness": true,
+    "deletion_logit_monotonicity": true,
+    "deletion_probability_monotonicity": true,
+    "delta_zero_outside_gate_change_support": true,
+    "subpixel_phase_freedom": true,
+    "single_shared_decoder": true,
+    "single_inference_path": true,
+    "hard_occupancy_mask_preserved": true,
+    "hard_union_preserved": true,
+    "can_remove_base_false_alarms": false
+  },
+  "D_R_structural_audit": {
+    "accessed_split": "D_R_only",
+    "training_performed": false,
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "one_by_one_clean_full_coverage": {
+      "pairs": 153,
+      "total_pairs": 206,
+      "pixels": 2423,
+      "total_pixels": 2551
+    },
+    "three_by_three_positive_kernel_support": {
+      "pairs": 206,
+      "total_pairs": 206,
+      "pixels": 2551,
+      "total_pixels": 2551,
+      "factual_anchors": 16,
+      "total_factual_anchors": 16,
+      "clean_changed_support_mean_fraction": 0.00330182,
+      "component_changed_support_mean_fraction": 0.00286865
+    },
+    "five_by_five_clean_changed_support_mean_fraction": 0.00788361,
+    "seven_by_seven_clean_changed_support_mean_fraction": 0.01438889,
+    "selection_rule": "smallest_fixed_positive_kernel_with_complete_clean_and_factual_support",
+    "selected_kernel_size": 3
+  },
+  "reused_frozen_training": {
+    "outcome_population": {
+      "clean_positive": 206,
+      "component_null": 16,
+      "union": 222
+    },
+    "factual_miss_anchors": 16,
+    "factual_no_miss_anchors": 16,
+    "identity_null_diagnostic_pairs": 16,
+    "loss": "OutcomeCompleteTransitionLoss_v3_unchanged",
+    "train_step": "outcome_complete_train_step_v3_unchanged",
+    "pair_schedule": "pair_level_uniform_deterministic_v3_unchanged",
+    "bounded_updates": 400,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "resume_allowed": false
+  },
+  "planned_files": [
+    "cure_lite/factorized_config.py",
+    "cure_lite/factorized_decoder.py",
+    "cure_lite/factorized_model.py",
+    "cure_lite/experiment/factorized_outcome_bounded.py",
+    "tools/run_factorized_outcome_bounded.py",
+    "tests/test_factorized_config.py",
+    "tests/test_factorized_decoder.py",
+    "tests/test_factorized_model.py",
+    "tests/test_factorized_outcome_step.py",
+    "tests/test_factorized_outcome_toy_overfit.py",
+    "tests/test_factorized_outcome_bounded.py",
+    "tests/test_run_factorized_outcome_bounded_cli.py"
+  ],
+  "unit_toy_gates": {
+    "zero_feature_any_occupancy_max_delta": 0.0,
+    "identity_max_abs_delta": 1e-07,
+    "gate_support_outside_max_abs_delta": 0.0,
+    "deletion_monotonicity_violations": 0,
+    "dense_single_cell_inverse_gate_delta": 0.011111111111111112,
+    "phase_count_current_reference": 16,
+    "clean_D_mean_delta_min": 0.8,
+    "clean_H_max_abs_delta_max": 0.05,
+    "component_null_footprint_max_abs_delta_max": 0.05
+  },
+  "bounded_gates": {
+    "all_222_pairs_bound": true,
+    "clean_pairs_all_D_structurally_reachable": 206,
+    "factual_anchors_structurally_reachable": 16,
+    "zero_feature_occupancy_delta_max": 0.0,
+    "gate_support_outside_delta_max": 0.0,
+    "deletion_monotonicity_violations": 0,
+    "native_C64_s4_path_without_resize": true,
+    "factual_miss_anchor_final_over_initial_max": 0.75,
+    "factual_no_miss_anchor_final_over_initial_max": 0.75,
+    "plus_baseline_final_over_initial_max": 0.75,
+    "clean_transition_final_over_initial_max": 0.5,
+    "clean_mean_delta_on_D_min": 0.5,
+    "clean_pairs_delta_at_least_0_25_fraction_min": 0.75,
+    "clean_zero_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_global_max_abs_delta_max": 0.25,
+    "component_null_context_macro_mean_abs_delta_max": 0.05,
+    "identity_null_max_abs_delta_max": 1e-07,
+    "clean_joint_D_ge_0_25_and_H_le_0_05_fraction_min": 0.75,
+    "tiny_target_strata_report_required": true,
+    "performance_evidence": false
+  },
+  "execution_policy": {
+    "proposal_must_precede_implementation": true,
+    "additive_files_only": true,
+    "same_version_real_bounded_runs_max": 1,
+    "automatic_retry_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "formal_800_before_all_bounded_gates_allowed": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "status": {
+    "proposal": "specified",
+    "code": "not_implemented",
+    "unit_toy": "not_run",
+    "D_R_bounded": "not_run",
+    "formal_seed_42_43": "not_run",
+    "model_success": "not_established"
+  },
+  "next_action": "implement_additive_factorized_config_decoder_model_and_tests_without_modifying_v1_v2_v3"
+}

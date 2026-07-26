@@ -1,0 +1,161 @@
+{
+  "schema_version": "cure-lite-cr-lvec-v7-toy-gate-closure-v1",
+  "artifact_kind": "frozen_toy_model_code_gate_positive_closure",
+  "method_id": "cr_lvec_v7",
+  "phase_status": "FROZEN_TOY_GATE_PASS",
+  "decision": "CR_LVEC_V7_TOY_GATE_PASS",
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/toy_gate_result.json",
+    "file_sha256": "01a582dbd645e47be64601ae3b42e62b889f5c838e926ed5b09c76af3f5c24b6",
+    "schema_version": "cure-lite-cr-lvec-v7-toy-gate-result-v1",
+    "result_fingerprint": "ff5e76894066eb953773c444060ce6783dd12cdc2d99aa9d46700086db75ffaa",
+    "process_replay_count": 3,
+    "byte_identical": true,
+    "byte_count_per_result": 36334,
+    "cli_exit_codes": [
+      0,
+      0,
+      0
+    ],
+    "canonical_write_policy": "create_only_after_two_temporary_replays_match"
+  },
+  "gate_summary": {
+    "implementation_contract_pass": true,
+    "structural_code_tests_pass": true,
+    "focused_test_count": 40,
+    "focused_test_status": "PASS",
+    "toy_gate_pass": true,
+    "passed_case_count": 6,
+    "failed_case_count": 0,
+    "passed_family_count": 2,
+    "passed_cases": [
+      "legacy_one_pixel",
+      "legacy_two_pixels",
+      "legacy_three_pixels",
+      "support_one_pixel",
+      "support_two_pixels",
+      "support_three_pixels"
+    ],
+    "failed_cases": [],
+    "nonvacuous_locality_audit_pass": true,
+    "numerical_contract_audit_pass": true,
+    "all_parameter_gradients_pass": true,
+    "bounded_code_creation_authorized": true,
+    "real_D_R_bounded_authorized": false
+  },
+  "protocol_bindings": {
+    "design_document": {
+      "repo_path": "CURE_Lite_CRLVEC_v7_模型与代码设计.md",
+      "file_sha256": "34e961676e8dbd91bd2d3bf3d166fe0850ffec43fb4438d39f1259fd9c64015b"
+    },
+    "proposal": {
+      "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/proposal_receipt.json",
+      "file_sha256": "fa72f4ef850f72a65003e913db1b1230d7b0b45046faf61950fb1e4ef80d3c4f",
+      "proposal_fingerprint": "9d291e6ad9ec0869aa0ab0eaebcb219cd62678420375f56af480ba105208dbf2"
+    },
+    "toy_config": {
+      "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/toy_config.json",
+      "file_sha256": "5f0788b5a90b79ede07731489c81834c73f435dc30367e0af7c571bb397d48b5",
+      "config_fingerprint": "b2fb7984f7ef97dc111109fed0a859424f7914ff4832693102f9fe7bad1e7a46"
+    },
+    "toy_result_report": {
+      "repo_path": "CURE_Lite_CRLVEC_v7_Toy门禁结果.md",
+      "file_sha256": "3dcf23b1eb207148d78430d9bcec0218ac5712b06b049171014bfb8843a3a09e"
+    },
+    "predecessor_v6_negative_closure": {
+      "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_negative_closure_receipt.json",
+      "file_sha256": "b909d573050bd0f1d0aac4c30534ebe7c0d231a70c817b94a087d965872b4434",
+      "receipt_fingerprint": "f73fd4cedaa6d3b618a41b2c1b3c329ee65ddc7dec37dad47ea4e3dd26072368"
+    }
+  },
+  "implementation_bindings": {
+    "cure_lite/crossing_factorized_config.py": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565",
+    "cure_lite/crossing_factorized_decoder.py": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc",
+    "cure_lite/factorized_config.py": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246",
+    "cure_lite/factorized_decoder.py": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9",
+    "cure_lite/factorized_model.py": "e8eb2f8ddd2d13684dc78d3bb9a81669bc99b2a71e11953885343e974980f6b5",
+    "tools/evaluate_crossing_factorized_toy_gate.py": "4409ccc78c0f57b1bf7200505f073c40f004bd6b3c73941b561b00c48e1406ae"
+  },
+  "shared_training_dependency_bindings": {
+    "cure_lite/config.py": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+    "cure_lite/losses.py": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+    "cure_lite/paired_outcome_losses.py": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "cure_lite/paired_outcome_types.py": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/train/paired_outcome_step.py": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "tests/test_factorized_outcome_toy_overfit.py": "39c3ea85306c3a98c14875829b4d188f43e31cf85eb4d4ad6149b90a4c3315ce"
+  },
+  "verification_test_bindings": {
+    "tests/test_crossing_factorized_config.py": "7baa4a86bd1ee7b44113eba1a598b4f04834ad11ed2927ef67f35f8104a812b7",
+    "tests/test_crossing_factorized_decoder.py": "be296e17aaf36fb0a6299ac0aa3ff1859975616ab2400a1e438ba95fbbb26b0f",
+    "tests/test_crossing_factorized_model.py": "e2a132c606b6df6f77bb3e56803252617b1ba561f9e4860492365b9902aaac0d",
+    "tests/test_crossing_factorized_outcome_toy_overfit.py": "ec2c523e1b87b9c09a58d8c17937da3fa182aaeaa4a091e5d357b2e94a90969a"
+  },
+  "frozen_operator": {
+    "occupancy_burden": "nearest(log1p(conv3x3(project_max(occupancy))))",
+    "crossing_margin": "raw_evidence-occupancy_burden",
+    "forward": "expm1(crossing_margin) for margin>0; explicit zero otherwise",
+    "backward_surrogate": "explicit exp(crossing_margin) on the supported numerical axis",
+    "logit_composition": "baseline_logits+crossing_evidence",
+    "parameter_count": 4385,
+    "parameters_added": 0,
+    "modules_added": 0,
+    "loss_terms_added": 0,
+    "inference_branches_added": 0
+  },
+  "development_bug_record": {
+    "status": "FIXED_BEFORE_FORMAL_RESULT_PUBLICATION",
+    "failed_check": "forward_crossing_exact",
+    "affected_case_count": 4,
+    "root_cause": "left_associative_straight_through_expression_introduced_float32_round_trip_error",
+    "code_change": "restore_parentheses_around_recovery_minus_detached_recovery",
+    "formula_changed": false,
+    "seed_changed": false,
+    "updates_changed": false,
+    "learning_rate_changed": false,
+    "loss_changed": false,
+    "thresholds_changed": false,
+    "formal_result_or_closure_existed_before_fix": false,
+    "regression_test_added": true
+  },
+  "execution_environment": {
+    "git_head": "a9dcfb23f44e2cbd54849464d0d47c7e2f43e499",
+    "python_version": "3.12.3",
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "cuda_build_version": "13.0",
+    "pytest_version": "9.1.1",
+    "toy_device": "cpu",
+    "torch_num_threads": 1,
+    "deterministic_algorithms": true
+  },
+  "focused_test_evidence": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 /home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests/test_crossing_factorized_config.py tests/test_crossing_factorized_decoder.py tests/test_crossing_factorized_model.py tests/test_crossing_factorized_outcome_toy_overfit.py",
+    "result": "40 passed in 34.30s"
+  },
+  "known_pre_bounded_performance_issue": {
+    "status": "MUST_BE_MEASURED_OR_RESOLVED_BEFORE_REAL_D_R_EXECUTION",
+    "issue": "finite_contract_all_python_branch_can_synchronize_cuda_once_per_decoder_forward",
+    "estimated_decoder_calls_for_32000_updates": 96000,
+    "claim_of_zero_cuda_synchronization_allowed": false
+  },
+  "boundary": {
+    "D_R_accessed_by_toy_gate": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "real_D_R_status": "NOT_RUN_TOY_PHASE",
+    "real_D_R_bounded_authorized": false,
+    "bounded_code_creation_authorized": true,
+    "detection_performance_evaluated": false,
+    "calibration_performed": false,
+    "formal_800_authorized": false,
+    "full_cure_authorized": false,
+    "other_detector_integration_authorized": false,
+    "automatic_method_retry_performed": false
+  },
+  "next_action": "design_and_validate_v7_bounded_executor_and_cuda_sync_policy_before_any_real_D_R_run",
+  "receipt_fingerprint": "f95573edd8b842980d5b175b1aac8caf753f6c279342da8e29f54e165b1e255f"
+}

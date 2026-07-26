@@ -1,0 +1,65 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-r2-pre-run-verification-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "correction_id": "restore_frozen_v8_relative_roundoff_r2",
+  "status": "VERIFIED_BEFORE_SINGLE_R2_CORRECTION_RUN",
+  "decision": "PECO_V10_DEVELOPMENT_R2_PRE_RUN_VERIFICATION_PASS",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r2_implementation_closure.json",
+    "file_sha256": "66bbdaf34650be9e7bb0d25f29baea9acf88c09fd9d164d17ebbd782a59ee22d",
+    "receipt_fingerprint": "8b562a55f64e7f0cc12b7956ceb0c3a440bac1aec7532b7454ee1a598504f125"
+  },
+  "r1_invalidation_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r1_verifier_invalidation_receipt.json",
+    "file_sha256": "d4a91ef7c204fcd3b7ff7b0b1b1d65d961fc186c6d2414e17f42b5967e2f2688",
+    "receipt_fingerprint": "b020a307f5d311cddde359ba690f3930f48cb2a82eaf4f12909a814441d4fb8d",
+    "decision": "PECO_V10_DEVELOPMENT_R1_VERIFIER_INVALIDATED"
+  },
+  "test_evidence": [
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v10/test_paired_endpoint_crossing_protocol.py tests_v10/test_paired_endpoint_crossing_losses.py tests_v10/test_paired_endpoint_crossing_development_regression.py",
+      "passed": 22,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 4.06
+    },
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v8/test_conservative_factorized_config.py tests_v8/test_conservative_factorized_decoder.py tests_v8/test_conservative_factorized_model.py tests_v8/test_conservative_factorized_support_toy.py tests_v8/test_conservative_factorized_toy_overfit.py tests/test_paired_outcome_losses.py tests/test_paired_outcome_step.py",
+      "passed": 49,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 43.25
+    }
+  ],
+  "verified_correction_scope": {
+    "operator_mass_conservation_rule": "max(abs(sum_phase(e)-M)/clamp_min(abs(M),1))<=1e-6",
+    "absolute_error_retained_as_diagnostic": true,
+    "relative_error_controls_pass_fail": true,
+    "model_changed": false,
+    "decoder_changed": false,
+    "loss_changed": false,
+    "training_step_changed": false,
+    "toy_inputs_changed": false,
+    "seed_optimizer_updates_or_scientific_thresholds_changed": false
+  },
+  "runtime": {
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "training_executed": false,
+    "dataset_accessed": false
+  },
+  "authorization": {
+    "canonical_r2_correction_run": true,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result_r2.json",
+    "automatic_retry_allowed": false,
+    "exposure_matched_confirmation_run": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "ef9d7ed10536c07108deccb751814f13b572b26fda9a407e56bb7db06d748dc3"
+}

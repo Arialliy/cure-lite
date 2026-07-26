@@ -1,0 +1,200 @@
+{
+  "schema_version": "cure-lite-cr-lvec-v7-bounded-implementation-proposal-v1",
+  "artifact_kind": "bounded_implementation_proposal",
+  "method_id": "cr_lvec_v7",
+  "phase_status": "SPECIFIED_NOT_IMPLEMENTED",
+  "decision": "CR_LVEC_V7_BOUNDED_IMPLEMENTATION_CREATION_AUTHORIZED",
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "protocol_bindings": {
+    "method_proposal": {
+      "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/proposal_receipt.json",
+      "file_sha256": "fa72f4ef850f72a65003e913db1b1230d7b0b45046faf61950fb1e4ef80d3c4f",
+      "proposal_fingerprint": "9d291e6ad9ec0869aa0ab0eaebcb219cd62678420375f56af480ba105208dbf2"
+    },
+    "toy_gate_closure": {
+      "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/toy_gate_closure_receipt.json",
+      "file_sha256": "25c3317045533f4116b8873d892fcd2c0e866d3e991843a4c0c8e872142f0fe5",
+      "receipt_fingerprint": "f95573edd8b842980d5b175b1aac8caf753f6c279342da8e29f54e165b1e255f",
+      "decision": "CR_LVEC_V7_TOY_GATE_PASS",
+      "bounded_code_creation_authorized": true,
+      "real_D_R_bounded_authorized": false
+    },
+    "predecessor_v6_bounded_config": {
+      "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_config.json",
+      "file_sha256": "c12c5a4d98123a7f39e38a2ebeaff696807ad215bdf3d231eec17c9797b42c35",
+      "config_fingerprint": "b29810030a7bf5cc46e310126ac190ad8e6b42bb1e90484c93c9c73500c12d73"
+    },
+    "predecessor_v6_negative_closure": {
+      "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_negative_closure_receipt.json",
+      "file_sha256": "b909d573050bd0f1d0aac4c30534ebe7c0d231a70c817b94a087d965872b4434",
+      "receipt_fingerprint": "f73fd4cedaa6d3b618a41b2c1b3c329ee65ddc7dec37dad47ea4e3dd26072368",
+      "decision": "PRSVEF_V6_BOUNDED_MODEL_CODE_GATE_FAIL"
+    }
+  },
+  "implementation_scope": {
+    "additive_runtime_files": [
+      "cure_lite/experiment/crossing_factorized_outcome_bounded.py",
+      "tools/dry_run_crossing_factorized_outcome_bounded.py",
+      "tools/run_crossing_factorized_outcome_bounded.py"
+    ],
+    "additive_test_files": [
+      "tests/test_crossing_factorized_outcome_bounded.py",
+      "tests/test_dry_run_crossing_factorized_outcome_bounded_cli.py",
+      "tests/test_run_crossing_factorized_outcome_bounded_cli.py",
+      "tests/test_crossing_factorized_bounded_implementation_closure.py"
+    ],
+    "protocol_files_created_in_this_code_stage": [
+      "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_config.json",
+      "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_dry_run_config.json",
+      "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_dry_run_result.json",
+      "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_implementation_closure_receipt.json"
+    ],
+    "real_run_authorization_created_in_this_code_stage": false,
+    "existing_decoder_may_be_modified": false,
+    "existing_loss_may_be_modified": false,
+    "existing_train_step_may_be_modified": false,
+    "base_or_backbone_may_be_modified": false
+  },
+  "frozen_bounded_contract": {
+    "dataset": "IRSTD-1K",
+    "future_real_split": "D_R",
+    "seed": 42,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "epochs": 10,
+    "steps_per_epoch": 40,
+    "optimizer_updates": 400,
+    "factual_miss_states_per_update": 4,
+    "factual_no_miss_states_per_update": 4,
+    "outcome_pairs_per_update": 2,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "pair_slots": 800,
+    "evaluation_chunk_size": 32,
+    "automatic_retry_allowed": false,
+    "resume_allowed": false,
+    "threshold_change_allowed": false,
+    "budget_change_allowed": false
+  },
+  "mechanism_boundary": {
+    "decoder_class": "CURELiteCrossingFactorizedDecoder",
+    "decoder_config_class": "CrossingFactorizedDecoderConfig",
+    "reference_parameter_count": 4385,
+    "reference_parameter_tensor_count": 6,
+    "input_contract_unchanged": true,
+    "shared_trunk_unchanged": true,
+    "baseline_head_unchanged": true,
+    "evidence_head_unchanged": true,
+    "paired_loss_unchanged": true,
+    "paired_train_step_unchanged": true,
+    "pair_population_unchanged": true,
+    "schedule_unchanged": true,
+    "single_inference_and_hard_union_unchanged": true,
+    "only_v7_crossing_operator_differs_from_v6": true
+  },
+  "cuda_synchronization_policy": {
+    "status": "QUANTIFIED_AND_ACCEPTED_FOR_BOUNDED_400_ONLY",
+    "strict_finite_and_nonzero_recovery_check_retained": true,
+    "strict_check_expression": "if not finite_contract.all(): raise ValueError",
+    "potential_host_synchronization_check_sites_per_decoder_forward": 1,
+    "bounded_optimizer_updates": 400,
+    "bounded_decoder_forward_calls_per_update": 3,
+    "bounded_potential_host_synchronization_check_sites": 1200,
+    "formal_800_optimizer_updates": 32000,
+    "formal_800_decoder_forward_calls_per_update": 3,
+    "formal_800_potential_host_synchronization_check_sites": 96000,
+    "bounded_400_may_be_authorized_after_implementation_closure": true,
+    "formal_800_authorized": false,
+    "zero_synchronization_claim_allowed": false,
+    "decoder_change_to_remove_synchronization_allowed_in_this_stage": false,
+    "measurement_evidence": {
+      "authoritative_result": {
+        "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/sync_benchmark_result_v2.json",
+        "file_sha256": "b73613881ce3bb530f450a62721ceb532e7aaa6881ace76945751d672d5744ad",
+        "result_fingerprint": "0ce0df9ad5be90b4730aaea739c848d8564d462116540d3e9ce5e1cd7afd9742",
+        "schema_version": "cure-lite-cr-lvec-v7-sync-benchmark-v2"
+      },
+      "invalidated_v1_receipt": {
+        "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/sync_benchmark_v1_invalidation_receipt.json",
+        "file_sha256": "e081e3148ac597b7d4aa0549ad01d53fc4a286ff8c1d000f330595dde4dfad07",
+        "receipt_fingerprint": "0695d5e7df5ada484aa4440c9a6d671a0c16459c90cf51a403dea70e7e7f5de4"
+      },
+      "device": "NVIDIA GeForce RTX 3090",
+      "shape": "B4_C64_64x64_to_256x256_three_calls_per_update",
+      "deterministic_runtime": true,
+      "current_forward_ms_per_decoder_call": 1.6926534933333333,
+      "unchecked_forward_ms_per_decoder_call": 1.4802380066666665,
+      "async_forward_ms_per_decoder_call": 1.8875959599999999,
+      "current_minus_unchecked_seconds_for_bounded_1200_calls": 0.254898584,
+      "current_minus_unchecked_seconds_for_formal_96000_calls": 20.39188672000001,
+      "current_faster_than_async": true,
+      "forward_bit_exact_across_variants": true,
+      "parameter_gradient_bit_exact_across_variants": true,
+      "decision": "retain_strict_current_operator_for_bounded_400"
+    }
+  },
+  "dry_run_contract": {
+    "data_source": "fixed_in_memory_synthetic_fixtures_only",
+    "device": "cpu",
+    "D_R_payload_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "real_catalog_loader_call_count_required": 0,
+    "independent_process_replay_count": 2,
+    "canonical_payload_byte_identity_required": true,
+    "canonical_result_create_only": true,
+    "dry_run_can_authorize_real_execution": false
+  },
+  "implementation_closure_contract": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_implementation_closure_receipt.json",
+    "must_bind_this_proposal": true,
+    "must_bind_bounded_config": true,
+    "must_bind_bounded_dry_run_config": true,
+    "must_bind_dry_run_result": true,
+    "must_bind_toy_gate_closure": true,
+    "must_bind_runtime_files": true,
+    "must_bind_dependency_files": true,
+    "must_bind_focused_tests": true,
+    "must_bind_full_regression": true,
+    "must_bind_gpu_temperature_wrapper_and_tests": true,
+    "must_record_D_R_payload_accessed_false": true,
+    "must_record_real_D_R_bounded_authorized_false": true,
+    "may_make_single_real_D_R_authorization_eligible": true,
+    "may_directly_authorize_real_D_R_execution": false
+  },
+  "future_real_execution_control": {
+    "authorization_receipt_not_created": true,
+    "exact_real_D_R_run_count_if_later_authorized": 1,
+    "device_if_later_authorized": "cuda:0",
+    "gpu_index_if_later_authorized": 0,
+    "pause_temperature_celsius": 82,
+    "resume_temperature_celsius": 75,
+    "output_repo_path_if_later_authorized": "runs/irstd1k_stage_a_seed42/cure_lite_cr_lvec_v7_bounded_r1",
+    "create_only": true,
+    "resume_allowed": false,
+    "automatic_retry_allowed": false,
+    "D_V_or_D_T_allowed": false,
+    "formal_800_allowed": false
+  },
+  "execution_boundary": {
+    "D_R_protocol_metadata_may_be_read": true,
+    "D_R_dataset_or_cached_tensor_payload_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "real_D_R_bounded_execution_authorized": false,
+    "calibration_allowed": false,
+    "Pd_or_FA_evaluation_allowed": false,
+    "formal_800_allowed": false,
+    "full_CURE_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "stage_decision": {
+    "implementation_or_dry_run_fail": "freeze_bounded_implementation_failure_and_do_not_read_D_R_payload",
+    "implementation_closure_pass": "eligible_for_separate_single_real_D_R_authorization_review",
+    "implementation_closure_pass_does_not_equal_real_run_authorization": true,
+    "real_run_authorization_exists_at_proposal_time": false
+  },
+  "next_action": "create_and_validate_bounded_code_and_dry_run_without_D_R_payload_access",
+  "receipt_fingerprint": "d33f710348dec255fd73790b3c97c643472d115d3098e1469409f7dd57fad896"
+}

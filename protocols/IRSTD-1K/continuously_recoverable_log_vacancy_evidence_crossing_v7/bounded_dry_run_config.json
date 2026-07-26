@@ -1,0 +1,149 @@
+{
+  "schema_version": "cure-lite-cr-lvec-v7-bounded-dry-run-config-v1",
+  "method_id": "cr_lvec_v7",
+  "mode": "synthetic_bounded_implementation_dry_run",
+  "config_fingerprint_scope": "all_fields_except_config_fingerprint",
+  "bounded_implementation_proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_implementation_proposal_receipt.json",
+    "file_sha256": "65a45dc6d73d8cbf6bcb2c6b6204251f3583e0354ba3161b633f1547fbaa11dd",
+    "receipt_fingerprint": "d33f710348dec255fd73790b3c97c643472d115d3098e1469409f7dd57fad896"
+  },
+  "bounded_config_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_config.json",
+    "file_sha256": "352c0c235134c1017b851854278255c2c678973929d3fda614389392502c4b96",
+    "config_fingerprint": "9bdc7f5567065c02d37cc82f94b5bc49c589dfee271487f4cbce7dd831c45818"
+  },
+  "method_proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/proposal_receipt.json",
+    "file_sha256": "fa72f4ef850f72a65003e913db1b1230d7b0b45046faf61950fb1e4ef80d3c4f",
+    "proposal_fingerprint": "9d291e6ad9ec0869aa0ab0eaebcb219cd62678420375f56af480ba105208dbf2"
+  },
+  "toy_gate_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/toy_gate_closure_receipt.json",
+    "file_sha256": "25c3317045533f4116b8873d892fcd2c0e866d3e991843a4c0c8e872142f0fe5",
+    "receipt_fingerprint": "f95573edd8b842980d5b175b1aac8caf753f6c279342da8e29f54e165b1e255f"
+  },
+  "data_contract": {
+    "provider": "fixed_in_memory_synthetic_pair_provider_v1",
+    "dataset_name": null,
+    "split": null,
+    "allowed_dataset_splits": [],
+    "filesystem_dataset_root_allowed": false,
+    "real_catalog_loader_allowed": false,
+    "real_catalog_loader_call_count_required": 0,
+    "D_R_protocol_metadata_may_be_read": true,
+    "D_R_dataset_or_cached_tensor_payload_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false
+  },
+  "fixture_contract": {
+    "seed": 7817,
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "output_height": 8,
+    "output_width": 8,
+    "pair_kinds_required": [
+      "clean_positive",
+      "component_null",
+      "identity_null"
+    ],
+    "target_pixel_counts_required": [
+      1,
+      2,
+      3
+    ],
+    "source_disjoint_within_update": true,
+    "two_endpoint_batch_forward_required": true,
+    "factual_miss_and_no_miss_branches_required": true,
+    "pre_mask_and_small_target_representation_checks_required": true
+  },
+  "decoder": {
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "trunk_residual_scale": 0.5,
+    "baseline_probability": 0.1,
+    "vacancy_kernel_size": 3,
+    "occupancy_burden_policy": "nearest_log1p_local_occupancy_count_v1",
+    "forward_evidence_transform": "positive_exponential_ratio_crossing_v1",
+    "backward_surrogate_policy": "full_axis_exponential_continuation_v1",
+    "zero_boundary_policy": "full_axis_unit_gradient_v1",
+    "logit_composition_policy": "baseline_plus_crossing_evidence_v1",
+    "resize_policy": "bilinear_raw_nearest_burden_then_crossing_v1",
+    "expected_parameter_count": 2593,
+    "expected_parameter_tensor_count": 6
+  },
+  "optimization": {
+    "device": "cpu",
+    "torch_num_threads": 1,
+    "deterministic_algorithms": true,
+    "seed": 7817,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "epochs": 2,
+    "steps_per_epoch": 4,
+    "optimizer_updates": 8,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "automatic_retry_allowed": false,
+    "resume_allowed": false
+  },
+  "required_checks": {
+    "strict_protocol_bindings": true,
+    "crossing_operator_contract": true,
+    "frozen_topology_and_parameter_count": true,
+    "feature_and_base_detachment": true,
+    "two_endpoint_batch_forward": true,
+    "dual_endpoint_gradients_finite_nonzero": true,
+    "all_parameter_gradients_finite_each_update": true,
+    "pre_mask_contract": true,
+    "small_target_representation_contract": true,
+    "clean_component_and_identity_null_controls": true,
+    "fixed_budget_and_update_counts": true,
+    "structural_failure_zero_training_stop": true,
+    "completed_pass_result_round_trip": true,
+    "completed_nonpass_result_round_trip": true,
+    "execution_error_artifact_round_trip": true,
+    "create_only_publication": true,
+    "real_catalog_loader_call_count_zero": true,
+    "D_R_payload_accessed_false": true
+  },
+  "replay_contract": {
+    "independent_process_replay_count": 2,
+    "temporary_outputs_must_match_before_canonical_write": true,
+    "canonical_payload_byte_identity_required": true,
+    "canonical_result_repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/bounded_dry_run_result.json",
+    "canonical_write_policy": "create_only_after_two_temporary_replays_match"
+  },
+  "decision_rule": {
+    "all_required_checks_must_pass": true,
+    "pass_decision": "CR_LVEC_V7_BOUNDED_DRY_RUN_PASS",
+    "fail_decision": "CR_LVEC_V7_BOUNDED_DRY_RUN_FAIL",
+    "on_fail": "do_not_create_implementation_closure_and_do_not_read_D_R_payload",
+    "on_pass": "eligible_for_bounded_implementation_closure_only",
+    "dry_run_can_authorize_real_D_R_execution": false
+  },
+  "cuda_synchronization_boundary": {
+    "strict_runtime_check_retained": true,
+    "dry_run_device": "cpu",
+    "bounded_potential_host_synchronization_check_sites": 1200,
+    "bounded_400_acceptance_is_recorded_in_bounded_config": true,
+    "formal_800_potential_host_synchronization_check_sites": 96000,
+    "formal_800_authorized": false
+  },
+  "execution_boundary": {
+    "D_R_payload_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "real_D_R_bounded_allowed": false,
+    "real_run_authorization_receipt_required_or_created": false,
+    "formal_800_allowed": false,
+    "calibration_allowed": false,
+    "Pd_or_FA_evaluation_allowed": false,
+    "full_CURE_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "config_fingerprint": "d5421a162822ad9962b9790a10c49c4bfe8cd7844c88c4ec5e80a7ca54559e97"
+}

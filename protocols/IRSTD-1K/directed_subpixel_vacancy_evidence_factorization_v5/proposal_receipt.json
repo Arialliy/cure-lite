@@ -1,0 +1,223 @@
+{
+  "schema_version": "cure-lite-dsvef-v5-proposal-v1",
+  "method_id": "dsvef_v5",
+  "method_name": "Directed Subpixel Vacancy-Evidence Factorization",
+  "method_abbreviation": "D-SVEF",
+  "proposal_fingerprint": "5e5d5427ba0367b596744d8f6366c6ec90589c3db1e1cdf2bef28f822d17d813",
+  "proposal_fingerprint_scope": {
+    "schema_version": "cure-lite-dsvef-v5-proposal-v1",
+    "method_id": "dsvef_v5",
+    "document_sha256": "8b9cb232652ac21d32155f915ef42adf243f8d933b330f3284ae7838203108cc",
+    "status": "specified_not_implemented",
+    "predecessor_v4": {
+      "artifact_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_svef_v4_bounded_r1",
+      "complete_file_sha256": "8b9f6a1f1fce7801f8610ceff244bc63f9b9989ee2f8ee9ea3ec7dd6e7dd91a3",
+      "complete_fingerprint": "1e693369db718b47ee86fd6a8b883914fe1e37975026fd8d75ca6503e6188d3d",
+      "result_file_sha256": "7121f6433c63c59e54a697196bfe760b961e6908fefc610caca131021b76b35d",
+      "result_fingerprint": "7e51d11012b7ffd8e1abb9edc2c928ee3d9d861f98c1518c67c23d1e6cfed39a",
+      "result_receipt_fingerprint": "9d6d9d026f1d2953c480cfa0fb71f86c1be60313cef94ac7cfd85c6f96840b94",
+      "decision_file_sha256": "e47afb7c7b6842bcac6ff6e0f1b550f192b8e86adb2c121c2303d28e49e25496",
+      "decision_fingerprint": "521a3a9d6ef1aca0c35e1b1cb0c6d955bcc864654e5c123f8eea4a3900b58b90",
+      "implementation_file_sha256": "2ee1cf6447d7715db9291bf7e72779d49281ba98f69051253891a79e381bf190",
+      "implementation_fingerprint": "1e01ea64f64f27a59dec84cf071eaefdc6c6bfbceec360cfc1bc66b9365cf975",
+      "decision": "BOUNDED_MODEL_CODE_GATE_FAIL"
+    },
+    "source_identity": {
+      "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+      "prepared_catalog_fingerprint": "4955e5b4f1749b5f267db0ac1f031335a16cc48a470d6446ca6c99d04a5e85ed",
+      "anchor_population_fingerprint": "d251ed9061dd373aa0bf0e4ceeebbafc7ca32a4bab72c2f24601a20868d6d1cd",
+      "materializer_fingerprint": "8cc4eac43ad708265d8639c4b577b37bd81be8ccde73e79993ba18c65dca10ff",
+      "all_pair_inputs_fingerprint": "f3573b469464015865870440427deed341b7e2cddd8e866bdede2ee44c509b6c",
+      "gt_union_population_fingerprint": "afa80e88581fa5ee5f832dc70624d9ee54ca9541d1b33b7f5957ef0ed08e3ae5",
+      "factual_schedule_fingerprint": "57264042879d9850aa538e01563496a8d3de7b82556d2b5ef15ca7f32b66fac3",
+      "outcome_schedule_fingerprint": "747123867c88fd1444a514bf70e51013b739f39df2857e5ed021239e4847ec93",
+      "outcome_sequence_fingerprint": "6f4c45d51cfa8364d97a620af1bad1ea565f9ce4fc72c4d638d141fb056cffd0"
+    },
+    "v5_mechanism_identity": {
+      "family": "shared_subpixel_feature_baseline_times_fixed_local_vacancy_evidence_v2",
+      "single_new_mechanism": "directed_one_sided_zero_anchored_feature_evidence",
+      "mathematical_operator": "relu(softplus(raw_evidence)-log(2))",
+      "operator_position": "after_raw_evidence_resize_before_vacancy_multiplication",
+      "trainable_parameters_added_by_operator": 0,
+      "design_properties": [
+        "negative_half_axis_exactly_closed",
+        "first_order_positive_slope_near_zero",
+        "linear_positive_tail"
+      ],
+      "changed_from_v4": [
+        "evidence_activation_only"
+      ],
+      "unchanged_from_v4": [
+        "input_contract",
+        "shared_trunk",
+        "baseline_head",
+        "evidence_head",
+        "pixelshuffle",
+        "vacancy_gate",
+        "parameter_count",
+        "loss",
+        "train_step",
+        "pair_population",
+        "schedule",
+        "optimization_budget",
+        "bounded_thresholds",
+        "inference_composition"
+      ]
+    },
+    "fixed_training_identity": {
+      "seed": 42,
+      "optimizer_updates": 400,
+      "steps_per_epoch": 40,
+      "decoder_forwards_per_update": 3,
+      "decoder_states_per_update": 12,
+      "optimizer": "adam",
+      "learning_rate": 0.001,
+      "weight_decay": 0.0,
+      "dice_weight": 1.0,
+      "epsilon": 0.000001
+    },
+    "gate_identity": {
+      "thresholds_unchanged_from_v4": true,
+      "clean_joint_D_threshold": 0.25,
+      "clean_joint_H_threshold": 0.05,
+      "clean_joint_fraction_min": 0.75
+    }
+  },
+  "design_document": {
+    "path": "CURE_Lite_DSVEF_v5_\u6a21\u578b\u4e0e\u4ee3\u7801\u8bbe\u8ba1.md",
+    "sha256": "8b9cb232652ac21d32155f915ef42adf243f8d933b330f3284ae7838203108cc"
+  },
+  "failure_signature": {
+    "clean_joint_fraction": 0.0048543689320388345,
+    "clean_D_mean": 0.18115735692944088,
+    "clean_D_ge_0_25_fraction": 0.3106796116504854,
+    "clean_transition_ratio": 0.9345632222355382,
+    "clean_H_mean": 0.06958831196756379,
+    "component_footprint_mean": 0.12192883458919823,
+    "component_footprint_max": 0.9283885955810547
+  },
+  "scope": {
+    "dataset": "IRSTD-1K",
+    "split": "D_R",
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "base_or_backbone_update_allowed": false,
+    "decoder_topology_change_allowed": true,
+    "only_evidence_activation_change_allowed": true,
+    "loss_change_allowed": false,
+    "paired_training_change_allowed": false,
+    "inference_composition_change_allowed": false,
+    "calibration_change_allowed": false,
+    "formal_800_allowed": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "frozen_dependencies": {
+    "v4_design_document_sha256": "a2f7ea886d4224600f42ace6b6c8aa1768e315ab6c0e5e8d89cd69f6d5d8f728",
+    "v4_proposal_file_sha256": "89a2dbc8fcbb0edfff8d33ce2e109a93cd24c3f7bec4a325d9ded2fe33e32115",
+    "v4_proposal_fingerprint": "d10ecd79f217ac692d965de1475529a1b9e0f6a38e8909db25560ec31bb28ccf",
+    "v4_bounded_config_file_sha256": "0462ecaa3cda30bbb8d8a57d1c4da396374607cdea6b2aa08cd43cc752ff3cc0",
+    "v4_bounded_config_fingerprint": "9637df9e8b84f61d914b38e4677374c8fd4cccbb17bb8afde5708daad518adde",
+    "source_config_path": "protocols/IRSTD-1K/paired_bounded_learnability_v1/config.json",
+    "source_config_file_sha256": "90bb22fb6e46add584b99b24f54b9926a9cda8e63d73eda5a67447f6668eabd5",
+    "source_config_fingerprint": "0c2895c843bcd5ed5dd3865118e8006d8bc3a2d74665052cddb2c1572f007785"
+  },
+  "decoder_contract": {
+    "input": {
+      "feature": "float[B,C,h,w], detached inside decoder",
+      "occupancy": "bool[B,1,H,W]",
+      "pair_kind_input": false,
+      "ground_truth_input": false,
+      "base_probability_input": false
+    },
+    "output": "float logits[B,1,H,W]",
+    "adapter_parameters": [
+      "feature_channels",
+      "feature_stride"
+    ],
+    "current_reference_instance": {
+      "feature_channels": 64,
+      "feature_stride": 4,
+      "feature_grid": [
+        64,
+        64
+      ],
+      "evaluation_grid": [
+        256,
+        256
+      ],
+      "native_subpixel_path_required": true
+    },
+    "detector_neutral_meaning": "same_decoder_family_instantiated_from_each_adapter_contract",
+    "same_checkpoint_cross_backbone_claim": false
+  },
+  "architecture": {
+    "width": 32,
+    "groups": 8,
+    "groupnorm_affine": false,
+    "all_convolution_bias": false,
+    "head_phase_channels": "feature_stride_squared",
+    "baseline_formula": "-softplus(beta_raw + b_hi)",
+    "evidence_formula": "relu(softplus(e_raw_hi)-log(2))",
+    "vacancy_formula": "nearest(1/(1+conv_ones_3x3(project_max(occupancy))))",
+    "logit_formula": "baseline + evidence * vacancy",
+    "resize_policy": "separate_fields_then_final_gate_v1",
+    "learned_occupancy_parameters": 0,
+    "parameter_count_formula": "32*C + 1313 + 64*s^2",
+    "reference_parameter_count": 4385
+  },
+  "initialization": {
+    "baseline_probability": 0.1,
+    "baseline_head": "zeros",
+    "evidence_head": "xavier_normal_gain_0.25",
+    "trunk": "kaiming_normal_relu",
+    "beta_raw": "inverse_softplus(-logit(0.1))",
+    "vacancy_kernel": "fixed_ones_3x3_buffer"
+  },
+  "structural_properties": {
+    "zero_feature_occupancy_invariance": true,
+    "identity_endpoint_exactness": true,
+    "deletion_logit_monotonicity": true,
+    "deletion_probability_monotonicity": true,
+    "delta_zero_outside_gate_change_support": true,
+    "negative_raw_evidence_exact_zero": true,
+    "positive_raw_evidence_strictly_positive": true,
+    "subpixel_phase_freedom": true,
+    "single_shared_decoder": true,
+    "single_inference_path": true,
+    "hard_occupancy_mask_preserved": true,
+    "hard_union_preserved": true,
+    "can_remove_base_false_alarms": false
+  },
+  "planned_files": [
+    "cure_lite/directed_factorized_config.py",
+    "cure_lite/directed_factorized_decoder.py",
+    "cure_lite/experiment/directed_factorized_outcome_bounded.py",
+    "tools/run_directed_factorized_outcome_bounded.py",
+    "tests/test_directed_factorized_config.py",
+    "tests/test_directed_factorized_decoder.py",
+    "tests/test_directed_factorized_model.py",
+    "tests/test_directed_factorized_outcome_bounded.py",
+    "tests/test_directed_factorized_outcome_toy_overfit.py",
+    "tests/test_run_directed_factorized_outcome_bounded_cli.py"
+  ],
+  "execution_policy": {
+    "proposal_precedes_implementation": true,
+    "additive_files_only": true,
+    "same_version_real_bounded_runs_max": 1,
+    "automatic_retry_allowed": false,
+    "resume_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "formal_800_allowed": false
+  },
+  "status": {
+    "proposal": "specified",
+    "code": "not_implemented",
+    "unit_toy": "not_run",
+    "D_R_bounded": "not_run",
+    "formal_seed_42_43": "not_run",
+    "model_success": "not_established"
+  },
+  "next_action": "implement_additive_v5_model_and_tests_without_modifying_v4"
+}

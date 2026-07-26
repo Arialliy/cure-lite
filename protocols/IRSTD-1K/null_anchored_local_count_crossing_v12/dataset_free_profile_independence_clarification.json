@@ -1,0 +1,63 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.dataset-free-profile-independence-clarification.v1",
+  "method_id": "nlcc_v12",
+  "stage_id": "dataset_free_profile_independence_clarification",
+  "created_date": "2026-07-26",
+  "status": "FROZEN_BEFORE_SHARED_RUNNER_CLI_TEST_OR_SCIENTIFIC_EXECUTION",
+  "upstream_binding": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_path_and_metric_clarification.json",
+    "file_sha256": "b252391e65149f28340560912d09210c3f972b88360d1330610fd1696647e290",
+    "clarification_fingerprint": "e4e91db7b93eec33fac321cf07329e3afdb4f41e5b69f4e68e6510c2c20e4166"
+  },
+  "evidence_state_at_freeze": {
+    "shared_runner_source_present": false,
+    "development_cli_present": false,
+    "holdout_cli_present": false,
+    "runner_tests_present": false,
+    "scientific_optimizer_updates": 0,
+    "development_metrics_observed": false,
+    "holdout_metrics_observed": false
+  },
+  "profile_initialization_contract": {
+    "development_decoder": "new from-scratch CURELiteNullAnchoredLocalCountCrossingDecoder initialized with seed 42",
+    "development_optimizer": "new Adam with empty state and the frozen optimizer configuration",
+    "holdout_decoder": "new from-scratch CURELiteNullAnchoredLocalCountCrossingDecoder initialized with seed 42",
+    "holdout_optimizer": "new Adam with empty state and the frozen optimizer configuration",
+    "same_initial_decoder_fingerprint_required": true,
+    "development_checkpoint_loaded_by_holdout": false,
+    "development_optimizer_state_loaded_by_holdout": false,
+    "development_parameter_or_buffer_state_loaded_by_holdout": false,
+    "development_training_trace_consumed_by_holdout": false,
+    "holdout_is_continued_training": false,
+    "holdout_profile_input_schedule_and_training_are_independent": true
+  },
+  "development_artifact_use_by_holdout": {
+    "purpose": "authorization only",
+    "required_development_decision": "PASS",
+    "required_files": [
+      "attempt.json",
+      "result.json",
+      "decision.json",
+      "COMPLETE.json"
+    ],
+    "all_required_development_files_sha256_and_fingerprints_reverified": true,
+    "checkpoint_file_allowed": false,
+    "optimizer_state_file_allowed": false,
+    "development_metric_used_as_holdout_input": false
+  },
+  "authorization": {
+    "runner_config_cli_and_unit_test_implementation": true,
+    "scientific_training_in_tests": false,
+    "development_pre_run_authorization_creation": false,
+    "development_scientific_execution": false,
+    "holdout_pre_run_authorization_creation": false,
+    "holdout_scientific_execution": false,
+    "real_D_R": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "clarification_fingerprint_scope": "all_fields_except_clarification_fingerprint",
+  "clarification_fingerprint": "de212d80195dc0e59a2ba44dc5b70bc87196c1b8dcdb0c24ee1380bf28087560"
+}

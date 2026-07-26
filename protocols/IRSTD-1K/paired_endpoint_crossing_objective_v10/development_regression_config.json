@@ -1,0 +1,167 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-regression-config-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "status": "FROZEN_BEFORE_DEVELOPMENT_REGRESSION_EXECUTION",
+  "evidentiary_status": "candidate_selection_development_regression_not_independent_confirmation",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/proposal_receipt.json",
+    "file_sha256": "74eb7196944135fa8c620dca8c6593460fc7b7086d08ce6104071dad9d88e47a",
+    "proposal_fingerprint": "377d3b5e5cdf7fdb2b903bd423897b9aea436ee943e00206cd26865b95599365"
+  },
+  "frozen_source_bindings": {
+    "decoder": {
+      "method_id": "cc_sea_v8",
+      "repo_path": "cure_lite/conservative_factorized_decoder.py",
+      "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+      "policy": "read_only_forward_equation_and_topology"
+    },
+    "peco_loss": {
+      "repo_path": "cure_lite/paired_endpoint_crossing_losses.py",
+      "file_sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+      "class": "PairedEndpointCrossingLoss",
+      "policy": "single_additive_response_risk_change"
+    },
+    "predecessor_loss": {
+      "repo_path": "cure_lite/paired_outcome_losses.py",
+      "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+      "policy": "read_only_inherited_validation_anchor_zero_strata_and_hierarchy"
+    },
+    "training_step": {
+      "repo_path": "cure_lite/train/paired_outcome_step.py",
+      "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+      "function": "outcome_complete_train_step",
+      "policy": "unchanged"
+    },
+    "toy_inputs": {
+      "repo_path": "cure_lite/experiment/conservative_toy_inputs.py",
+      "file_sha256": "f86418a06adfc6866a900e697992c0a4959e936e2ed439d6d5f13b94aeca40b0",
+      "policy": "read_only_exact_v8_six_case_tensors"
+    },
+    "absolute_loss": {
+      "repo_path": "cure_lite/losses.py",
+      "file_sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+      "class": "CURELiteLoss",
+      "policy": "read_only_unchanged_factual_and_plus_anchor_primitive"
+    },
+    "loss_config": {
+      "repo_path": "cure_lite/config.py",
+      "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+      "class": "LossConfig",
+      "policy": "read_only_default_loss_configuration"
+    }
+  },
+  "objective": {
+    "response_stratum": "D=bool(label_increment)&image_valid_mask",
+    "response_risk": "0.5*(softplus(logits_plus)+softplus(-logits_minus))",
+    "covered_plus_target": 0,
+    "uncovered_minus_target": 1,
+    "local_zero_risk": "unchanged_probability_delta_squared",
+    "global_zero_risk": "unchanged_probability_delta_squared",
+    "plus_anchor": "unchanged",
+    "hierarchical_active_means": "unchanged",
+    "factual_branches": "unchanged",
+    "pair_kind_dispatch": false
+  },
+  "cases": [
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_one_pixel",
+      "clean_pixels": [[1, 2]]
+    },
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_two_pixels",
+      "clean_pixels": [[1, 2], [2, 1]]
+    },
+    {
+      "family_id": "component_contains_response",
+      "case_id": "legacy_three_pixels",
+      "clean_pixels": [[1, 2], [2, 1], [2, 2]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_one_pixel",
+      "clean_pixels": [[1, 6]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_two_pixels",
+      "clean_pixels": [[1, 6], [2, 5]]
+    },
+    {
+      "family_id": "response_outside_component_inside_count_support",
+      "case_id": "support_three_pixels",
+      "clean_pixels": [[1, 6], [2, 5], [2, 6]]
+    }
+  ],
+  "decoder": {
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "trunk_residual_scale": 0.5,
+    "baseline_probability": 0.1,
+    "vacancy_kernel_size": 3,
+    "expected_parameter_tensors": 6,
+    "expected_parameter_count": 2593,
+    "topology_changed": false
+  },
+  "optimization": {
+    "seed": 7817,
+    "optimizer": "adam",
+    "updates_per_case": 320,
+    "learning_rate": 0.004,
+    "weight_decay": 0.0,
+    "loss": "paired_endpoint_crossing_response_plus_unchanged_zero_anchor_and_factual",
+    "training_step": "unchanged_outcome_complete_train_step",
+    "automatic_retry_allowed": false
+  },
+  "thresholds": {
+    "total_loss_max_exclusive": 0.1,
+    "plus_completion_min_exclusive": 0.95,
+    "plus_background_max_exclusive": 0.05,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max_exclusive": 0.05,
+    "clean_D_mean_min_inclusive": 0.8,
+    "clean_H_max_abs_max_inclusive": 0.05,
+    "clean_G_max_abs_max_inclusive": 0.05,
+    "component_H_max_abs_max_inclusive": 0.05,
+    "component_G_max_abs_max_inclusive": 0.05
+  },
+  "audit_contract": {
+    "pre_mask_paired_loss": true,
+    "one_2B_endpoint_forward": true,
+    "every_update_exact_three_calls_with_batch_sizes_4_4_4": true,
+    "dual_endpoint_gradients_finite_nonzero": true,
+    "all_six_parameter_gradients_finite_nonzero_every_update": true,
+    "input_feature_detached_by_unchanged_step": true,
+    "input_and_decoder_fingerprints_recorded": true,
+    "frozen_v8_operator_contract_rechecked": true,
+    "create_only_result": true,
+    "runtime_scope_recorded_without_cross_environment_claim": true
+  },
+  "decision_rule": {
+    "required_passed_case_count": 6,
+    "required_passed_family_count": 2,
+    "per_case_all_checks_required": true,
+    "mean_cannot_override_case_failure": true,
+    "pass_decision": "PECO_V10_DEVELOPMENT_REGRESSION_PASS",
+    "fail_decision": "PECO_V10_DEVELOPMENT_REGRESSION_FAIL",
+    "pass_scope": "implementation_regression_only_not_independent_confirmation"
+  },
+  "execution_boundary": {
+    "dataset_access_allowed": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "exposure_matched_confirmation_run_authorized": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "config_fingerprint": "3f6f9b4559cb6c813d966486c798583f076b210d5527f409d8a35571ac97f98a"
+}

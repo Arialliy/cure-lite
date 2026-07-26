@@ -1,0 +1,85 @@
+{
+  "schema_version": "cure-lite-pb-naes-v9-toy-implementation-closure-v1",
+  "method_id": "pb_naes_v9",
+  "status": "FROZEN_BEFORE_ONE_AUTHORITATIVE_DATASET_FREE_TOY_RUN",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/proposal_receipt.json",
+    "file_sha256": "7bb563907f8b037ca2feac5ae356c5b3e3ed52cf945dfdaa2d7fa503131e02c5",
+    "proposal_fingerprint": "90dd2931d2e8aa5ed76e86165b8d68363d7735e522b0a7cca228cc04269de5e6"
+  },
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/toy_config.json",
+    "file_sha256": "1089829e88d54b314bb94ba1f536130c37baa5ed2d75a0a8eff7f87d6336fddc",
+    "config_fingerprint": "8af91f01925c258d1be9d9ec590d7aedabbc17d7ad3028e7f581731fa3925406"
+  },
+  "implementation_files": [
+    {
+      "repo_path": "cure_lite/phase_balanced_null_surplus_factorized_config.py",
+      "file_sha256": "a854e606227965a70aed1d1b83c89e5224ee32ef5cbb8b2400ce08c627e4cdb3"
+    },
+    {
+      "repo_path": "cure_lite/phase_balanced_null_surplus_factorized_decoder.py",
+      "file_sha256": "0ef2e1e686ef668bbb7e8b75c4d28784113ba6be0d28fef4cc3312041f3b0ba0"
+    },
+    {
+      "repo_path": "tools/evaluate_phase_balanced_null_surplus_toy_gate.py",
+      "file_sha256": "8c5dc98126da0a7283436a54f003aa4600d775da46756ae4234119daaa034d61"
+    }
+  ],
+  "test_files": [
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_config.py",
+      "file_sha256": "26256f34ef804568113c5a1dc64875bbc3e3d2b698f1ab22683cb90a8a42f270"
+    },
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_operator.py",
+      "file_sha256": "34012399f93951d092872b9f0a5c69b36c5bc967aeeebe8ba53624e21edc528c"
+    },
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_decoder.py",
+      "file_sha256": "35aff7b20bab4b11a7e027a39655b9f674fb0dc8d19223e366376c8a9df954fe"
+    },
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_model.py",
+      "file_sha256": "a660fa957d61391806bd750ef215a010b1fafa38ace340153d31ecd2bc2b0e64"
+    },
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_protocol.py",
+      "file_sha256": "440182cb9c4ab201f4761c950e162e399d11ce23fa5333856cc3817617012ded"
+    },
+    {
+      "repo_path": "tests_v9/test_phase_balanced_null_surplus_toy_gate.py",
+      "file_sha256": "2748cf4cf2f9463a2e56fbfab80735f0e7333cf46322cd76771a3df6dc42f596"
+    }
+  ],
+  "verification": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v9",
+    "passed": 43,
+    "failed": 0,
+    "wall_time_seconds": 45.34,
+    "dataset_accessed": false
+  },
+  "frozen_contract": {
+    "decoder_topology_changed": false,
+    "loss_changed": false,
+    "training_step_changed": false,
+    "inference_changed": false,
+    "reference_parameter_count": 4385,
+    "reference_parameter_tensors": 6,
+    "toy_parameter_count": 2593,
+    "toy_parameter_tensors": 6
+  },
+  "authorization": {
+    "authoritative_toy_runs": 1,
+    "automatic_retry_allowed": false,
+    "output_repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/toy_gate_result.json",
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "real_bounded": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "057f801b94d4f7213787567c7e0ab9ec4203ba05679a6ec2acb701b3464757b8"
+}

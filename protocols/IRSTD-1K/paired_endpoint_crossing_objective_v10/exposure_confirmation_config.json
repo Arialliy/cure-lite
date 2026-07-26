@@ -1,0 +1,254 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-config-v1",
+  "method_id": "peco_v10",
+  "status": "FROZEN_BEFORE_AUTHORITY_RUN",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/proposal_receipt.json",
+    "file_sha256": "74eb7196944135fa8c620dca8c6593460fc7b7086d08ce6104071dad9d88e47a",
+    "proposal_fingerprint": "377d3b5e5cdf7fdb2b903bd423897b9aea436ee943e00206cd26865b95599365"
+  },
+  "decoder_binding": {
+    "repo_path": "cure_lite/conservative_factorized_decoder.py",
+    "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+    "policy": "frozen_v8_topology_and_forward"
+  },
+  "peco_loss_binding": {
+    "repo_path": "cure_lite/paired_endpoint_crossing_losses.py",
+    "file_sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+    "response_risk": "0.5*(softplus(logits_plus)+softplus(-logits_minus))"
+  },
+  "predecessor_loss_binding": {
+    "repo_path": "cure_lite/paired_outcome_losses.py",
+    "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "policy": "matched_comparator_read_only"
+  },
+  "training_step_binding": {
+    "repo_path": "cure_lite/train/paired_outcome_step.py",
+    "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "policy": "unchanged"
+  },
+  "population_source_binding": {
+    "repo_path": "cure_lite/experiment/peco_exposure_confirmation.py",
+    "file_sha256": "87ef1f11c1d8ea192314b0765630d45ff7b441f314fecaf9fb6fac27214f2168",
+    "policy": "dataset_free_frozen_population_and_schedule"
+  },
+  "evaluator_binding": {
+    "repo_path": "tools/evaluate_peco_exposure_confirmation.py",
+    "file_sha256": "b1b91f5ae86adc70a6883ac9e88b10b049003a325341fab1c6a81c85f6e7667e",
+    "policy": "exclusive_create_authority_entry"
+  },
+  "transitive_dependency_bindings": [
+    {
+      "repo_path": "cure_lite/__init__.py",
+      "file_sha256": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3"
+    },
+    {
+      "repo_path": "cure_lite/cache/__init__.py",
+      "file_sha256": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd"
+    },
+    {
+      "repo_path": "cure_lite/cache/schema.py",
+      "file_sha256": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7"
+    },
+    {
+      "repo_path": "cure_lite/config.py",
+      "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_config.py",
+      "file_sha256": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_config.py",
+      "file_sha256": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_decoder.py",
+      "file_sha256": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc"
+    },
+    {
+      "repo_path": "cure_lite/decoder.py",
+      "file_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+    },
+    {
+      "repo_path": "cure_lite/factorized_config.py",
+      "file_sha256": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246"
+    },
+    {
+      "repo_path": "cure_lite/factorized_decoder.py",
+      "file_sha256": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9"
+    },
+    {
+      "repo_path": "cure_lite/losses.py",
+      "file_sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_types.py",
+      "file_sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a"
+    },
+    {
+      "repo_path": "cure_lite/paired_types.py",
+      "file_sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+    },
+    {
+      "repo_path": "cure_lite/train/__init__.py",
+      "file_sha256": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_step.py",
+      "file_sha256": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139"
+    },
+    {
+      "repo_path": "cure_lite/train/step.py",
+      "file_sha256": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe"
+    }
+  ],
+  "decoder": {
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "expected_parameter_tensors": 6,
+    "expected_parameter_count": 2593,
+    "expected_seed42_initial_fingerprint": "88be60d9e2297b03a291cb6c52f345ce00e4afc1f6d9d0ed21e6dc6affa76886"
+  },
+  "population": {
+    "pair_count": 222,
+    "clean_pair_count": 206,
+    "component_null_pair_count": 16,
+    "clean_four_exposure_pair_count": 121,
+    "clean_three_exposure_pair_count": 85,
+    "component_four_exposure_pair_count": 13,
+    "component_three_exposure_pair_count": 3,
+    "catalog_fingerprint": "0391b44f28cecfff3e05b6bfe55c0cfc364df64df04e42bb712f83b6554b0f4c"
+  },
+  "groups": {
+    "clean_groups": {
+      "clean_contains_1px": 35,
+      "clean_contains_2px": 34,
+      "clean_contains_3px": 34,
+      "clean_outside_1px": 35,
+      "clean_outside_2px": 34,
+      "clean_outside_3px": 34
+    },
+    "component_groups": {
+      "component_null_block": 8,
+      "component_null_sparse": 8
+    },
+    "every_group_has_three_and_four_exposure_pairs": true
+  },
+  "schedule": {
+    "seed": 42,
+    "updates": 400,
+    "pair_batch_size": 2,
+    "pair_slots": 800,
+    "clean_slots": 739,
+    "component_null_slots": 61,
+    "updates_with_zero_component": 340,
+    "updates_with_one_component": 59,
+    "updates_with_two_components": 1,
+    "factual_miss_population_size": 16,
+    "factual_no_miss_population_size": 16,
+    "factual_miss_batch_size": 4,
+    "factual_no_miss_batch_size": 4,
+    "factual_miss_slots": 1600,
+    "factual_no_miss_slots": 1600,
+    "factual_exposures_per_state": 100,
+    "factual_schedule": "(4*update_index+i)%16_for_i_in_0_to_3",
+    "factual_schedule_fingerprint": "7baee2f2bb38ef197a3434d6ad214f68747914da9121bcbd116429b738349d0a",
+    "schedule_fingerprint": "6b7235fe52a12065c516869b7e445f42e1a418b42d9c6efe8194074345a216c2"
+  },
+  "optimization": {
+    "device": "cpu",
+    "seed": 42,
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "adam_betas": [
+      0.9,
+      0.999
+    ],
+    "adam_epsilon": 1e-08,
+    "adam_amsgrad": false,
+    "adam_maximize": false,
+    "updates": 400,
+    "automatic_retry_allowed": false,
+    "hyperparameter_search_allowed": false
+  },
+  "paired_forward_contract": {
+    "one_shared_decoder": true,
+    "features_detached": true,
+    "endpoint_states_concatenated_once": true,
+    "endpoint_forward_batch_size": 4,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "pair_kind_is_model_input": false,
+    "pair_kind_is_loss_dispatch": false
+  },
+  "matched_comparator": {
+    "method_id": "outcome_complete_transition_v3",
+    "same_population": true,
+    "same_schedule": true,
+    "same_initialization": true,
+    "same_optimizer": true,
+    "decision_use": "reported_only_not_used_to_relax_absolute_peco_gate"
+  },
+  "crossing_semantics": {
+    "boundary": "training_logit_zero",
+    "equivalent_probability": 0.5,
+    "is_final_frozen_calibration_threshold": false,
+    "detection_threshold_claim_allowed": false
+  },
+  "thresholds": {
+    "population_total_loss_max_exclusive": 0.1,
+    "plus_completion_min_exclusive": 0.95,
+    "plus_background_max_exclusive": 0.05,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max_exclusive": 0.05,
+    "clean_D_plus_max_exclusive": 0.05,
+    "clean_D_minus_min_exclusive": 0.95,
+    "clean_D_delta_mean_min_inclusive": 0.8,
+    "zero_H_max_abs_max_inclusive": 0.05,
+    "zero_G_max_abs_max_inclusive": 0.05
+  },
+  "identical_input_conflict_control": {
+    "same_feature": true,
+    "same_occupancy_plus": true,
+    "same_occupancy_minus": true,
+    "clean_response_pixel_count": 1,
+    "component_response_pixel_count": 0,
+    "clean_D_delta_gate_min": 0.8,
+    "component_same_pixel_abs_delta_gate_max": 0.05,
+    "simultaneous_gate_pass_is_forbidden": true,
+    "training_updates": 0,
+    "purpose": "structural_no_role_metadata_leakage"
+  },
+  "decision_rule": {
+    "pass_decision": "PECO_V10_EXPOSURE_MATCHED_CONFIRMATION_PASS",
+    "fail_decision": "PECO_V10_EXPOSURE_MATCHED_CONFIRMATION_FAIL",
+    "all_clean_groups_must_pass": true,
+    "all_component_groups_must_pass": true,
+    "factual_gates_must_pass": true,
+    "gradient_and_2B_contracts_must_pass": true,
+    "every_update_all_six_gradients_finite_nonzero": true,
+    "identical_input_conflict_control_must_pass": true,
+    "mean_cannot_override_group_failure": true,
+    "matched_comparator_cannot_change_peco_decision": true,
+    "pass_authorizes_only_deterministic_dry_run": true,
+    "runtime_contract_must_be_reported": true
+  },
+  "execution_boundary": {
+    "dataset_free_confirmation_run_authorized": true,
+    "dry_run_authorized": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "config_fingerprint": "b0203f82e41d2db3e16a425fd2e02110750d220d7beec5037ae17f0b900efc6f"
+}

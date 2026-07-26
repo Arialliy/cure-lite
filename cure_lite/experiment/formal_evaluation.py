@@ -48,6 +48,10 @@ from .evaluation_pipeline import (
     select_base_threshold_on_d_v,
     select_residual_threshold_on_d_v,
 )
+from .paired_artifacts import LoadedPairedDecoderArtifact
+
+
+DecoderArtifactLike = LoadedDecoderArtifact | LoadedPairedDecoderArtifact
 
 
 def _digest(value: object, *, name: str) -> str:
@@ -61,7 +65,7 @@ def _digest(value: object, *, name: str) -> str:
 @dataclass(frozen=True, slots=True)
 class _LoadedDVRunSeal:
     bundle: LoadedDVCacheBundle
-    artifact: LoadedDecoderArtifact
+    artifact: DecoderArtifactLike
     access: DevelopmentSplitAccess
     residual_samples: tuple[CalibrationSample, ...]
     base_samples: tuple[CalibrationSample, ...]
@@ -74,7 +78,7 @@ class LoadedDVMethodRun:
     """One decoder evaluated over one exact, verified D_V cache bundle."""
 
     bundle: LoadedDVCacheBundle
-    artifact: LoadedDecoderArtifact
+    artifact: DecoderArtifactLike
     access: DevelopmentSplitAccess
     residual_samples: tuple[CalibrationSample, ...]
     base_samples: tuple[CalibrationSample, ...]
@@ -139,8 +143,13 @@ class LoadedDVMethodRun:
         self._verify_source_seal()
         if not isinstance(self.bundle, LoadedDVCacheBundle):
             raise TypeError("bundle must be a LoadedDVCacheBundle")
-        if not isinstance(self.artifact, LoadedDecoderArtifact):
-            raise TypeError("artifact must be a LoadedDecoderArtifact")
+        if not isinstance(
+            self.artifact,
+            (LoadedDecoderArtifact, LoadedPairedDecoderArtifact),
+        ):
+            raise TypeError(
+                "artifact must be a verified historical or paired decoder artifact"
+            )
         if not isinstance(self.access, DevelopmentSplitAccess):
             raise TypeError("access must be DevelopmentSplitAccess")
         self.bundle.verify_unchanged()
@@ -180,14 +189,19 @@ class LoadedDVMethodRun:
 
 def build_loaded_d_v_method_run(
     bundle: LoadedDVCacheBundle,
-    artifact: LoadedDecoderArtifact,
+    artifact: DecoderArtifactLike,
 ) -> LoadedDVMethodRun:
     """Run one verified decoder over every row of one exact D_V bundle."""
 
     if not isinstance(bundle, LoadedDVCacheBundle):
         raise TypeError("bundle must be a LoadedDVCacheBundle")
-    if not isinstance(artifact, LoadedDecoderArtifact):
-        raise TypeError("artifact must be a LoadedDecoderArtifact")
+    if not isinstance(
+        artifact,
+        (LoadedDecoderArtifact, LoadedPairedDecoderArtifact),
+    ):
+        raise TypeError(
+            "artifact must be a verified historical or paired decoder artifact"
+        )
     bundle.verify_unchanged()
     artifact.verify_unchanged()
     config = artifact.config

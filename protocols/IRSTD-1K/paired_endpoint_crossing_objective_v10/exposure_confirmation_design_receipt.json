@@ -1,0 +1,174 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-design-receipt-v1",
+  "method_id": "peco_v10",
+  "status": "FROZEN_BEFORE_AUTHORITY_RUN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_DESIGN_FROZEN",
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_config.json",
+    "file_sha256": "200d9200e668b8bae6b9bbb18578612a810ca48c4c528cb556e2421cc0835875",
+    "config_fingerprint": "b0203f82e41d2db3e16a425fd2e02110750d220d7beec5037ae17f0b900efc6f"
+  },
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/proposal_receipt.json",
+    "file_sha256": "74eb7196944135fa8c620dca8c6593460fc7b7086d08ce6104071dad9d88e47a",
+    "proposal_fingerprint": "377d3b5e5cdf7fdb2b903bd423897b9aea436ee943e00206cd26865b95599365"
+  },
+  "source_bindings": {
+    "decoder_binding": {
+      "repo_path": "cure_lite/conservative_factorized_decoder.py",
+      "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+      "policy": "frozen_v8_topology_and_forward"
+    },
+    "peco_loss_binding": {
+      "repo_path": "cure_lite/paired_endpoint_crossing_losses.py",
+      "file_sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+      "response_risk": "0.5*(softplus(logits_plus)+softplus(-logits_minus))"
+    },
+    "predecessor_loss_binding": {
+      "repo_path": "cure_lite/paired_outcome_losses.py",
+      "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+      "policy": "matched_comparator_read_only"
+    },
+    "training_step_binding": {
+      "repo_path": "cure_lite/train/paired_outcome_step.py",
+      "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+      "policy": "unchanged"
+    },
+    "population_source_binding": {
+      "repo_path": "cure_lite/experiment/peco_exposure_confirmation.py",
+      "file_sha256": "87ef1f11c1d8ea192314b0765630d45ff7b441f314fecaf9fb6fac27214f2168",
+      "policy": "dataset_free_frozen_population_and_schedule"
+    },
+    "evaluator_binding": {
+      "repo_path": "tools/evaluate_peco_exposure_confirmation.py",
+      "file_sha256": "b1b91f5ae86adc70a6883ac9e88b10b049003a325341fab1c6a81c85f6e7667e",
+      "policy": "exclusive_create_authority_entry"
+    }
+  },
+  "transitive_dependency_bindings": [
+    {
+      "repo_path": "cure_lite/__init__.py",
+      "file_sha256": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3"
+    },
+    {
+      "repo_path": "cure_lite/cache/__init__.py",
+      "file_sha256": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd"
+    },
+    {
+      "repo_path": "cure_lite/cache/schema.py",
+      "file_sha256": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7"
+    },
+    {
+      "repo_path": "cure_lite/config.py",
+      "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_config.py",
+      "file_sha256": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_config.py",
+      "file_sha256": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_decoder.py",
+      "file_sha256": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc"
+    },
+    {
+      "repo_path": "cure_lite/decoder.py",
+      "file_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+    },
+    {
+      "repo_path": "cure_lite/factorized_config.py",
+      "file_sha256": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246"
+    },
+    {
+      "repo_path": "cure_lite/factorized_decoder.py",
+      "file_sha256": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9"
+    },
+    {
+      "repo_path": "cure_lite/losses.py",
+      "file_sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_types.py",
+      "file_sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a"
+    },
+    {
+      "repo_path": "cure_lite/paired_types.py",
+      "file_sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+    },
+    {
+      "repo_path": "cure_lite/train/__init__.py",
+      "file_sha256": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_step.py",
+      "file_sha256": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139"
+    },
+    {
+      "repo_path": "cure_lite/train/step.py",
+      "file_sha256": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe"
+    }
+  ],
+  "test_binding": {
+    "repo_path": "tests_v10/test_peco_exposure_confirmation.py",
+    "file_sha256": "97a09072c6cb45324b0cdfce58ed20b3e21ec5f447cc3f542b343163f3a75cfa",
+    "policy": "schedule_geometry_negative_control_protocol_and_one_step_without_authority_run"
+  },
+  "frozen_facts": {
+    "pair_population": "206_clean_positive_plus_16_component_null",
+    "slot_population": "739_clean_plus_61_component",
+    "update_histogram": {
+      "zero_component": 340,
+      "one_component": 59,
+      "two_component": 1
+    },
+    "per_pair_exposure_values": [
+      3,
+      4
+    ],
+    "factual_population_per_branch": 16,
+    "factual_batch_per_branch": 4,
+    "factual_slots_per_branch": 1600,
+    "factual_exposures_per_state": 100,
+    "factual_schedule": "(4*update_index+i)%16_for_i_in_0_to_3",
+    "group_gates": 8,
+    "seed": 42,
+    "learning_rate": 0.001,
+    "adam_betas": [
+      0.9,
+      0.999
+    ],
+    "adam_epsilon": 1e-08,
+    "adam_amsgrad": false,
+    "adam_maximize": false,
+    "updates": 400,
+    "pair_batch_size": 2,
+    "matched_predecessor_required": true,
+    "absolute_peco_decision": true,
+    "identical_input_conflict_control_required": true,
+    "all_six_gradients_finite_nonzero_each_update": true,
+    "runtime_contract_required": true,
+    "pass_authorizes_only_deterministic_dry_run": true,
+    "crossing_boundary": "training_logit_zero_not_final_calibration_threshold"
+  },
+  "pre_run_status": {
+    "authority_run_performed": false,
+    "result_receipt_exists": false,
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "formal_800_started": false
+  },
+  "authorization_after_design": {
+    "dataset_free_exposure_confirmation_run": true,
+    "deterministic_dry_run": false,
+    "real_D_R": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "interpretation": "frozen_dataset_free_confirmation_design_not_a_model_result",
+  "receipt_fingerprint": "2f1f9de03eeaa412d6ec40a8a0348aeb76f2afdbc407a59d516ab134fd2bfe62"
+}

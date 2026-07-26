@@ -1,0 +1,87 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r3-pre-run-verification-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "VERIFIED_BEFORE_SINGLE_R3_AUTHORITY_RUN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R3_PRE_RUN_PASS",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_implementation_closure_r3.json",
+    "file_sha256": "6e34e0aaa0d96bbc1d68cffdf2230ff04a74262ddf01e64e8e60bcd7bdc1f97d",
+    "receipt_fingerprint": "178a13edcf68799f72e2cb0df1ec50661790a21d571f194f1ff7c7fc7fcc03c4",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R3_IMPLEMENTATION_CLOSED"
+  },
+  "r2_execution_failure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_r2_execution_failure_receipt.json",
+    "file_sha256": "a419fb84f62b900f7797e06de07d68c4e540f65684319a622b9829df294fbdf7",
+    "receipt_fingerprint": "6d4bc2cb4282a4ee1ab7b8674f99f9d675c8d88c4a434a5c4ac8f04bdae31ff7",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_RESULT_NOT_PRODUCED"
+  },
+  "test_evidence": [
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v10",
+      "passed": 36,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 7.60
+    },
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v8/test_conservative_factorized_config.py tests_v8/test_conservative_factorized_decoder.py tests_v8/test_conservative_factorized_model.py tests_v8/test_conservative_factorized_support_toy.py tests_v8/test_conservative_factorized_toy_overfit.py tests/test_paired_outcome_losses.py tests/test_paired_outcome_step.py",
+      "passed": 49,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 44.65
+    }
+  ],
+  "clean_import_preflight": {
+    "effective_bound_source_count": 64,
+    "observed_local_import_count": 63,
+    "observed_local_import_fingerprint": "bb693eb72f41290a500b77e852663b6f525d32b1339025ea40bd12f38d5a5b6e",
+    "unbound_local_import_count": 0,
+    "passed": true
+  },
+  "correction_verification": {
+    "component_update_histogram": {
+      "0": 340,
+      "1": 59,
+      "2": 1
+    },
+    "all_histogram_keys_are_strings": true,
+    "stable_fingerprint_accepts_corrected_mapping": true,
+    "r2_result_remains_absent": true,
+    "r3_result_absent_before_authority_run": true,
+    "full_receipt_chain_test_required_before_authority_run": true
+  },
+  "unchanged_scientific_contract": {
+    "model_changed": false,
+    "decoder_changed": false,
+    "loss_changed": false,
+    "population_changed": false,
+    "schedule_changed": false,
+    "seed_changed": false,
+    "optimizer_changed": false,
+    "learning_rate_changed": false,
+    "updates_changed": false,
+    "thresholds_changed": false
+  },
+  "runtime": {
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "device": "cpu",
+    "dataset_accessed": false,
+    "confirmation_training_executed": false
+  },
+  "authorization": {
+    "canonical_authority_run": true,
+    "authority_run_count": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r3.json",
+    "automatic_retry_allowed": false,
+    "deterministic_dry_run_currently_authorized": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "2721a692af64bf008d378532de58f2e69e6ef114f5d23dccfa5fdf7433235ffc"
+}

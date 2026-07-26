@@ -1,0 +1,106 @@
+{
+  "schema_version": "cure-lite-ccfr-v11-holdout-r1-pre-attempt-failure-v1",
+  "method_id": "ccfr_v11",
+  "stage_id": "dataset_free_exposure_holdout_confirmation",
+  "status": "SEALED_AFTER_R1_PRE_ATTEMPT_FAILURE_BEFORE_R2_IMPLEMENTATION",
+  "scientific_state": {
+    "r1_scientific_attempt_consumed": false,
+    "r1_attempt_receipt_written": false,
+    "r1_holdout_optimizer_steps": 0,
+    "ccfr_training_entered": false,
+    "v8_comparator_training_entered": false,
+    "holdout_model_outputs_observed": false,
+    "holdout_performance_metrics_observed": false,
+    "candidate_selection_performed": false
+  },
+  "launch_events": [
+    {
+      "event": "argument_validation_only",
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python tools/evaluate_ccfr_exposure_holdout.py",
+      "exit_code": 2,
+      "failure_type": "argparse_required_argument_error",
+      "failure_message": "the following arguments are required: --output",
+      "canonical_output_supplied": false,
+      "attempt_receipt_written": false,
+      "training_entered": false,
+      "scientific_attempt_consumed": false
+    },
+    {
+      "event": "canonical_pre_attempt_construction",
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python tools/evaluate_ccfr_exposure_holdout.py --output protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.json",
+      "exit_code": 1,
+      "failure_type": "TypeError",
+      "failure_message": "fingerprint mapping keys must be strings",
+      "failure_location": "tools/evaluate_ccfr_exposure_holdout.py::_attempt_payload_before_write",
+      "canonical_output_supplied": true,
+      "attempt_receipt_written": false,
+      "training_entered": false,
+      "scientific_attempt_consumed": false
+    }
+  ],
+  "root_cause": {
+    "unique_non_string_mapping_path": "prerequisites.holdout_contract.factual_exposures_per_state",
+    "observed_key_type": "int",
+    "observed_keys": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    "observed_value_per_key": 100,
+    "failure_precedes_attempt_write": true,
+    "failure_precedes_training": true,
+    "global_fingerprint_relaxation_allowed": false
+  },
+  "r1_authority_artifacts": {
+    "attempt_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r1.json",
+    "attempt_absent": true,
+    "result_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.json",
+    "result_absent": true,
+    "complete_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.COMPLETE.sha256",
+    "complete_absent": true
+  },
+  "frozen_upstream_bindings": {
+    "design_receipt": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_design_receipt.json",
+      "file_sha256": "e595df43f5c4bb78b4a6aa7ce01f300e759dc6235cd3fe30f3749f70cb28e795",
+      "receipt_fingerprint": "4527aaa81646274ddeb85b7f4c2de5b4ffb539735297064d25e34bacec002bcb"
+    },
+    "development_config": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_config.json",
+      "file_sha256": "3910e5150b79ca1b83ffe1e94f9cfd66b46520b6ca1d3e19d3ca33775264af96",
+      "config_fingerprint": "8e999a56842e3db00f0ddcc22d077052c7d7a0a9c793af5393e3d2e064f7e587"
+    },
+    "development_attempt": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_attempt_r1.json",
+      "file_sha256": "4416666773280d0ceb87749c4afd03d7424f1c6ab6967955f539a4eb59b8f630",
+      "attempt_fingerprint": "f82842da58624b19c99b77408bcf18950c1c7346662a14d3791188c2dab9ffc9"
+    },
+    "development_result": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_result_r1.json",
+      "file_sha256": "f23b3ac720d818aab7054161e5a74732c6864588f992b17e73946b7c4797e14f",
+      "result_fingerprint": "8abcaf430b29c7f102fb7ae8262907a97fa56f54e9b2962ba7b49c4691f7f69c"
+    },
+    "development_complete": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_result_r1.COMPLETE.sha256",
+      "file_sha256": "1476073a3f734865d2a6b9b5e74e4b4e767cd9aa8f61016017d7cd5eedfefa9b"
+    },
+    "r1_evaluator": {
+      "repo_path": "tools/evaluate_ccfr_exposure_holdout.py",
+      "file_sha256": "abcafee779b1527f06f1aaa9337a5f36cf316c96d2ac08226d956b1e3ad0218a"
+    },
+    "r1_tests": {
+      "repo_path": "tests_v11/test_ccfr_exposure_holdout.py",
+      "file_sha256": "98e8d8da810dfd88aa6b53ad646055e84eede6b4bae1fdc2e888affc1cce4168"
+    }
+  },
+  "authorized_correction": {
+    "runner_revision": "r2",
+    "scientific_attempt_number": 1,
+    "only_allowed_value_change": "convert factual_exposures_per_state keys 0..15 to decimal strings while preserving all counts",
+    "recursive_or_generic_key_coercion_allowed": false,
+    "model_change_allowed": false,
+    "input_change_allowed": false,
+    "schedule_change_allowed": false,
+    "optimizer_change_allowed": false,
+    "threshold_change_allowed": false,
+    "decision_change_allowed": false,
+    "automatic_retry_allowed": false
+  },
+  "failure_receipt_fingerprint": "f7a74d2210b0993ebc40393a9b085ee653f9d0016f98cb960b4b995bf22ea24c"
+}

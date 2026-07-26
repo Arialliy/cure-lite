@@ -1,0 +1,285 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.dataset-free-input-freeze-and-reachability.v1",
+  "method_id": "nlcc_v12",
+  "stage_id": "dataset_free_input_freeze_and_reachability",
+  "created_date": "2026-07-26",
+  "status": "DATASET_FREE_INPUT_FREEZE_AND_REACHABILITY_PASS",
+  "upstream_bindings": {
+    "proposal": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/proposal_receipt.json",
+      "file_sha256": "3a357709227dd04e6ca5ca9416ba840b8f35ff7147f2e6064f5ce889c4ebc38c"
+    },
+    "unit_implementation_closure_v2": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_implementation_closure_v2_receipt.json",
+      "file_sha256": "e70ea662de31a5bd74617ea7e56a80f002eb44c9746bf403e8e199ca3b6c9fcb",
+      "closure_fingerprint": "b7582200e7dc51fa20cbed23cecd4704e62991a8d982696d4f3013b13c467947"
+    },
+    "module_call_clarification": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/module_call_contract_clarification_receipt.json",
+      "file_sha256": "3a4a1002acfc54ca13e36e274575819bb22142aaa6fe73874a235146991ac8a3"
+    },
+    "reachability_aware_input_design_preregistration": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/reachability_aware_input_design_preregistration.json",
+      "file_sha256": "5f5761fbf0e6f211757cd6069c97d7cc77af3cddd49eb5fa8454166558634f67",
+      "design_fingerprint": "5b2efecbe80e3e64023499f03cd968c2248d50f782f93c6fa8dc19c54b9b6e0e"
+    },
+    "feature_serialization_clarification": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/feature_serialization_clarification_receipt.json",
+      "file_sha256": "1958a8f26212926f5e4ec5e13ff267b035a6d0d547a41f4cb21be2d46b3d1c57",
+      "clarification_fingerprint": "745b6edf279e193c1beac5b1db999aa4bdc364cdde1699ec031a9cc8e536a904"
+    }
+  },
+  "preregistration_upstream_remediation": {
+    "preregistration_file_preserved_byte_for_byte": true,
+    "preregistered_unit_closure_binding_is_historical": true,
+    "authoritative_unit_closure_is_v2": true,
+    "reason": "The additive v2 closure binds the final-source 1105-case root regression and an explicit four-file v12 targeted command."
+  },
+  "pretraining_evidence_boundary": {
+    "scientific_optimizer_updates": 0,
+    "unit_wiring_smoke_optimizer_updates": 1,
+    "unit_wiring_smoke_fixture": "pre-existing synthetic integration fixture, not either frozen NLCC-v12 input profile",
+    "post_update_gate_observed": false,
+    "development_gate_metrics_observed": false,
+    "holdout_gate_metrics_observed": false,
+    "development_result_exists": false,
+    "holdout_result_exists": false,
+    "dataset_accessed": false,
+    "D_R_accessed": false,
+    "DV_accessed": false,
+    "DT_accessed": false,
+    "candidate_selection_from_result": false
+  },
+  "exact_source_bindings": {
+    "cure_lite/nlcc_dataset_free_inputs.py": "2690d6a7c0f537fa0d33f302f8805868b710482e1a61410483964a82e956398d",
+    "cure_lite/nlcc_development_inputs.py": "7dace28b9d2892de54ed86e613144cbfc7766befe023a24ce44cabd5759f7779",
+    "cure_lite/nlcc_holdout_inputs.py": "d682634bdc8435892b357de62e81945611aeaa48195523ddd57dd1ab3a16f13a",
+    "tests_v12/test_nlcc_dataset_free_inputs.py": "56d68879bbcf3b72c8609421786d430514a4b7545c4a06cf50caa6fb05058d67"
+  },
+  "direct_behavior_dependency_bindings": {
+    "cure_lite/cache/schema.py": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/paired_outcome_types.py": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/train/__init__.py": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+  },
+  "static_import_boundary": {
+    "test_status": "PASS",
+    "dataset_loader_import": false,
+    "detector_import": false,
+    "NLCC_candidate_decoder_import": false,
+    "optimizer_symbol_import": false,
+    "training_runner_import": false,
+    "result_artifact_import": false,
+    "allowed_generic_dependencies": [
+      "stable fingerprint helper",
+      "occupancy projection helper",
+      "paired value objects",
+      "BranchBatch value type"
+    ]
+  },
+  "profile_evidence": {
+    "development": {
+      "profile_id": "nlcc_v12_development",
+      "design_seed": 2550254881,
+      "seed_derivation_text": "nlcc_v12|dataset_free_development_v1|reachability_aware_matched_anchor_null",
+      "seed_derivation_sha256": "9801cd2177628427b8b06dd4ffd982e43fb76fd99190c42926ebaedb3b6e3714",
+      "dyads": 16,
+      "rows": 32,
+      "updates": 320,
+      "slots": 640,
+      "group_row_counts": {
+        "clean_same_cell_1px": 4,
+        "clean_same_cell_3px": 4,
+        "clean_adjacent_cell_1px": 4,
+        "clean_adjacent_cell_3px": 4,
+        "clean_multicount_2to1": 4,
+        "clean_multicount_3to2": 4,
+        "component_null_block": 4,
+        "component_null_sparse": 4
+      },
+      "anchor_positive_rows": 16,
+      "anchor_null_rows": 16,
+      "anchor_positive_slots": 320,
+      "anchor_null_slots": 320,
+      "clean_positive_slots": 592,
+      "component_null_slots": 48,
+      "input_fingerprint": "4f387e3e513a93a1cee58ee68d9d67eb5b2746688da42ec40572ae6fc1df55a7",
+      "catalog_fingerprint": "1105dd6c086b2482217a28336ba588b6d87aa09c33a100ed932dc85e8e2ca257",
+      "schedule_fingerprint": "828f261a62ee9bd8486d2bf24131a5031383fae488ef435638a13c32adca16bc",
+      "factual_population_fingerprint": "3e467075c5b4ae12cc09663574b0a637a34cf6a9d82988621b0645c836d9213e",
+      "factual_schedule_fingerprint": "bcb8e7a26d19256b4d901dc280128776d9ffd9184666ca5eec7ead9c25d1e49e",
+      "deterministic_rebuild": {
+        "rebuild_a_fingerprint": "4f387e3e513a93a1cee58ee68d9d67eb5b2746688da42ec40572ae6fc1df55a7",
+        "rebuild_b_fingerprint": "4f387e3e513a93a1cee58ee68d9d67eb5b2746688da42ec40572ae6fc1df55a7",
+        "manifests_equal": true,
+        "canonical_json_roundtrip": true
+      },
+      "reachability_audit": {
+        "required_zero_counts": {
+          "unwitnessed_completion_count": 0,
+          "completion_changed_support_overlap_count": 0,
+          "opposite_label_identical_input_count": 0,
+          "opposite_label_local_signature_conflict_count": 0,
+          "clean_D_without_feature_witness_count": 0,
+          "clean_D_without_count_difference_count": 0
+        },
+        "twin_integrity_counts": {
+          "orphan_twin_count": 0,
+          "shared_sample_id_failure_count": 0,
+          "feature_difference_mismatch_count": 0,
+          "occupancy_difference_count": 0,
+          "transition_truth_difference_count": 0,
+          "completion_difference_mismatch_count": 0,
+          "footprint_difference_count": 0
+        },
+        "input_integrity_counts": {
+          "same_match_within_update_count": 0,
+          "same_sample_within_update_count": 0,
+          "same_pair_within_update_count": 0,
+          "nonfinite_input_count": 0,
+          "twin_D_H_G_partition_difference_count": 0
+        },
+        "all_pass": true
+      }
+    },
+    "holdout": {
+      "profile_id": "nlcc_v12_exposure_holdout",
+      "design_seed": 1788878112,
+      "seed_derivation_text": "nlcc_v12|dataset_free_exposure_confirmation_v1|reachability_aware_matched_anchor_null",
+      "seed_derivation_sha256": "6aa01d20a00314798603d7f17e1b51bf2181ae53176ce3a6b562b9a12a0f35b8",
+      "dyads": 111,
+      "rows": 222,
+      "updates": 400,
+      "slots": 800,
+      "group_row_counts": {
+        "clean_same_cell_1px": 36,
+        "clean_same_cell_3px": 34,
+        "clean_adjacent_cell_1px": 34,
+        "clean_adjacent_cell_3px": 34,
+        "clean_multicount_2to1": 34,
+        "clean_multicount_3to2": 34,
+        "component_null_block": 8,
+        "component_null_sparse": 8
+      },
+      "anchor_positive_rows": 111,
+      "anchor_null_rows": 111,
+      "anchor_positive_slots": 400,
+      "anchor_null_slots": 400,
+      "clean_positive_slots": 740,
+      "component_null_slots": 60,
+      "input_fingerprint": "d475e7037656016233949e28fb3877b5e92af8745bc168aa8660284c93fa5335",
+      "catalog_fingerprint": "e0f292c2283e4b5d750af3f3507113cb144314afd3f89856ffecc889c29f4619",
+      "schedule_fingerprint": "cde2e6c3868d12bced218ce01c798441fa01067050b01daa9d8f50b1fe914326",
+      "factual_population_fingerprint": "10dd8efba4ae2dac8ea515055558cea012c1d0d8ad8a6562b91e927756628739",
+      "factual_schedule_fingerprint": "18d1a702d62299d072328c407233cfc5f65e94ebd0eaa71eb2c7004af1764073",
+      "deterministic_rebuild": {
+        "rebuild_a_fingerprint": "d475e7037656016233949e28fb3877b5e92af8745bc168aa8660284c93fa5335",
+        "rebuild_b_fingerprint": "d475e7037656016233949e28fb3877b5e92af8745bc168aa8660284c93fa5335",
+        "manifests_equal": true,
+        "canonical_json_roundtrip": true
+      },
+      "reachability_audit": {
+        "required_zero_counts": {
+          "unwitnessed_completion_count": 0,
+          "completion_changed_support_overlap_count": 0,
+          "opposite_label_identical_input_count": 0,
+          "opposite_label_local_signature_conflict_count": 0,
+          "clean_D_without_feature_witness_count": 0,
+          "clean_D_without_count_difference_count": 0
+        },
+        "twin_integrity_counts": {
+          "orphan_twin_count": 0,
+          "shared_sample_id_failure_count": 0,
+          "feature_difference_mismatch_count": 0,
+          "occupancy_difference_count": 0,
+          "transition_truth_difference_count": 0,
+          "completion_difference_mismatch_count": 0,
+          "footprint_difference_count": 0
+        },
+        "input_integrity_counts": {
+          "same_match_within_update_count": 0,
+          "same_sample_within_update_count": 0,
+          "same_pair_within_update_count": 0,
+          "nonfinite_input_count": 0,
+          "twin_D_H_G_partition_difference_count": 0
+        },
+        "all_pass": true
+      }
+    }
+  },
+  "cross_profile_isolation": {
+    "distinct_profile_ids": true,
+    "distinct_design_seeds": true,
+    "pair_id_intersection_count": 0,
+    "match_id_intersection_count": 0,
+    "sample_id_intersection_count": 0,
+    "feature_tensor_fingerprint_intersection_count": 0,
+    "complete_row_tensor_fingerprint_intersection_count": 0,
+    "input_fingerprints_unequal": true,
+    "catalog_fingerprints_unequal": true,
+    "pair_schedule_fingerprints_unequal": true
+  },
+  "test_evidence": {
+    "command": [
+      "/home/md0/ly/MSHNet/.venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests_v12/test_nlcc_dataset_free_inputs.py",
+      "--junitxml=protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_dataset_free_inputs_final.junit.xml"
+    ],
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_dataset_free_inputs_final.junit.xml",
+    "file_sha256": "2c7f2d7d3dd44a8ed8413fc1a37fb53f0cbe72a0619dda00ffca731fc2e9ccf8",
+    "test_source_sha256_at_execution": "56d68879bbcf3b72c8609421786d430514a4b7545c4a06cf50caa6fb05058d67",
+    "tests": 9,
+    "passed": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "time_seconds": 24.897,
+    "full_population_feature_formula_coverage": true,
+    "static_import_boundary_coverage": true
+  },
+  "frozen_dependency_audit": {
+    "proposal_dependency_count": 11,
+    "proposal_dependency_drift_count": 0,
+    "v4_to_v11_sources_modified_by_v12_input_stage": false,
+    "decoder_modified_by_v12_input_stage": false,
+    "loss_modified_by_v12_input_stage": false,
+    "training_step_modified_by_v12_input_stage": false,
+    "calibration_modified_by_v12_input_stage": false,
+    "inference_modified_by_v12_input_stage": false
+  },
+  "authorization": {
+    "development_and_holdout_runner_config_implementation": true,
+    "runner_unit_tests": true,
+    "development_pre_run_authorization_creation": false,
+    "development_training": false,
+    "holdout_training": false,
+    "real_D_R_protocol_design": false,
+    "real_D_R_execution": false,
+    "DV": false,
+    "DT": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "next_gate": {
+    "name": "freeze_both_dataset_free_runners_and_configs_before_any_development_result",
+    "required_order": [
+      "implement development and holdout runners/configs without scientific execution",
+      "bind both runner/config source hashes and thresholds",
+      "pass runner and preflight tests",
+      "prove absence of prior development artifacts",
+      "create one development pre-run authorization",
+      "only then allow exactly one 320-update development attempt"
+    ],
+    "holdout_authorization_before_development_pass": false,
+    "real_data_authorization": false
+  },
+  "receipt_fingerprint_scope": "all_fields_except_receipt_fingerprint",
+  "receipt_fingerprint": "2867331bcc695c9a5a31bee98233f5f7db4aeefbf2385d18450422ffd0ad870a"
+}

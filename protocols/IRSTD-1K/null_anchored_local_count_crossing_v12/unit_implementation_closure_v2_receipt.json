@@ -1,0 +1,131 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.unit-implementation-closure.v2",
+  "method_id": "nlcc_v12",
+  "stage_id": "unit_implementation_closure_v2",
+  "created_date": "2026-07-26",
+  "status": "UNIT_IMPLEMENTATION_CLOSURE_PASS",
+  "supersession": {
+    "prior_receipt_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_implementation_closure_receipt.json",
+    "prior_receipt_sha256": "902f0714bf7f27eb2149cbc9c7272287318027e41b4c12abbd8f8ee803a14977",
+    "prior_receipt_preserved": true,
+    "reason": "Add final-source root API regression evidence and bind an explicit four-file v12 targeted command after dataset-free tests were added."
+  },
+  "upstream_bindings": {
+    "proposal": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/proposal_receipt.json",
+      "file_sha256": "3a357709227dd04e6ca5ca9416ba840b8f35ff7147f2e6064f5ce889c4ebc38c"
+    },
+    "design": {
+      "repo_path": "CURE_Lite_NLCC_v12_模型与代码设计.md",
+      "file_sha256": "8e9381dbcb8d649fcb1ac10308420f5144b84c74462c12bad2adc2a9faa0fddb"
+    },
+    "module_call_clarification": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/module_call_contract_clarification_receipt.json",
+      "file_sha256": "3a4a1002acfc54ca13e36e274575819bb22142aaa6fe73874a235146991ac8a3"
+    }
+  },
+  "implementation_bindings": {
+    "cure_lite/null_anchored_local_count_crossing_config.py": "37dbfe7f45b9077ad077fcea2e5ceab876ec1770eb1703a70a36190ceb100241",
+    "cure_lite/null_anchored_local_count_crossing_decoder.py": "d12cae59b7fd7d5da7d3b8565ea11ac976e26cdd2d3f802e223019d0a7818feb"
+  },
+  "test_source_bindings": {
+    "tests_v12/test_null_anchored_local_count_crossing_config.py": "66c5d5534890576111633256164d5ee4ffad1c0687dd1e158eb9d0bc16b3bfe1",
+    "tests_v12/test_null_anchored_local_count_crossing_decoder.py": "93614fb890c6b4c525a23507fec6db3f45908389efc1cf3a8967a4a0f9ea72e3",
+    "tests_v12/test_null_anchored_local_count_crossing_model.py": "1f0bcb7ebcba04e9591f75c84b9e8b0cbb3ef91e14c552317b8d4236290bf340",
+    "tests_v12/test_null_anchored_local_count_crossing_paired_integration.py": "fd532981e5c6c05d1ab0964a7d43b44ae9e205843d02c66baf65006ef66dcde2"
+  },
+  "test_evidence": {
+    "targeted_current_source": {
+      "command": [
+        "/home/md0/ly/MSHNet/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests_v12/test_null_anchored_local_count_crossing_config.py",
+        "tests_v12/test_null_anchored_local_count_crossing_decoder.py",
+        "tests_v12/test_null_anchored_local_count_crossing_model.py",
+        "tests_v12/test_null_anchored_local_count_crossing_paired_integration.py",
+        "--junitxml=protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_targeted.junit.xml"
+      ],
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_targeted.junit.xml",
+      "file_sha256": "b8d907998f358232da3d2f51bdb11bff9f12f05ec0724d4c37d02e8eadd13648",
+      "tests": 65,
+      "passed": 65,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_seconds": 4.855
+    },
+    "root_api_current_source": {
+      "command": [
+        "/home/md0/ly/MSHNet/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--junitxml=protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_root_final.junit.xml"
+      ],
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_root_final.junit.xml",
+      "file_sha256": "521f42cade2d3342e9a456f0a3cc5c4181a0d02e76aa4a8b5a601eeb71bd76c7",
+      "tests": 1105,
+      "passed": 1105,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time_seconds": 521.786,
+      "decoder_source_predates_test_start": true
+    },
+    "explicit_v8_to_v12_regression": {
+      "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/unit_versioned_broad.junit.xml",
+      "file_sha256": "ac773b324b22ccc98414aa402ba3958b1ee0032c9a673f54b51b413430fe96b3",
+      "tests": 327,
+      "passed": 327,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "evidence_composition_disclosed_in_prior_receipt": true
+    }
+  },
+  "verified_contracts": {
+    "active_v4_topology_unchanged": true,
+    "state_keys_shapes_initialization_exact": true,
+    "reference_parameter_count": 4385,
+    "dataset_free_parameter_count": 2593,
+    "parameter_tensor_count": 6,
+    "state_dict_entry_count": 7,
+    "new_modules": 0,
+    "new_parameters": 0,
+    "new_heads": 0,
+    "new_inference_branches": 0,
+    "numeric_domain_fail_fast": true,
+    "null_anchored_equation_exact": true,
+    "each_trainable_module_called_once": true,
+    "shared_parameter_free_pixel_shuffle_calls": 2,
+    "one_base_one_decoder_inference": true,
+    "pre_mask_and_hard_union_unchanged": true,
+    "root_api_regression_passed_on_final_decoder_source": true
+  },
+  "scientific_scope": {
+    "implementation_contract_supported": true,
+    "dataset_free_learnability_supported": false,
+    "real_data_performance_supported": false,
+    "cross_detector_generalization_supported": false,
+    "public_novelty_supported": false,
+    "ICLR_claim_supported": false,
+    "model_success_claim_supported": false
+  },
+  "authorization": {
+    "dataset_free_input_protocol_implementation": true,
+    "dataset_free_reachability_audit": true,
+    "dataset_free_development_training": false,
+    "dataset_free_independent_holdout": false,
+    "real_D_R": false,
+    "DV": false,
+    "DT": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "closure_fingerprint_scope": "all_fields_except_closure_fingerprint",
+  "closure_fingerprint": "b7582200e7dc51fa20cbed23cecd4704e62991a8d982696d4f3013b13c467947"
+}

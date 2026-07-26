@@ -1,0 +1,208 @@
+{
+  "schema_version": "cure-lite-synthetic-state-hypothesis-review-proposal-v1",
+  "proposal_id": "irstd1k-dr-synthetic-state-hypothesis-review-v1",
+  "stage_role": "non-authorizing-read-only-hypothesis-review",
+  "dataset": "IRSTD-1K",
+  "evidence_split": "D_R",
+  "new_runtime_data_access": [],
+  "base_commit": "a9dcfb23f44e2cbd54849464d0d47c7e2f43e499",
+  "evidence_binding": {
+    "attribution_config_file_sha256": "8933113e745ab42119e90a0a3f2b4366290f38a6b523251d94d39bc5665e6161",
+    "attribution_config_fingerprint": "38046ddd0642b2f0dd28f39591cd525d2d6de3b7d224546162cdc7eb8d14b7e8",
+    "r1_complete_file_sha256": "fdc923461ff96c18aaf6774dc3404d8aa1ba2a0aa5715660652de544b0209b09",
+    "r1_complete_fingerprint": "05ef3539f2427f5bc4595e87085ef52eadfec697c6e58a4b6104503d1bcc1939",
+    "r2_complete_file_sha256": "fdc923461ff96c18aaf6774dc3404d8aa1ba2a0aa5715660652de544b0209b09",
+    "r2_complete_fingerprint": "05ef3539f2427f5bc4595e87085ef52eadfec697c6e58a4b6104503d1bcc1939",
+    "r1_r2_byte_identical": true,
+    "authority_binding_file_sha256": "5ca0763a2065cc89e0d85b6be623c61c71dd358744be0d13bd9d8ac0db956de0",
+    "authority_binding_receipt_fingerprint": "d78feda8d0c99c9ff72f6dc10532dcf71e4de5007aef0d863ba1ff2ef61981e7",
+    "diagnostic_decision_file_sha256": "1be8e74cfc77a0bb236151c7434f0a2fed0027825c8b3e2023d00559f5111c37",
+    "diagnostic_decision_receipt_fingerprint": "a714eb25fcebdee93b50dc0ecf61ff2bf307022c709480e35f1940242e2f24a4",
+    "population_fingerprint": "d949fdd388772b83a55da43d688dde2faab311101268fe3d7bcd461c1bd5d22f",
+    "formal_p0_b": "fail",
+    "formal_p0_c": "fail",
+    "formal_p0_d": "not_evaluated",
+    "p0_d_nonexecution_reason": "blocked_by_frozen_p0_b_c_stop_rule"
+  },
+  "reviewed_source_binding": {
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/experiment/training_pipeline.py": "cb557b3d675e97e232de3da7f5b8c545254a99a19e2becfe38414d8bc1d334f8",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/supervision.py": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a",
+    "cure_lite/intervention.py": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215",
+    "cure_lite/experiment/synthetic_state_failure_attribution.py": "d3f478068dbf560c6a87afe5786aacd2a34896ceaad54d51e2cf60093f6571bf"
+  },
+  "verified_tensor_flow": {
+    "decoder_inputs": [
+      "detached_frozen_feature",
+      "projected_binary_occupancy"
+    ],
+    "decoder_excluded_values": [
+      "base_probability",
+      "ground_truth",
+      "target_mask",
+      "valid_mask",
+      "factual_legal_identity",
+      "alignment_descriptor"
+    ],
+    "synthetic_state_edit": "delete_one_legal_prediction_component_from_occupancy_only",
+    "synthetic_feature_relation": "exact_same_source_frozen_feature_object_and_values",
+    "branch_losses": "computed_independently_then_weighted_scalar_sum",
+    "pairwise_factual_legal_loss_present": false,
+    "pairwise_factual_conditioning_present": false
+  },
+  "candidate_hypothesis": {
+    "candidate_id": "joint_feature_occupancy_state_consistency",
+    "epistemic_status": "structural_hypothesis_not_causally_identified",
+    "statement": "Deleting a detected component only from occupancy while retaining the complete observational frozen feature may create a joint decoder state that is unlike naturally occurring factual-miss states.",
+    "actionable_decoder_sources": [
+      "frozen_feature",
+      "occupancy"
+    ],
+    "excluded_diagnostic_proxy": [
+      "base_probability"
+    ],
+    "causal_claim_established": false,
+    "transformation_specified": false,
+    "performance_claim_authorized": false,
+    "novelty_claim_authorized": false
+  },
+  "competing_explanations": [
+    {
+      "explanation_id": "base_probability_role_selection_proxy",
+      "current_state": "observational_signal_not_actionable",
+      "reason": "P is strongly role-discriminative but does not enter the decoder and participates in role construction."
+    },
+    {
+      "explanation_id": "local_target_feature_evidence",
+      "current_state": "not_supported_as_unique_mechanism",
+      "reason": "F_local did not produce a stable strong screen and shares ring information with F_background_global."
+    },
+    {
+      "explanation_id": "background_global_feature_composition",
+      "current_state": "plausible_not_identified",
+      "reason": "F_background_global is strong in the full population and shared groups, but its ring/global subquantities and source composition are not separated."
+    },
+    {
+      "explanation_id": "conditioning_occupancy_structure",
+      "current_state": "plausible_not_identified",
+      "reason": "O is strong only in the selected-source transductive sensitivity; target-local, other-component, and global occupancy effects are not separated."
+    },
+    {
+      "explanation_id": "source_group_composition",
+      "current_state": "unresolved",
+      "reason": "The selected-overlap source-centering analysis is transductive and does not remove source or group effects."
+    }
+  ],
+  "hard_gate_review": {
+    "actionability": {
+      "state": "partial",
+      "basis": [
+        "The umbrella hypothesis concerns tensors consumed by the decoder.",
+        "The strongest P signal is not decoder-actionable."
+      ]
+    },
+    "single_mechanism": {
+      "state": "fail",
+      "basis": [
+        "Joint-state consistency is one principle, but current evidence does not select one feature or occupancy operation."
+      ]
+    },
+    "state_preservation": {
+      "state": "unresolved",
+      "basis": [
+        "A target-local synthetic-only feature edit could preserve most state fields.",
+        "The observed background/global signal cannot be changed while also claiming exact non-target-background preservation without a new contract."
+      ]
+    },
+    "non_self_validation": {
+      "state": "unresolved",
+      "basis": [
+        "No independent confirmation groups or frozen cross-fit transformation rule has been specified."
+      ]
+    },
+    "falsifiability": {
+      "state": "partial",
+      "basis": [
+        "Transformed-state P0-A/B/C can falsify a future fixed hypothesis.",
+        "No unique transformed state currently exists to test."
+      ]
+    },
+    "review_outcome": "H0",
+    "review_outcome_meaning": "no_candidate_satisfies_all_five_transformation_review_gates",
+    "eligible_to_draft_separate_transformation_protocol": false
+  },
+  "scientific_status": {
+    "v0_2": "frozen_negative_result",
+    "p0_overall": "failed_prerequisites",
+    "failure_attribution": "partial_inconclusive",
+    "asymmetric_feature_occupancy_edit_in_code": "verified",
+    "joint_state_incompatibility_as_failure_cause": "not_established",
+    "cure_lite_mechanism": "not_established",
+    "cure_lite_method": "not_designed_successfully_yet",
+    "full_cure": "not_started",
+    "paper_core": "not_established"
+  },
+  "required_next_read_only_gates": [
+    {
+      "gate_id": "R1_predeclared_feature_subquantity_accounting",
+      "status": "pending",
+      "requirement": "Separate ring, non-ring global mean, and non-ring global scale without post-result subset selection."
+    },
+    {
+      "gate_id": "R2_occupancy_localization_accounting",
+      "status": "pending",
+      "requirement": "Separate target-neighborhood occupancy, other detected components, and global occupancy fraction."
+    },
+    {
+      "gate_id": "R3_source_group_identifiability",
+      "status": "pending",
+      "requirement": "Use group-held-out or strictly cross-fitted analysis; selected-overlap transductive centering is not confirmation."
+    },
+    {
+      "gate_id": "R4_orthogonal_factor_contract",
+      "status": "pending",
+      "requirement": "Remove the shared-ring double interpretation between F_local and F_background_global."
+    },
+    {
+      "gate_id": "R5_state_preservation_feasibility",
+      "status": "pending",
+      "requirement": "Prove which synthetic-only tensor region may change while Base cache, factual branches, target lineage, non-target background, and inference remain fixed."
+    },
+    {
+      "gate_id": "R6_independent_confirmation_and_falsification_contract",
+      "status": "pending",
+      "requirement": "Freeze confirmation groups or a cross-fit rule and transformed-state P0-A/B/C failure conditions before any transformation is implemented."
+    }
+  ],
+  "next_action": "redefine_cure_lite_core_learning_object_before_any_transformation_protocol",
+  "performed": {
+    "new_metric_computation_performed": false,
+    "transformation_constructed": false,
+    "candidate_s_constructed": false,
+    "p0_d_executed": false,
+    "training_performed": false,
+    "calibration_performed": false,
+    "inference_performed": false,
+    "d_v_accessed": false,
+    "d_t_accessed": false,
+    "full_cure_started": false,
+    "backbone_integration_performed": false
+  },
+  "authorization": {
+    "authorizes_read_only_core_hypothesis_redefinition": true,
+    "authorizes_new_metric_computation": false,
+    "authorizes_transformation_construction": false,
+    "authorizes_candidate_s_construction": false,
+    "authorizes_p0_d": false,
+    "authorizes_training": false,
+    "authorizes_calibration": false,
+    "authorizes_inference": false,
+    "authorizes_d_v_evaluation": false,
+    "authorizes_d_t_access": false,
+    "authorizes_full_cure": false,
+    "authorizes_backbone_integration": false
+  },
+  "receipt_fingerprint_scope": "all-fields-except-receipt-fingerprint",
+  "receipt_fingerprint": "4addd47f9e9bae221b0e100be105ad03fbaf865bfa86e6dd2b209d9c014a2c35"
+}

@@ -4,7 +4,19 @@
 
 CURE-Lite is the first mechanism gate for CURE. The v0.1 uniform-selection and
 v0.2 M experiments are complete; neither mechanism met its predeclared
-development rule. Full CURE and cross-backbone validation have not started.
+development rule. The current candidate is the additive paired
+coverage-response core. Its code/toy checks, real `D_R` preflight,
+matched-control static preflight, proposed/control bounded execution, and
+spatial-tail companion are complete with byte-identical successful replays.
+The formal joint schedule and paired artifact contract are implemented. All
+four frozen proposed/control seed-42/43 runs completed `800 x 40` updates, and
+the common protocol performed its one authorized `D_V` reveal. Wave A records
+`PERFORMANCE_FAIL` and `STOP_AND_PRESERVE_EVIDENCE`. Full CURE and
+cross-backbone validation have not started.
+
+This result stops the current paired version; it does not change the overall
+CURE progression from CURE-Lite to a later frozen confirmation, then Full CURE,
+and only then cross-detector/multi-dataset validation.
 
 Four evidence types must remain separate:
 
@@ -21,7 +33,7 @@ the fourth.
 The full test suite currently reports:
 
 ```text
-376 passed
+723 passed
 ```
 
 Tests cover the frozen-Base boundary, CC8 occupancy, deterministic matching,
@@ -29,7 +41,11 @@ decoder-visible legal targets, supervision, decoder-only optimization,
 monotone union, cache identity, v2/v3 decoder artifacts, historical reference
 loading, M-only training, single-method calibration, fixed-point U evaluation,
 create-only output publication, D_R-only P0 protocol validation, zero-MAD
-support preservation, matched group-MMD, and exact exposure-audit guards.
+support preservation, matched group-MMD, exact exposure-audit guards, paired
+catalog/loss/train-step/schedule checks, and toy paired learnability.
+The suite also covers the frozen 120-image comparison protocol, complete
+runtime-input fingerprints, control-provider artifact bindings, strict
+no-resume formal runner, and common-protocol wave decisions.
 
 Passing Gate 0 is required before an experiment starts, but it is not an M
 performance result.
@@ -215,7 +231,7 @@ The correct Stage 1b decision is therefore: reject the current v0.2 scalar
 hard-matching selector, retain the CURE problem hypothesis as unresolved, and
 remain in CURE-Lite for the next single-mechanism test.
 
-## Gate 4: D_R-only P0 prerequisite
+## Gate 4: historical D_R-only P0 prerequisite
 
 P0 is a sequential prerequisite, not another performance experiment:
 
@@ -249,21 +265,59 @@ Consequently, P0-B and P0-C have `p0_*_pass = null` and
 `formal_status = not_evaluated_due_to_p0_a_failure`. Their numerical outputs
 are secondary diagnostics and cannot be reported as formal gate outcomes.
 P0-D has `p0_d_pass = null`; S is `not_evaluated` and is not integrated into
-training. The decision route is `rebuild_synthetic_target_extraction`.
+training. The decision route at that protocol stage was
+`rebuild_synthetic_target_extraction`. Later hypothesis review stopped the
+marginal reweighting/S route; this historical gate does not govern the new
+same-source paired objective.
 
 The formal P0 decision does not authorize S training, `D_V` evaluation, Full
 CURE, or cross-backbone integration.
 
-## Gate 5: later stages
+## Gate 5: current paired CURE-Lite route and later stages
 
 Every Stage-A value is selected or evaluated on `D_V` and must be labelled a
 development result. Stage-A does not read `D_T`.
 
-Only after CURE-Lite is supported should Full CURE be designed from the
-remaining measured errors. The immediate work is now narrower: repair the
-synthetic target extraction/resize protocol and rerun P0-A. Distribution
-correction remains blocked until the repaired population passes the sequential
-P0 gates. Only after Full CURE exists should thin adapters and unchanged-core
-experiments be conducted with DNANet, UIUNet, MSHNet, and SCTransNet. Those
-later experiments, not the current interface alone, are needed to evaluate
-cross-backbone behavior.
+The current paired route keeps the decoder topology and inference graph fixed.
+Its frozen execution and stopping point are:
+
+```text
+real D_R paired preflight (passed)
+  -> matched-control static preflight (passed)
+  -> bounded D_R learnability (passed with exact replay)
+  -> spatial-tail companion (completed with exact replay)
+  -> 8-control bounded execution (engineering pass with exact replay)
+  -> formal joint schedule and paired artifact contract (implemented)
+  -> runtime-input/provider/common-D_V contracts (frozen)
+  -> no-resume formal runner (strict D_R-only dry validation passed)
+  -> four frozen Wave A proposed/control seed-42/43 runs (completed)
+  -> one-time common-protocol D_V reveal (completed)
+  -> PERFORMANCE_FAIL
+  -> STOP_AND_PRESERVE_EVIDENCE
+```
+
+The preflight, bounded execution, spatial-tail companion, common comparison
+protocol, and no-resume runner dry validation did not read new `D_V/D_T`
+results and passed their stated engineering/descriptive contracts. Wave A then
+trained paired difference and its matched control for both seeds, for four
+complete `800 x 40 = 32,000`-update executions, before the single authorized
+reveal.
+
+| seed | paired true targets | paired recovered misses | best comparator true targets | best comparator recovered misses | constraints | Wave A seed result |
+|---:|---:|---:|---:|---:|:---:|:---|
+| 42 | 147 / 170 | 0 / 23 | 154 / 170 | 7 / 23 | pass | fail |
+| 43 | 152 / 170 | 5 / 23 | 152 / 170 | 5 / 23 | pass | fail (tie is insufficient) |
+
+All configured false-alarm and retention constraints passed. Seed 42 is below
+the best comparator, and seed 43 only ties it; neither satisfies the required
+strict per-seed performance margin. Thus the formal aggregate decision is
+`PERFORMANCE_FAIL`, not an execution failure and not a claim recovered by
+averaging seeds.
+
+The mandated action is `STOP_AND_PRESERVE_EVIDENCE`. This paired version does
+not enter Wave B, Wave C, additional frozen confirmation, Full CURE, or
+cross-backbone validation. The overall CURE mainline remains unchanged: only a
+future CURE-Lite candidate that passes a newly frozen gate may reach
+confirmation and Full CURE; only after Full CURE exists may unchanged-core
+experiments be conducted with DNANet, UIUNet, MSHNet, and SCTransNet on
+NUAA-SIRST, NUDT-SIRST, and IRSTD-1K.

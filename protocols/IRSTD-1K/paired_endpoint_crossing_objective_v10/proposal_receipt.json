@@ -1,0 +1,114 @@
+{
+  "schema_version": "cure-lite-peco-v10-proposal-v1",
+  "method_id": "peco_v10",
+  "method_name": "Paired Endpoint Crossing Objective",
+  "short_name": "PECO v10",
+  "status": "FROZEN_BEFORE_DATASET_FREE_IMPLEMENTATION_GATE",
+  "problem": "the probability-difference response risk permits the covered and uncovered endpoints to saturate together, weakening the occupancy-conditioned correction transition",
+  "design_document": {
+    "repo_path": "CURE_Lite_PECO_v10_模型与代码设计.md",
+    "file_sha256": "2aae545beb7cef818c64edde12ba21a14d52d9ff42b52cdd15a7355d700a8203"
+  },
+  "predecessor_v9": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/toy_negative_closure_receipt.json",
+    "file_sha256": "b86efe20a4ac737b37b2c55f3af601c44e30a78da8bf20a5053f8e3445df152a",
+    "receipt_fingerprint": "8df51743d87b002d045ac14ea9702340326e297ba740eab427a990b9c86f28c1",
+    "decision": "PB_NAES_V9_DATASET_FREE_TOY_NEGATIVE_CLOSED"
+  },
+  "frozen_decoder_binding": {
+    "method_id": "cc_sea_v8",
+    "repo_path": "cure_lite/conservative_factorized_decoder.py",
+    "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+    "policy": "read_only_forward_equation_and_topology"
+  },
+  "predecessor_loss_binding": {
+    "repo_path": "cure_lite/paired_outcome_losses.py",
+    "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "policy": "read_only_inherited_validation_anchor_zero_strata_and_hierarchy"
+  },
+  "training_step_binding": {
+    "repo_path": "cure_lite/train/paired_outcome_step.py",
+    "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "policy": "unchanged"
+  },
+  "single_mechanism": {
+    "name": "paired_endpoint_crossing_response_risk",
+    "response_stratum": "D=bool(label_increment)&image_valid_mask",
+    "covered_plus_target": 0,
+    "uncovered_minus_target": 1,
+    "response_risk": "0.5*(softplus(logits_plus)+softplus(-logits_minus))",
+    "local_zero_risk": "mean_H((sigmoid(logits_minus)-sigmoid(logits_plus))^2)",
+    "global_zero_risk": "mean_G((sigmoid(logits_minus)-sigmoid(logits_plus))^2)",
+    "plus_anchor": "unchanged",
+    "hierarchical_active_means": "unchanged",
+    "factual_branches": "unchanged",
+    "trainable_parameters_added": 0,
+    "inference_operations_added": 0,
+    "search_parameters_added": 0
+  },
+  "analytic_contract": {
+    "plus_response_gradient_sign": "strictly_positive",
+    "minus_response_gradient_sign": "strictly_negative",
+    "both_high_saturation_is_not_stationary": true,
+    "both_low_saturation_is_not_stationary": true,
+    "empty_response_uses_no_empty_reduction": true,
+    "component_null_uses_zero_risk_only": true,
+    "pair_kind_dispatch": false,
+    "decoder_forward_inputs": [
+      "detached_feature",
+      "occupancy"
+    ],
+    "decoder_topology_changed": false,
+    "inference_changed": false
+  },
+  "development_screen_disclosure": {
+    "performed_before_proposal_freeze": true,
+    "dataset_free": true,
+    "cases_reused_from_v8": 6,
+    "all_six_passed": true,
+    "clean_D_min": 0.991625964641571,
+    "clean_D_max": 0.9931955337524414,
+    "evidentiary_status": "candidate_selection_only_not_independent_confirmation"
+  },
+  "claim_evidence_matrix": [
+    {
+      "claim": "PECO implements the exact paired endpoint state semantics without changing zero strata or hierarchy",
+      "required_evidence": "formula, gradient, saturation, empty-stratum, and predecessor-equivalence unit tests",
+      "stage": "dataset_free_unit"
+    },
+    {
+      "claim": "the frozen v8 decoder and unchanged train step can consume PECO",
+      "required_evidence": "six-case development regression plus dual-endpoint/all-parameter gradient observations",
+      "stage": "dataset_free_development_regression"
+    },
+    {
+      "claim": "PECO remains learnable under sparse component exposure and the real role ratio",
+      "required_evidence": "pre-frozen 206:16 and 800-slot exposure-matched synthetic confirmation with group gates",
+      "stage": "dataset_free_selection_after_confirmation"
+    },
+    {
+      "claim": "PECO improves the real paired model-code outcomes",
+      "required_evidence": "exactly one separately authorized D_R bounded400 using unchanged v8 population, budget, and twelve gates",
+      "stage": "real_D_R_bounded"
+    },
+    {
+      "claim": "CURE-Lite improves natural-miss recovery",
+      "required_evidence": "formal800 seed42/43 per-seed Pd/recovery/FA/retention after bounded pass",
+      "stage": "formal_only_after_bounded_pass"
+    }
+  ],
+  "current_authorization": {
+    "dataset_free_unit_code": true,
+    "development_regression_code": true,
+    "exposure_matched_confirmation_design": true,
+    "exposure_matched_confirmation_run": false,
+    "dry_run": false,
+    "real_D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "proposal_fingerprint": "377d3b5e5cdf7fdb2b903bd423897b9aea436ee943e00206cd26865b95599365"
+}

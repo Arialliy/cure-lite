@@ -1,0 +1,131 @@
+{
+  "schema_version": "cure-lite-oc-apto-v3-proposal-v1",
+  "method_id": "oc_apto_v3",
+  "method_name": "Outcome-Complete Anchored Paired Transition Objective",
+  "method_abbreviation": "OC-APTO",
+  "proposal_fingerprint": "870ebb721e50343e74f7a2a9c5dd719e466fc318ac5d24e5ac00a5ec145d5fc0",
+  "proposal_fingerprint_scope": {
+    "schema_version": "cure-lite-oc-apto-v3-proposal-v1",
+    "method_id": "oc_apto_v3",
+    "document_sha256": "cd4de1f4d0523e9aeab1e8ada6d4600b4c3f275262f902357ad63a621aa6ef32",
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "population_counts": {
+      "clean_positive": 206,
+      "component_null": 16,
+      "union": 222
+    },
+    "status": "specified_not_implemented"
+  },
+  "design_document": {
+    "path": "CURE_Lite_OC_APTO_v3_模型与代码设计.md",
+    "sha256": "cd4de1f4d0523e9aeab1e8ada6d4600b4c3f275262f902357ad63a621aa6ef32"
+  },
+  "scope": {
+    "dataset": "IRSTD-1K",
+    "split": "D_R",
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "base_or_backbone_update_allowed": false,
+    "decoder_topology_change_allowed": false,
+    "inference_change_allowed": false,
+    "calibration_change_allowed": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "frozen_dependencies": {
+    "pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "decoder_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "model_sha256": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "paired_types_v1_sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+  },
+  "population": {
+    "clean_positive": 206,
+    "component_null": 16,
+    "identity_null_optimizer_exposure": 0,
+    "outcome_union": 222,
+    "sampling": "pair_level_uniform_deterministic_over_outcome_union",
+    "clean_null_stratified_sampling": false,
+    "tunable_sampling_weight": false
+  },
+  "intervention_footprint": {
+    "raw_component": "C=O_plus setminus O_minus",
+    "projected_change": "K=project(O_plus) xor project(O_minus)",
+    "lift": "nearest_output_cell_assignment",
+    "valid_crop": "J=(C union lift(K)) intersect V",
+    "interpretation": "direct_projected_conditioning_footprint_not_full_decoder_response_domain",
+    "tunable_radius": false,
+    "logit_or_result_dependent": false
+  },
+  "transition_risk": {
+    "response_stratum": "D=(R_minus setminus R_plus) intersect V",
+    "local_zero_stratum": "H=(J intersect V) setminus D",
+    "global_zero_stratum": "G=V setminus (D union J)",
+    "zero_risk": "active_mean(mean_H(delta_squared),mean_G(delta_squared))",
+    "transition_risk": "active_mean(mean_D(((delta-1)/2)^2),zero_risk)",
+    "pair_risk": "0.5*plus_baseline+0.5*transition_risk",
+    "batch_reduction": "ordinary_pair_mean",
+    "pair_kind_loss_dispatch": false,
+    "separate_null_loss": false,
+    "tunable_loss_weights": false
+  },
+  "optimization_budget": {
+    "factual_miss_states_per_update": 4,
+    "factual_no_miss_states_per_update": 4,
+    "outcome_pairs_per_update": 2,
+    "outcome_endpoint_states_per_update": 4,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "backward_calls_per_update": 1,
+    "optimizer_steps_per_update": 1,
+    "bounded_updates": 400,
+    "bounded_pair_slots": 800,
+    "formal_epochs": 800,
+    "formal_steps_per_epoch": 40,
+    "formal_updates": 32000,
+    "formal_pair_slots": 64000,
+    "resume_allowed": false
+  },
+  "planned_files": [
+    "cure_lite/paired_outcome_types.py",
+    "cure_lite/paired_outcome_losses.py",
+    "cure_lite/train/paired_outcome_step.py",
+    "cure_lite/experiment/paired_outcome_inputs.py",
+    "cure_lite/experiment/paired_outcome_schedule.py",
+    "cure_lite/experiment/paired_outcome_bounded.py",
+    "tests/test_paired_outcome_types.py",
+    "tests/test_paired_outcome_losses.py",
+    "tests/test_paired_outcome_step.py",
+    "tests/test_paired_outcome_toy_overfit.py",
+    "tests/test_paired_outcome_inputs.py",
+    "tests/test_paired_outcome_schedule.py",
+    "tests/test_paired_outcome_bounded.py"
+  ],
+  "bounded_gates": {
+    "all_222_pairs_bound": true,
+    "pair_exposure_counts": [
+      3,
+      4
+    ],
+    "factual_miss_anchor_final_over_initial_max": 0.75,
+    "factual_no_miss_anchor_final_over_initial_max": 0.75,
+    "plus_baseline_final_over_initial_max": 0.75,
+    "clean_transition_final_over_initial_max": 0.5,
+    "clean_mean_delta_on_D_min": 0.5,
+    "clean_pairs_delta_at_least_0_25_fraction_min": 0.75,
+    "clean_zero_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_global_max_abs_delta_max": 0.25,
+    "component_null_context_macro_mean_abs_delta_max": 0.05,
+    "identity_null_max_abs_delta_max": 1e-7,
+    "performance_evidence": false
+  },
+  "status": {
+    "proposal": "specified",
+    "code": "not_implemented",
+    "unit_toy": "not_run",
+    "D_R_bounded": "not_run",
+    "formal_seed_42_43": "not_run",
+    "model_success": "not_established"
+  },
+  "next_action": "implement_versioned_v3_types_loss_step_and_tests_without_modifying_v1_or_v2"
+}

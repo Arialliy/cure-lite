@@ -1,0 +1,152 @@
+{
+  "attempts": [
+    {
+      "artifact_receipt_sha256": "823349d8f21562a50a3f883acb08d2258ffac743e4e362296309c72222df875e",
+      "complete_file_sha256": "234eb8ba6197c52ed52e669c33ecadf6b0f4fec1908e4596750b8948ab4a7968",
+      "complete_fingerprint": "95e22f2f2641cbe141902aa19f38a1ca476671c5d6bf2b59aaa1575ee318012d",
+      "decoder_state_fingerprint": "ed5b06d02c8b027f316f6c481dac2819401510e9f36e6e595f0b6a7317698682",
+      "method": "paired_difference",
+      "paired_artifact_fingerprint": "d03aa25364426496dd357c8bf93d632a68631a9d3136a35a7609db821157bba8",
+      "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_paired_difference_seed42_r1",
+      "run_receipt_fingerprint": "7f06c9c1e753f593b337f9121ad3bcb1221e28d000f5cb15db39bcbf22a3247c",
+      "seed": 42
+    },
+    {
+      "artifact_receipt_sha256": "ad486ef8af3ebb4b23f3739ea4aa6d8690a04433064689008fbb223f0d2fa094",
+      "complete_file_sha256": "2645073e0263a0ffc4ba16d0307589a9d1fb2f0c05c2d99b262b8510f9707a58",
+      "complete_fingerprint": "68caf02aab2c7eff2923d46a9c85064640580191d4dfa4196550434188bd183f",
+      "decoder_state_fingerprint": "63ad0ffd30ba2597b157731f9152ce4284bf60721e157fde3e6e5ccb524e184b",
+      "method": "paired_difference",
+      "paired_artifact_fingerprint": "f5055e1ec69b4bc45d3f54b3afeb4ca0f7eeed1f21f6d5ae76874a37afe259e7",
+      "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_paired_difference_seed43_r1",
+      "run_receipt_fingerprint": "1a883017c637831dc24570f8896c8c82fda387b107bcaf43a60a8a23303db44c",
+      "seed": 43
+    },
+    {
+      "artifact_receipt_sha256": "c8515d855ff8e5b9ed392abf25ad1809c605c6e46d91e9ae3dbc52b131e03895",
+      "complete_file_sha256": "8749c6d4efba799c3dacdcc491d86bb375e7912191690f4e44460d8d4adf67ce",
+      "complete_fingerprint": "762f07ef3f1750cd722bc17b9b583c8f1b7ceaf3ff88ba12681be0fbb2eb8a3c",
+      "decoder_state_fingerprint": "fcb28afcb4c9a79fba3ea13ea8d3df8e01494d37821706adc924515fcddfd698",
+      "method": "independent_endpoint",
+      "paired_artifact_fingerprint": "1af7c18a409938ef3c1137bd2d8baf912fd2c4707953bb0ec3ead68cc2e1da70",
+      "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_independent_endpoint_seed42_r1",
+      "run_receipt_fingerprint": "23035456700ab42af399fe463ca7a7ee4e1efc40913bab416828ad2896ad64a2",
+      "seed": 42
+    },
+    {
+      "artifact_receipt_sha256": "6fb7a994de37915955151c694e470f963c6dcc2fb3dcd6c7e079b211b85869da",
+      "complete_file_sha256": "232bdb34102f4f72ae07ccf503bfbaac1c125f0a0fd5dc5c04f9f25233d25727",
+      "complete_fingerprint": "5274a1a302beb7f720b71e045a15d0a7e3edf3bf9b55295e2d0f7094be133d16",
+      "decoder_state_fingerprint": "b078a1e1715e843b09eed059e861f4f92413110c7c567bef479b467a9db18ca3",
+      "method": "independent_endpoint",
+      "paired_artifact_fingerprint": "0a7dbcf0eac4fb549a4210aeb93bbbaf6dcff9b414104d17086dc6ea5adb7829",
+      "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_independent_endpoint_seed43_r1",
+      "run_receipt_fingerprint": "5089c299a6371edeae2d902d40a066c106cab2fd93cf5832cf30fecd8259be68",
+      "seed": 43
+    }
+  ],
+  "comparison_protocol": {
+    "file_sha256": "a322530eec57ffa6f8a34684a19e96b5881c06aa876a17956a2f8625283199cc",
+    "repo_path": "protocols/IRSTD-1K/paired_formal_evaluation_v1/config.json"
+  },
+  "config_fingerprint": "9a56acd866faa6da2285ef70b9714f5609f029ee880f198571545214d3a20981",
+  "config_fingerprint_scope": "all-fields-except-config_fingerprint",
+  "d_v_bundle": {
+    "base_index": {
+      "file_sha256": "86da975813b2b17afe5ddfc2477de72680f941e170b24678510000bbd23351c1",
+      "repo_path": "runs/irstd1k_stage_a_seed42/reference_base_cache_fx_v2/D_V/index.json"
+    },
+    "expected_base_fingerprint": "5f69986b95d11a89c5a5e91d6bdd63add865eda102be8ce486722fee8cd00dce",
+    "manifest": {
+      "file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+      "repo_path": "protocols/IRSTD-1K/stage_a_seed42/manifest.json"
+    },
+    "preprocessing": {
+      "color_mode": "L",
+      "height": 256,
+      "image_interpolation": "bilinear",
+      "mask_interpolation": "nearest",
+      "mean": [
+        0.5
+      ],
+      "range": "float32-[0,1]-then-normalize",
+      "std": [
+        0.5
+      ],
+      "width": 256
+    },
+    "preprocessing_fingerprint": "db4b3b4b37c513c3ad5547f1d05a756d9c422f8f55d846b19b50acfd59f210ca"
+  },
+  "dataset": "IRSTD-1K",
+  "execution_policy": {
+    "all_non_d_v_inputs_verified_before_d_v": true,
+    "allow_D_T": false,
+    "atomic_final_rename": true,
+    "bundle_materializations": 1,
+    "complete_written_last": true,
+    "create_only_output": true,
+    "failed_staging_reuse": false,
+    "historical_receipt_adaptations": 8,
+    "new_method_evaluations": 4,
+    "overwrite": false,
+    "resume": false,
+    "runtime_split": "D_V",
+    "stdout_only_after_success": true,
+    "wave_decisions": 1
+  },
+  "formal_runner_config_fingerprint": "760940a9f1e6c370ee869653205e6f60b0333501d33055eb80797f8a8ce1bd23",
+  "historical_sources": [
+    {
+      "complete_file_sha256": "f36a4c4b94a63b71267248c8ff85025237b4482ecee94152e9f56fb33a59a785",
+      "complete_fingerprint": "6a1db02001e02db1dfb3888472af5499ca63929e92ed61e77f7de22cf91ab230",
+      "decision_rule_sha256": "22e728ccfc930a02061d63822b7dbd6d59f9119396258786a8f26ecb2bdab5c3",
+      "protocol_freeze_sha256": "64b49b862c1d4589f3e4f55bd278ced1b8e39371ce9b8afddce8aa2f0c4c91b4",
+      "protocol_repo_path": "protocols/IRSTD-1K/stage_a_seed42_fx_v3",
+      "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3",
+      "seed": 42,
+      "stage_a_config_sha256": "6eecdc10f87a043cafb945db40d0b767b5f0a2ccb64963c1043160f165ce9d6c"
+    },
+    {
+      "complete_file_sha256": "63345574591003532bc43a1427e32bfc6b80b60f1e3c9580fbce75c9ecdfe717",
+      "complete_fingerprint": "2f7cc41bc81d5ac7c27f82a7063db2e973f1773ba28401bb09be03ba932f26f9",
+      "decision_rule_sha256": "b54e5bc7cc03e4c0c8618eeb45d9ec5e6559bd4c3e1e138d9dc53ccb0e87a02e",
+      "protocol_freeze_sha256": "69831f1bdd32e4de0178a57ed67b186a0083e803611105c32b6538c4bdbb28d2",
+      "protocol_repo_path": "protocols/IRSTD-1K/stage_a_seed42_fx_v3_s43",
+      "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3_s43",
+      "seed": 43,
+      "stage_a_config_sha256": "01b9df8c8b93fcd80fe194bddcc32178e56f8f749e71a738adcdb0d33dd1d1c5"
+    }
+  ],
+  "implementation_binding": {
+    "cure_lite/cache/base_cache.py": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd",
+    "cure_lite/cache/schema.py": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7",
+    "cure_lite/cache/state_cache.py": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189",
+    "cure_lite/calibration.py": "b94c492e91c4934d75c85abef5c25449f82c421e871c5ab3e8ca136515b2f6bf",
+    "cure_lite/calibration_ledger.py": "f5b11f3db585138c7c185b6f6f9226d13365e7fc2be7fd30fb7bf21fb054803d",
+    "cure_lite/config.py": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+    "cure_lite/data.py": "ee66eb16de36dcb8fc36e51a57282530ee8082359994b4522b78ee27ff3be241",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/experiment/artifacts.py": "e0be26abf0c9446acad50e8f0668e8de7ddeb39e6ff3d6f0a2c0ae95c7acf516",
+    "cure_lite/experiment/cache_pipeline.py": "c6acebe1e173542ebaec548e64a2c0fee388544d1b8fbdb03f2b62454a7b2389",
+    "cure_lite/experiment/evaluation_pipeline.py": "aab38a85984f4a29e502318a61a9c8962ebbc2de16c11eb31290cf60e0458fb3",
+    "cure_lite/experiment/formal_anchor.py": "f217b957a5ff67610a6c10a684aeaa19cc55ac4e0f9274b3ba3e907593953a38",
+    "cure_lite/experiment/formal_evaluation.py": "8f0579332eb53384f316ce81b4615722b7669a095e9998bbf07dcdc3ed4616aa",
+    "cure_lite/experiment/paired_artifacts.py": "6c4ccfdfcb9abf50bb9e3370c654d549fdcfe4c394bd53c4608137f5004f0fc4",
+    "cure_lite/experiment/paired_formal_decision.py": "5e15a861156bba5317d3edaa5ba733367c86cb5e86ddf9b67eaa21b8fac4c740",
+    "cure_lite/experiment/paired_formal_evaluation.py": "ad33d8014b20b96b43f8f4803e99e8358349c2db3c913945553d8c520e191396",
+    "cure_lite/experiment/paired_formal_runner.py": "a98821240e56d9efef82f8381f2a8119359895d59c80d0004dfc86ec2280ab54",
+    "cure_lite/experiment/paired_formal_wave_reveal.py": "9d5deb2e948d04f762da353b59b4359705ba5b1a3e8c6cddea1794f8c436355e",
+    "cure_lite/experiment/paired_historical_evidence.py": "ed4ab811c0fdbe01a9956126d7b01daed1a3e1c11189200cc009ae75d183f81a",
+    "cure_lite/instances.py": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721",
+    "cure_lite/matching.py": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06",
+    "cure_lite/metrics.py": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b",
+    "cure_lite/occupancy.py": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76",
+    "cure_lite/splits.py": "891fb2f2b07e0ee850c31f734b4fd70abc13625cccf62a38dba11b8ced0bca99",
+    "cure_lite/types.py": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb",
+    "tools/run_paired_formal_wave_a_reveal.py": "5f90ca95bc82b39547229bf76c4fe4959fc3a0a48130297b8ace4c453b1bf9e4"
+  },
+  "output_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_reveal_v1_r1",
+  "protocol_id": "irstd1k-paired-formal-wave-a-reveal-v1",
+  "schema_version": "cure-lite-paired-formal-wave-a-reveal-config-v1",
+  "wave": "A"
+}

@@ -1,0 +1,243 @@
+{
+  "schema_version": "cure-lite-ccfr-v11-exposure-holdout-design-v1",
+  "method_id": "ccfr_v11",
+  "stage_id": "dataset_free_exposure_holdout_confirmation",
+  "status": "FROZEN_BEFORE_DEVELOPMENT_REGRESSION_RESULT",
+  "design_seed": 3987573916,
+  "seed_derivation": {
+    "text": "ccfr_v11|dataset_free_exposure_confirmation_v1",
+    "sha256_prefix_hex": "edad8c9c",
+    "conversion": "unsigned_big_endian_uint32"
+  },
+  "evidence_scope": "pre_frozen_dataset_free_holdout_with_replayable_one_update_wiring_smoke_not_detection_performance",
+  "preformal_execution_disclosure": {
+    "wiring_smoke_uses_first_schedule_update": true,
+    "wiring_smoke_may_be_replayed_by_test_suite": true,
+    "maximum_updates_per_smoke_invocation": 1,
+    "smoke_checks_only_execution_gradients_and_4_4_2_contract": true,
+    "post_update_performance_gate_or_candidate_selection_allowed": false,
+    "full_400_update_result_unobserved_at_freeze": true
+  },
+  "input_contract": {
+    "feature_channels": 8,
+    "feature_height": 5,
+    "feature_width": 5,
+    "feature_stride": 4,
+    "output_height": 20,
+    "output_width": 20,
+    "same_feature_at_both_pair_endpoints": true,
+    "pre_mask_endpoint_evaluation": true,
+    "pair_kind_is_model_input": false,
+    "pair_kind_is_loss_dispatch": false
+  },
+  "population": {
+    "clean_pair_count": 206,
+    "component_null_pair_count": 16,
+    "total_pair_count": 222,
+    "groups": {
+      "clean_same_cell_1px": 35,
+      "clean_same_cell_3px": 34,
+      "clean_adjacent_cell_1px": 35,
+      "clean_adjacent_cell_3px": 34,
+      "clean_multicount_2to1": 34,
+      "clean_multicount_3to2": 34,
+      "component_null_block": 8,
+      "component_null_sparse": 8
+    },
+    "old_six_case_tensor_reuse_allowed": false,
+    "old_v10_222_role_tensor_reuse_allowed": false,
+    "old_v10_schedule_reuse_allowed": false
+  },
+  "geometry_rules": {
+    "interior_feature_cells_only": true,
+    "interior_scope": "component_response_and_fixed_occupancy_cells_all_have_row_and_column_in_[1,3]",
+    "feature_cell_index_rule": {
+      "row": "1+((3*within_group_index+group_offset)%3)",
+      "column": "1+((2*within_group_index+1+group_offset)%3)"
+    },
+    "group_offset_mapping": {
+      "clean_same_cell_1px": 0,
+      "clean_same_cell_3px": 1,
+      "clean_adjacent_cell_1px": 2,
+      "clean_adjacent_cell_3px": 3,
+      "clean_multicount_2to1": 4,
+      "clean_multicount_3to2": 5,
+      "component_null_block": 6,
+      "component_null_sparse": 7
+    },
+    "phase_patterns": {
+      "one_pixel": [[0, 3]],
+      "three_pixels": [[0, 3], [1, 2], [3, 0]]
+    },
+    "multicount_phase_pattern_rule": "even_within_group_index_uses_one_pixel_odd_uses_three_pixels",
+    "same_cell": "response phases and removed occupancy component project to the same feature cell",
+    "adjacent_cell": "response projects to a horizontal or vertical neighbor of the removed component and remains inside changed 3x3 count support",
+    "multicount_2to1": "fixed neighboring occupancy leaves count one after the removed component changes count two to one at every response cell",
+    "multicount_3to2": "two fixed neighboring occupancies leave count two after the removed component changes count three to two at every response cell",
+    "component_null": "occupancy endpoint changes and projected count changes but label increment is empty",
+    "projection_visible_required": true,
+    "response_inside_changed_count_support_required": true,
+    "nonempty_norm_tail_required": true
+  },
+  "strata_rules": {
+    "D": "label_increment_and_image_valid_mask",
+    "H": "direct_projected_intervention_footprint_and_not_D",
+    "G": "image_valid_mask_and_not_D_and_not_H",
+    "changed_count_support": "nearest_lift_of_3x3_local_projected_occupancy_count_inequality",
+    "G_near": "G_and_changed_count_support",
+    "G_norm_tail": "G_and_not_changed_count_support",
+    "partition_required": "D_union_H_union_G_near_union_G_norm_tail_equals_image_valid_mask",
+    "interpretation": "G_norm_tail_is_a_conservative_far_field_audit_not_a_GroupNorm_only_causal_attribution"
+  },
+  "feature_rules": {
+    "generator": "sha256_indexed_sparse_signal_lattice_v1",
+    "base_value_formula": "((uint16(sha256(seed|group|index|channel|row|column)[0:2])%257)-128)/64",
+    "uint16_byte_order": "big_endian",
+    "sparsity_rule": "only_the_two_listed_signal_channels_at_the_designated_signal_cell_are_assigned_lattice_values_all_other_entries_are_exact_zero",
+    "signal_cell_rule": "clean_pair_uses_response_cell_component_null_uses_component_cell_factual_uses_its_frozen_signal_cell",
+    "clean_target_signal_channels": [0, 1],
+    "component_null_signal_channels": [2, 3],
+    "factual_miss_signal_channels": [0, 1],
+    "factual_no_miss_signal_channels": [4, 5],
+    "role_associated_channel_groups_are_intentional": true,
+    "zero_lattice_values_are_allowed": true,
+    "feature_values_do_not_depend_on_observed_model_or_training_results": true
+  },
+  "schedule": {
+    "updates": 400,
+    "pair_batch_size": 2,
+    "total_pair_slots": 800,
+    "clean_slots": 739,
+    "component_null_slots": 61,
+    "clean_exposure_histogram": {
+      "3": 85,
+      "4": 121
+    },
+    "component_null_exposure_histogram": {
+      "3": 3,
+      "4": 13
+    },
+    "four_exposure_selection": "per_group_stable_sha256_rank_clean_group_quotas_[21,20,20,20,20,20]_component_group_quotas_[7,6]",
+    "slot_order": "stable_sha256_rank_by_design_seed_role_round_and_pair_id_then_earliest_distinct_pair_source_conflict_resolution_v1",
+    "conflict_resolution": "pop_first_ranked_slot_then_pair_with_earliest_remaining_slot_having_distinct_pair_id_and_source_id",
+    "same_pair_twice_in_update_allowed": false,
+    "same_source_twice_in_update_allowed": false
+  },
+  "factual_population": {
+    "factual_miss_states": 16,
+    "factual_no_miss_states": 16,
+    "batch_size_per_branch": 4,
+    "exposures_per_state": 100,
+    "schedule": "four_contiguous_indices_rotated_every_update_v1"
+  },
+  "optimization": {
+    "decoder_seed": 42,
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "betas": [0.9, 0.999],
+    "epsilon": 1e-8,
+    "weight_decay": 0.0,
+    "updates": 400,
+    "device": "cpu",
+    "torch_threads": 2,
+    "automatic_retry_allowed": false
+  },
+  "thresholds": {
+    "population_total_loss_max_exclusive": 0.1,
+    "plus_completion_min_exclusive": 0.95,
+    "plus_background_max_exclusive": 0.05,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max_exclusive": 0.05,
+    "clean_D_delta_mean_min_inclusive": 0.8,
+    "clean_D_plus_max_exclusive": 0.05,
+    "clean_D_minus_min_exclusive": 0.95,
+    "D_wrong_direction_pixel_count_max_inclusive": 0,
+    "zero_H_max_abs_max_inclusive": 0.05,
+    "zero_G_near_max_abs_max_inclusive": 0.05,
+    "zero_G_norm_tail_max_abs_max_inclusive": 0.05
+  },
+  "decision_rule": {
+    "all_eight_groups_required": true,
+    "all_absolute_and_directional_thresholds_required": true,
+    "all_400_updates_require_six_finite_nonzero_parameter_gradients": true,
+    "mean_cannot_override_group_failure": true,
+    "v8_matched_comparator_is_report_only": true,
+    "pass_decision": "CCFR_V11_EXPOSURE_HOLDOUT_CONFIRMATION_PASS",
+    "fail_decision": "CCFR_V11_EXPOSURE_HOLDOUT_CONFIRMATION_FAIL"
+  },
+  "execution_order": {
+    "generator_and_source_closure_must_be_frozen_before_development_result": true,
+    "development_regression_must_pass_before_confirmation_execution": true,
+    "confirmation_may_run_once": true,
+    "real_D_R_authorized_only_after_confirmation_pass": true
+  },
+  "execution_boundary": {
+    "dataset_access_allowed": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "implementation_fingerprints": {
+    "holdout": "3b81cc8cfd4d156ff6b711b1f8163dbb7ee2395d0d7934c425be33bee96ef1e2",
+    "catalog": "ae4f853d588b7ebf514541775388443cc88216427d93362a0af2444a673a7a8e",
+    "schedule": "bb631cb68ff0d4baeb68151e3aab089728873af32920118c97f0cb922c0a010a",
+    "factual_population": "1521453889fc38954f39c6629b3894d0e665ca6e7fa4f1ca0d5999bcbca70792",
+    "factual_schedule": "18d1a702d62299d072328c407233cfc5f65e94ebd0eaa71eb2c7004af1764073"
+  },
+  "source_bindings": {
+    "CURE_Lite_CCFR_v11_模型与代码设计.md": "1fb743035ac2f6fac434eaaf26e0c1da3bde590932aca97a53f433f98eff833c",
+    "cure_lite/__init__.py": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3",
+    "cure_lite/cache/__init__.py": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd",
+    "cure_lite/cache/base_cache.py": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd",
+    "cure_lite/cache/schema.py": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7",
+    "cure_lite/cache/state_cache.py": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189",
+    "cure_lite/calibration.py": "b94c492e91c4934d75c85abef5c25449f82c421e871c5ab3e8ca136515b2f6bf",
+    "cure_lite/ccfr_development_inputs.py": "4d2cf5dda2fbab46a5c02bf1b0fbc96b30c7e8fb0817f0f770059bd7e461fb10",
+    "cure_lite/config.py": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+    "cure_lite/conservative_factorized_config.py": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967",
+    "cure_lite/conservative_factorized_decoder.py": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+    "cure_lite/coverage_feature_release_config.py": "f949c18a59633de5f5676bf60deccd56db2b4e9a6fe30a95e6781bea3dd937f9",
+    "cure_lite/coverage_feature_release_decoder.py": "76443a63085c472926ce754c2a6e492e2829398a8dc1895f3a143923117eedc2",
+    "cure_lite/crossing_factorized_config.py": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565",
+    "cure_lite/crossing_factorized_decoder.py": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/ccfr_holdout_inputs.py": "52d0ccb33e353cff6a73a18ccff25017e9f8568f9dccec42f0a7e7b590eebfe5",
+    "cure_lite/factorized_config.py": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246",
+    "cure_lite/factorized_decoder.py": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9",
+    "cure_lite/frozen_base.py": "969bc2b0ccbb4c38cb2ee07353c7162f80b3f1041ff8c9c1ccf9b14ea689b050",
+    "cure_lite/instances.py": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721",
+    "cure_lite/intervention.py": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215",
+    "cure_lite/losses.py": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+    "cure_lite/matching.py": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06",
+    "cure_lite/metrics.py": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b",
+    "cure_lite/model.py": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "cure_lite/occupancy.py": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76",
+    "cure_lite/paired_endpoint_crossing_losses.py": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+    "cure_lite/paired_losses.py": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3",
+    "cure_lite/paired_outcome_losses.py": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "cure_lite/paired_outcome_types.py": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/sampling.py": "f48104dafedd9fd230726e1f80d884524135dd280d7ed53bc527df23eff4809f",
+    "cure_lite/supervision.py": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a",
+    "cure_lite/train/__init__.py": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf",
+    "cure_lite/train/engine.py": "78334aecf62c8797d8f1e77cbe80624ce7da4d9d0cb82d4272e2962f042f54e8",
+    "cure_lite/train/paired_outcome_step.py": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "cure_lite/train/pools.py": "8d3789f125c264492f68649ecf7bf1844e8afe622821d7ad391bf274bb2b6ffe",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/types.py": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb",
+    "tests_v11/test_ccfr_development_regression.py": "b84f7296abfbe27e398a73b033063fbfb09297151fbb6c1841531be63b043f9f",
+    "tests_v11/test_ccfr_exposure_holdout.py": "98e8d8da810dfd88aa6b53ad646055e84eede6b4bae1fdc2e888affc1cce4168",
+    "tests_v11/test_ccfr_holdout_inputs.py": "a4fd284158e718aebe9550f4121a4c63f2502f1ab9e77f7b8e42774970dbba66",
+    "tools/evaluate_ccfr_development_regression.py": "3edc8b68f0ef533df5c90c22f214458d7cf0d0b482b96ffc735a2b405d14d684",
+    "tools/__init__.py": "7f5bd72b5bbbd6ec497085fcbde0f9861fa071e7f4d95346ecad599cacb14bce",
+    "tools/evaluate_ccfr_exposure_holdout.py": "abcafee779b1527f06f1aaa9337a5f36cf316c96d2ac08226d956b1e3ad0218a"
+  },
+  "receipt_fingerprint": "4527aaa81646274ddeb85b7f4c2de5b4ffb539735297064d25e34bacec002bcb"
+}

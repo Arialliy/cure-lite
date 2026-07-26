@@ -1,0 +1,84 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.feature-serialization-clarification.v1",
+  "method_id": "nlcc_v12",
+  "stage_id": "dataset_free_feature_serialization_clarification",
+  "created_date": "2026-07-26",
+  "status": "FROZEN_BEFORE_ANY_V12_DATASET_FREE_TRAINING_RESULT",
+  "purpose": "Serialize the nine preregistered SHA256 key fields without changing the feature formula, population, geometry, loss, model, optimizer, thresholds, or execution order.",
+  "upstream_binding": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/reachability_aware_input_design_preregistration.json",
+    "file_sha256": "5f5761fbf0e6f211757cd6069c97d7cc77af3cddd49eb5fa8454166558634f67",
+    "design_fingerprint": "5b2efecbe80e3e64023499f03cd968c2248d50f782f93c6fa8dc19c54b9b6e0e"
+  },
+  "implementation_binding": {
+    "repo_path": "cure_lite/nlcc_dataset_free_inputs.py",
+    "file_sha256": "2690d6a7c0f537fa0d33f302f8805868b710482e1a61410483964a82e956398d",
+    "function": "_bounded_nonzero_value"
+  },
+  "serialization": {
+    "encoding": "UTF-8",
+    "separator": "|",
+    "escaping": "none_required_for_frozen_tokens",
+    "field_order": [
+      "seed",
+      "stage",
+      "group",
+      "within_group_index",
+      "match_id",
+      "signal_role",
+      "channel",
+      "row",
+      "column"
+    ],
+    "integer_encoding": "unsigned_base10_without_padding",
+    "key_template": "{seed}|{stage}|{group}|{within_group_index}|{match_id}|{signal_role}|{channel}|{row}|{column}",
+    "digest": "SHA256(serialized_key_utf8)"
+  },
+  "pair_tokens": {
+    "stage": "pair",
+    "group": "NLCCPairSpec.group_id",
+    "within_group_index": "NLCCPairSpec.within_group_dyad_index",
+    "match_id": "NLCCPairSpec.match_id",
+    "primary_signal_role": "primary",
+    "anchor_signal_role": "anchor_witness",
+    "anchor_null_witness_entries": "exact_zero_without_digest_call"
+  },
+  "factual_tokens": {
+    "stage": "factual",
+    "group": "branch token factual_miss or factual_no_miss",
+    "within_group_index": "state_index",
+    "match_id_derivation_template": "SHA256(UTF8(nlcc-v12|{profile_id}|{design_seed}|factual|{branch}|{state_index_3digit_zero_padded}))",
+    "signal_role": "branch token factual_miss or factual_no_miss"
+  },
+  "value_mapping": {
+    "magnitude": "(32+(uint16_big_endian(digest[0:2])%97))/64",
+    "sign": "+1_if_digest_byte_2_low_bit_is_1_else_-1",
+    "magnitude_bounds_inclusive": [
+      0.5,
+      2.0
+    ],
+    "all_unlisted_feature_entries": "exact_zero"
+  },
+  "evidence_boundary_at_freeze": {
+    "scientific_optimizer_updates": 0,
+    "development_gate_metrics_observed": false,
+    "holdout_gate_metrics_observed": false,
+    "real_D_R_accessed": false,
+    "DV_accessed": false,
+    "DT_accessed": false,
+    "result_conditioned_token_choice": false
+  },
+  "authorization": {
+    "full_population_formula_test": true,
+    "input_freeze_receipt_creation": true,
+    "development_training": false,
+    "holdout_training": false,
+    "real_D_R": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "clarification_fingerprint_scope": "all_fields_except_clarification_fingerprint",
+  "clarification_fingerprint": "745b6edf279e193c1beac5b1db999aa4bdc364cdde1699ec031a9cc8e536a904"
+}

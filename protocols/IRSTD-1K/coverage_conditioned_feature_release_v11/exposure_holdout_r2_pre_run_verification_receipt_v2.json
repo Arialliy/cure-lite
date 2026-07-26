@@ -1,0 +1,140 @@
+{
+  "schema_version": "cure-lite-ccfr-v11-exposure-holdout-r2-pre-run-v2",
+  "method_id": "ccfr_v11",
+  "stage_id": "dataset_free_exposure_holdout_confirmation",
+  "status": "R2_SINGLE_ATTEMPT_AUTHORIZED",
+  "runner_revision": "r2",
+  "scientific_attempt_ordinal": 1,
+  "r2_is_retry": false,
+  "attempt_budget": {
+    "design_confirmation_budget": 1,
+    "r1_scientific_attempts_consumed": 0,
+    "r2_scientific_attempt_ordinal": 1,
+    "remaining_before_attempt_write": 1,
+    "remaining_after_attempt_write": 0,
+    "pass_fail_or_exception_consumes_attempt": true,
+    "rerun_allowed": false
+  },
+  "authorization_scope": {
+    "dataset_free_holdout_only": true,
+    "PASS_authorizes_only_real_D_R_bounded_validation": true,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "preauthorization_prerequisites_fingerprint": "9cf7d09a666aa9adbdfd45c78b9ec5513bd13de91c6ee72ea2bd5020ca1154df",
+  "closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_implementation_closure_r2_v2.json",
+    "file_sha256": "e2fff79daf30a0edaa3544e4c6a37f55cf49e13d67b1817a357a77fb87e70740",
+    "closure_fingerprint": "84cee287eb2124f2a484c9289b5c0db5dd0aa7cf749f8cc18f222e535e49ed20"
+  },
+  "failure_receipt_binding": {
+    "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r1_pre_attempt_failure_receipt.json",
+    "file_sha256": "3ce909d1eaa3315b6dd2bb525e607790826413cf7750371caa2066f8635e6496",
+    "failure_receipt_fingerprint": "f7a74d2210b0993ebc40393a9b085ee653f9d0016f98cb960b4b995bf22ea24c"
+  },
+  "artifact_absence_at_freeze": {
+    "entries": [
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r1.json",
+        "exists": false
+      },
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.json",
+        "exists": false
+      },
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.COMPLETE.sha256",
+        "exists": false
+      },
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r2.json",
+        "exists": false
+      },
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.json",
+        "exists": false
+      },
+      {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.COMPLETE.sha256",
+        "exists": false
+      }
+    ],
+    "all_absent": true
+  },
+  "verification": {
+    "authorization_test_scope": {
+      "only_excluded_nodeid": "tests_v11/test_ccfr_exposure_holdout_r2.py::test_pre_run_receipt_authorizes_one_r2_attempt",
+      "exclusion_expression": "not pre_run_receipt_authorizes_one_r2_attempt",
+      "exclusion_reason": "pre_run_receipt_cannot_self_authorize_its_own_validation",
+      "receipt_dependent_test_claimed_as_preauthorization_evidence": false
+    },
+    "targeted": {
+      "command": [
+        "/home/md0/ly/MSHNet/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests_v11/test_ccfr_exposure_holdout_r2.py",
+        "-k",
+        "not pre_run_receipt_authorizes_one_r2_attempt",
+        "--junitxml=protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_targeted_pre_run_v2.junit.xml"
+      ],
+      "execution_cwd": "/home/md0/ly/cure_lite",
+      "selection_scope": [
+        "tests_v11/test_ccfr_exposure_holdout_r2.py"
+      ],
+      "exit_code": 0,
+      "outcome": "PASS",
+      "deselected": 1,
+      "junit": {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_targeted_pre_run_v2.junit.xml",
+        "file_sha256": "f4a6efaf1a4c15ed3b245c574516b1c17f2cfd2f2b5ab9982354ae07b71a2d10"
+      },
+      "summary": {
+        "tests": 18,
+        "passed": 18,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "broad": {
+      "command": [
+        "/home/md0/ly/MSHNet/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests_v8",
+        "tests_v9",
+        "tests_v10",
+        "tests_v11",
+        "-k",
+        "not pre_run_receipt_authorizes_one_r2_attempt",
+        "--junitxml=protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_broad_pre_run_v2.junit.xml"
+      ],
+      "execution_cwd": "/home/md0/ly/cure_lite",
+      "selection_scope": [
+        "tests_v8",
+        "tests_v9",
+        "tests_v10",
+        "tests_v11"
+      ],
+      "exit_code": 0,
+      "outcome": "PASS",
+      "deselected": 1,
+      "junit": {
+        "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_broad_pre_run_v2.junit.xml",
+        "file_sha256": "afa79fed37ba3b215efe2a7a2205e7987d4da1a88d8e7d369dd8958b6599be94"
+      },
+      "summary": {
+        "tests": 261,
+        "passed": 261,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "pre_run_fingerprint": "444361e7a9942d6be696cbad912a44e50463596998c26a6d342cdf502aff7e91"
+}

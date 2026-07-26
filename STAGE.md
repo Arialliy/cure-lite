@@ -12,8 +12,25 @@ Stage 1: CURE-Lite
   v0.1 uniform legal selection (completed diagnostic)
   v0.2 miss-aligned legal selection M (completed; signal negative)
   P0 D_R-only prerequisite audit (completed; P0-A geometry failed)
+  paired coverage-response core
+    -> real D_R paired preflight (passed; byte-identical replay)
+    -> matched-control static preflight (passed; permutation READY)
+    -> bounded D_R learnability (passed; byte-identical replay)
+    -> spatial-tail companion (completed; byte-identical successful replay)
+    -> 8-control bounded execution (engineering pass; byte-identical replay)
+    -> formal joint schedule and paired artifact contract (implemented)
+    -> runtime-input/provider/common-D_V contracts (frozen)
+    -> no-resume formal runner (strict D_R-only dry validation passed)
+    -> frozen Wave A seed-42/43
+       -> four proposed/control 800 x 40 runs completed
+       -> one-time D_V reveal completed
+       -> PERFORMANCE_FAIL
+       -> STOP_AND_PRESERVE_EVIDENCE
+
+Current paired version stops here. It does not enter Wave B/C or confirmation.
+
+Only a future CURE-Lite candidate that passes its frozen gates may proceed:
        |
-       | only after the Lite gate is supported
        v
 Stage 2: Full CURE design
        |
@@ -22,8 +39,11 @@ Stage 2: Full CURE design
 Stage 3: cross-backbone and multi-dataset verification
 ```
 
-Full CURE and the later DNANet/UIUNet/MSHNet/SCTransNet integrations have not
-started.
+Full CURE and formal DNANet/UIUNet/MSHNet/SCTransNet integrations have not
+started and are not authorized by the current Wave A result. A historical
+MSHNet adapter remains in the repository but is outside the current paired core
+and is not cross-backbone evidence. The overall staged CURE research mainline
+is unchanged; only this paired CURE-Lite version is stopped.
 
 ## Stage 1a: what v0.1 established
 
@@ -158,7 +178,7 @@ creating a direct pairwise learning signal.
 All reported values are `D_V` development results. `D_T` remains unused until
 a CURE-Lite mechanism is frozen.
 
-## P0 prerequisite audit after v0.2
+## Historical P0 prerequisite audit after v0.2
 
 The frozen P0 command accepts only the bound `D_R` manifest, state cache,
 configuration, and a new output path. It does not expose a `D_V`, training,
@@ -187,8 +207,10 @@ The current P0-A result is:
 Therefore P0-A is false. P0-B and P0-C have `null` formal decisions and retain
 their values only as secondary diagnostics. P0-D replays historical U/M
 exposure, but candidate S remains `not_evaluated`; no distribution, decoder,
-or model is trained. The only authorized route is
-`rebuild_synthetic_target_extraction`.
+or model was trained in that protocol. Its then-current route was
+`rebuild_synthetic_target_extraction`. The later hypothesis review stopped the
+marginal reweighting/S route and replaced the current node with the paired
+coverage-response core; it did not alter this historical P0 result.
 
 The P0 population is `D_R`: 32 reachable factual misses in 24 source groups
 and one separately recorded unreachable miss. The historical value 23 is a
@@ -197,11 +219,27 @@ and one separately recorded unreachable miss. The historical value 23 is a
 ## Transition to Full CURE
 
 Full CURE design begins only after CURE-Lite passes its mechanism gate with
-adequate repeatability. M is unsupported in both completed runs, and P0-A has
-shown that the present synthetic target geometry must be repaired before any
-marginal distribution correction is eligible for evaluation. After the
-repaired population passes P0-A, P0-B/P0-C must be evaluated formally; only
-then may P0-D construct and audit candidate S.
+adequate repeatability. The current paired core published and verified the real
+`D_R` preflight, proposed bounded learnability, spatial-tail companion,
+8-control bounded execution, formal joint schedule, paired artifact contract,
+runtime bindings, and no-resume runner. Its four formal proposed/control runs
+each completed the frozen `800 x 40 = 32,000` updates, followed by exactly one
+common-protocol `D_V` reveal.
+
+Wave A records `PERFORMANCE_FAIL`. For seed 42, paired difference detected
+`147/170` targets and recovered `0/23` fixed misses, while the best comparator
+detected `154/170` and recovered `7/23`. For seed 43, paired difference detected
+`152/170` and recovered `5/23`, tying rather than strictly exceeding the best
+comparator at `152/170` and `5/23`. All configured false-alarm and retention
+constraints passed, so this is a performance-gate failure rather than an
+invalid execution.
+
+The formal action is `STOP_AND_PRESERVE_EVIDENCE`: do not enter Wave B, Wave C,
+frozen confirmation, Full CURE design, or cross-backbone evaluation for this
+paired version. The old marginal distribution correction/S route also remains
+stopped. The overall CURE stage ordering and detector-independent research
+goal remain unchanged; a later candidate must first earn a new frozen
+CURE-Lite gate.
 
 Only after Full CURE is defined should thin adapters be built for DNANet,
 UIUNet, MSHNet, and SCTransNet. Those experiments test whether the unchanged
@@ -210,8 +248,12 @@ Stage 1 claim.
 
 ## Software and artifact status
 
-The current full suite reports `376 passed`. Tests establish implementation
-consistency, not M performance.
+The full suite currently reports `723 passed` and covers the additive paired
+catalog/loss/train-step/schedule, matched controls, real preflight loaders,
+bounded execution/receipt validation, formal schedule/artifact contracts, and
+historical paths. Tests establish implementation consistency. The completed
+Wave A reveal separately establishes that this paired version did not meet its
+frozen performance rule.
 
 Historical identifiers remain as recorded: Stage-A config v4, completed run
 v7, protocol-freeze v2, seed/master registry v6, efficiency receipt v1,

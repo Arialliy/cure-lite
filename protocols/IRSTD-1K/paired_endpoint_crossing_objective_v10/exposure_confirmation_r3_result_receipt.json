@@ -1,0 +1,97 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r3-result-receipt-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "VALID_R3_RESULT_FROZEN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R3_VALID_FAIL_FROZEN",
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r3.json",
+    "file_sha256": "827dd6777c9047840a4b6ddb7dd8a8a9cfee27176e41a8e7a219cdd8a56f28c7",
+    "result_fingerprint": "03a92c9ce7e3fe5be54ffc6bd8fb9be5659982877b532e781564c66232836080",
+    "result_decision": "PECO_V10_EXPOSURE_MATCHED_CONFIRMATION_FAIL",
+    "all_pass": false
+  },
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_implementation_closure_r3.json",
+    "file_sha256": "6e34e0aaa0d96bbc1d68cffdf2230ff04a74262ddf01e64e8e60bcd7bdc1f97d",
+    "receipt_fingerprint": "178a13edcf68799f72e2cb0df1ec50661790a21d571f194f1ff7c7fc7fcc03c4"
+  },
+  "pre_run_verification_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_r3_pre_run_verification_receipt.json",
+    "file_sha256": "47d22f84fe28f1ef7890d40938a6c86b1a4407b1bbb1780f74162ea7bff93aa1",
+    "receipt_fingerprint": "2721a692af64bf008d378532de58f2e69e6ef114f5d23dccfa5fdf7433235ffc",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R3_PRE_RUN_PASS"
+  },
+  "authority_execution": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python tools/evaluate_peco_exposure_confirmation.py --output protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r3.json",
+    "exit_code": 2,
+    "result_file_created": true,
+    "result_fingerprint_verified": true,
+    "automatic_retry_performed": false,
+    "authority_run_count": 1
+  },
+  "engineering_contract": {
+    "same_initialization_verified": true,
+    "same_frozen_optimizer_verified": true,
+    "frozen_seed42_initialization_verified": true,
+    "exact_group_contract_passed": true,
+    "paired_2B_forward_passed": true,
+    "all_six_parameter_gradients_finite_nonzero_every_update": true,
+    "gradient_observations": 2400,
+    "identical_input_conflict_control_passed": true,
+    "runtime_state_restored": true
+  },
+  "peco_gate_result": {
+    "passed_group_count": 0,
+    "failed_group_count": 8,
+    "population_objective": 0.7426391839981079,
+    "population_objective_max_exclusive": 0.1,
+    "factual_miss_target_min": 0.9037027359008789,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max": 0.4925391674041748,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max": 0.16608086228370667,
+    "factual_no_miss_max_exclusive": 0.05,
+    "all_groups_passed": false,
+    "factual_gates_passed": false,
+    "population_objective_passed": false
+  },
+  "matched_predecessor_result": {
+    "method_id": "outcome_complete_transition_v3",
+    "passed_group_count": 0,
+    "failed_group_count": 8,
+    "population_objective": 0.6697059273719788,
+    "factual_miss_target_min": 0.9796091914176941,
+    "factual_miss_background_max": 0.49280357360839844,
+    "factual_no_miss_max": 0.12719905376434326,
+    "absolute_gate_passed": false,
+    "affects_peco_decision": false
+  },
+  "scientific_interpretation": {
+    "serialization_failure": false,
+    "implementation_contract_failure": false,
+    "optimization_signal_absent": false,
+    "frozen_exposure_matched_constructive_learnability_gate_passed": false,
+    "real_data_performance_evaluated": false,
+    "detection_performance_claim_supported": false,
+    "cure_overall_direction_disproven": false,
+    "peco_v10_current_objective_authorized_to_continue": false
+  },
+  "route_decision": {
+    "decision": "STOP_PECO_V10_BEFORE_DETERMINISTIC_DRY_RUN",
+    "automatic_rerun_allowed": false,
+    "threshold_tuning_allowed": false,
+    "optimizer_tuning_allowed": false,
+    "additional_seed_allowed_for_rescue": false,
+    "deterministic_dry_run_authorized": false,
+    "D_R_bounded_authorized": false,
+    "D_V_authorized": false,
+    "D_T_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false,
+    "three_dataset_training_authorized": false,
+    "next_action": "MODEL_OBJECTIVE_REDESIGN_REQUIRES_NEW_FROZEN_PROTOCOL"
+  },
+  "receipt_fingerprint": "d6e91c4e0077e9cc4e885281226bfc99d039cf959fb779d7e21cfa6e9bd7116c"
+}

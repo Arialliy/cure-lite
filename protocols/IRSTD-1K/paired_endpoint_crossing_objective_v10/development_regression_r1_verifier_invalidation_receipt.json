@@ -1,0 +1,82 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-r1-verifier-invalidation-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "status": "R1_FROZEN_AS_VERIFIER_NONPASS",
+  "decision": "PECO_V10_DEVELOPMENT_R1_VERIFIER_INVALIDATED",
+  "r1_result_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result.json",
+    "file_sha256": "470a1fa514e7edca35843ca82c99c9b5ff841f138e9889e896dc3e01a8cad3ba",
+    "result_fingerprint": "c5356db549219a02826adde2979effd2ac5cf896010f8566337e9e192a7cb8c1",
+    "reported_decision": "PECO_V10_DEVELOPMENT_REGRESSION_FAIL",
+    "passed_cases": 4,
+    "failed_cases": 2
+  },
+  "r1_execution_binding": {
+    "evaluator_repo_path": "tools/evaluate_paired_endpoint_crossing_development_regression.py",
+    "evaluator_file_sha256": "43c2a51635476b49f9ddd656991befecc3ac7fb635bf34288ad256fd4e00d116",
+    "implementation_closure_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_implementation_closure.json",
+    "implementation_closure_file_sha256": "3e26fcb39a8baf1143d4faae7c18f77ccddffb06ee158f5f5c00bf51124edb2f",
+    "implementation_closure_fingerprint": "8c9acdca49ca36bb4b121b31d18482a6e0593a5c7ab8ccf808c3a66b30ff2981",
+    "pre_run_verification_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_pre_run_verification_receipt.json",
+    "pre_run_verification_file_sha256": "35fabb2cc20b3d8c174c0f1a915f8eb95a22f187ac297b82dda17c7c1815c9cc",
+    "pre_run_verification_fingerprint": "1ae1ee5423d3112a97aabfb7129da341ac689ef708a1257ce1459d7f48cdd30d"
+  },
+  "attribution": {
+    "failure_class": "verifier_metric_contract_mismatch",
+    "model_code_failure_established": false,
+    "peco_objective_failure_established": false,
+    "training_failure_established": false,
+    "failed_check": "operator_contract.allocated_evidence_sums_to_budget",
+    "affected_cases": [
+      "legacy_one_pixel",
+      "support_one_pixel"
+    ],
+    "observed_max_absolute_error": 0.0000152587890625,
+    "r1_verifier_rule": "absolute_error<=1e-5",
+    "frozen_v8_rule": "max(abs(sum_phase(e)-M)/clamp_min(abs(M),1))<=1e-6",
+    "reason": "r1_replaced_the_frozen_scale_aware_relative_roundoff_check_with_an_absolute_check"
+  },
+  "model_observation": {
+    "all_six_clean_D_range": [
+      0.991625964641571,
+      0.9931955337524414
+    ],
+    "all_six_endpoint_H_G_factual_gradient_and_forward_checks_passed": true,
+    "all_six_initial_operator_contracts_passed": true,
+    "four_cases_final_operator_contracts_passed": true,
+    "the_two_failed_cases_failed_only_the_absolute_roundoff_check": true
+  },
+  "frozen_v8_reference": {
+    "toy_config_repo_path": "protocols/IRSTD-1K/coverage_conserving_subpixel_evidence_allocation_v8/toy_config.json",
+    "toy_config_file_sha256": "979fedfef36c7fe77b6066d8d4cea99ec216f839412eeb1a38b6c96f55e83ba4",
+    "reference_evaluator_repo_path": "tools/evaluate_conservative_factorized_toy_gate.py",
+    "reference_evaluator_file_sha256": "51b1948531edfb1d96c85b07d16ebca2b03d803714edaae118e7d3450fe51784",
+    "configured_relative_tolerance": 0.000001
+  },
+  "allowed_correction": {
+    "change_only_operator_mass_conservation_audit": true,
+    "restore_frozen_relative_error_formula_and_tolerance": true,
+    "record_both_absolute_and_relative_error": true,
+    "model_change_allowed": false,
+    "decoder_change_allowed": false,
+    "loss_change_allowed": false,
+    "training_step_change_allowed": false,
+    "toy_input_change_allowed": false,
+    "seed_or_optimizer_change_allowed": false,
+    "updates_or_scientific_threshold_change_allowed": false,
+    "automatic_retry_allowed": false,
+    "single_r2_correction_run_requires_new_closure": true
+  },
+  "execution_boundary": {
+    "r2_correction_run_currently_authorized": false,
+    "exposure_matched_confirmation_run_authorized": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "b020a307f5d311cddde359ba690f3930f48cb2a82eaf4f12909a814441d4fb8d"
+}

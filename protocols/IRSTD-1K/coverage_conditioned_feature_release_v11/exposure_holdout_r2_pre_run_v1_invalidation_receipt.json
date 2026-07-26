@@ -1,0 +1,67 @@
+{
+  "schema_version": "cure-lite-ccfr-v11-exposure-holdout-r2-pre-run-v1-invalidation-v1",
+  "method_id": "ccfr_v11",
+  "stage_id": "dataset_free_exposure_holdout_confirmation",
+  "status": "PRE_RUN_V1_INVALIDATED_BEFORE_ATTEMPT",
+  "invalidated_artifacts": {
+    "implementation_closure": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_implementation_closure_r2.json",
+      "file_sha256": "c650a8870aa36d0769eaacc30bf9ae4fa942d79973508d698c857050883961c9",
+      "closure_fingerprint": "7e87d4881b4f928b374c14db36299c40ee1f89eea91368eb3d2ee86cb575e010"
+    },
+    "pre_run_receipt": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_pre_run_verification_receipt.json",
+      "file_sha256": "5ce390bbcba475c6a84649052e9bf9219b12bf44280316b4aa80f25f09616722",
+      "pre_run_fingerprint": "3ba75fe0d38e5e9e8a2f964a64b88c82317f8f801139733b06f8c236d7e5b481"
+    },
+    "targeted_report": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_targeted_pre_run.junit.xml",
+      "file_sha256": "e27ec325a9e70bb284bff6a9ea9401d0a576da5cdbc4eb5ecd55fb16269df94d"
+    },
+    "broad_report": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_broad_pre_run.junit.xml",
+      "file_sha256": "52466fd75fae56f642a7174c15cd2ca028e6381a3112168690918ecd859a9b15"
+    },
+    "evaluator_source_at_v1_freeze": {
+      "repo_path": "tools/evaluate_ccfr_exposure_holdout_r2.py",
+      "file_sha256": "2036ed1cdb7a5b2de9fbfac532c075431bf2d2679f0e6edd612deb351d8475e6"
+    },
+    "test_source_at_v1_freeze": {
+      "repo_path": "tests_v11/test_ccfr_exposure_holdout_r2.py",
+      "file_sha256": "d167b8dec787043a23681c0a7c71272e1dec94aa6596727be0a5daad24f83c4c"
+    }
+  },
+  "observed_failure": {
+    "test_nodeid": "tests_v11/test_ccfr_exposure_holdout_r2.py::test_pre_run_receipt_authorizes_one_r2_attempt",
+    "failure_type": "KeyError",
+    "failure_key": "failure_receipt_binding",
+    "failure_location": "tools/evaluate_ccfr_exposure_holdout_r2.py::_load_prerequisites_before_attempt_payload",
+    "root_cause": "r2_implementation_closure summary omitted failure_receipt_binding required by _load_pre_run_receipt",
+    "failure_precedes_attempt_write": true,
+    "failure_precedes_training": true
+  },
+  "scientific_state": {
+    "attempt_receipt_written": false,
+    "scientific_attempts_consumed": 0,
+    "optimizer_steps": 0,
+    "model_outputs_observed": false,
+    "holdout_gate_metrics_observed": false,
+    "remaining_scientific_attempts": 1
+  },
+  "authority_artifacts_required_absent": [
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r1.json",
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.json",
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r1.COMPLETE.sha256",
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r2.json",
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.json",
+    "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.COMPLETE.sha256"
+  ],
+  "authorized_next_action": {
+    "create_additive_v2_implementation_closure": true,
+    "create_additive_v2_pre_run_receipt": true,
+    "only_code_change": "retain failure_receipt_binding in the preauthorization closure summary and validate v2 receipt chain",
+    "scientific_contract_change_allowed": false,
+    "automatic_retry_allowed": false
+  },
+  "invalidation_fingerprint": "8f7732576dd03d38f8bcb96a80a9aedd229e0b18686fa9675d8a13a810ce2645"
+}

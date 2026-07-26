@@ -12,14 +12,93 @@ CURE-Lite mechanism design and development verification
   -> cross-backbone and multi-dataset verification, only after Full CURE exists
 ```
 
-Full CURE has not been designed or implemented. Integrations with DNANet,
-UIUNet, MSHNet, and SCTransNet have not started. The project-owned reference
-U-Net is only the frozen Base used to produce the current Stage-A caches; it is
-not a CURE component or an innovation claim.
+Full CURE has not been designed or implemented. The current paired route has
+not been integrated with DNANet, UIUNet, MSHNet, or SCTransNet, and no formal
+cross-backbone experiment has started. The repository retains a historical
+MSHNet adapter, but it is outside the paired core and is not current integration
+evidence. The project-owned reference U-Net is only the frozen Base used to
+produce the current Stage-A caches; it is not a CURE component or an innovation
+claim.
 
 ## Current status
 
-### v0.1: completed diagnostic stage
+### Current node: paired CURE-Lite core
+
+The marginal-selection route studied by v0.1/v0.2 and P0 is frozen as
+historical negative evidence. The current CURE-Lite candidate keeps the same
+frozen Base, residual decoder, and one-pass inference graph, but changes the
+learning object to a same-source coverage response:
+
+```text
+Q_theta(F, Pi(O))
+  -> same frozen feature with O+ / O-
+  -> Delta_g Q = Q_minus - Q_plus
+  -> factual-miss anchor + factual-no-miss anchor + paired difference loss
+```
+
+The additive pair catalog, `PairExample`/`PairBatch`, paired loss, paired train
+step, deterministic `800 x 40` schedule, and toy learnability checks are
+implemented. The sealed real `D_R` catalog contains 206 clean-positive,
+16 component-null, and 160 identity-null pairs. The real paired preflight,
+matched-control static preflight, proposed 400-update bounded learnability,
+spatial-tail companion, and 8-control bounded engineering execution all closed
+with byte-identical successful replays. The full `800 x 40` factual/pair
+schedule, complete runtime-input binding, matched-control provider, common
+120-image `D_V` comparison protocol, separate create-only paired artifact
+schema, and no-resume formal runner are implemented. Strict `D_R`-only dry
+validation and the full `723 passed` regression suite completed.
+
+Wave A is now complete. All four frozen `800 x 40` runs
+(`paired_difference` and `independent_endpoint`, seeds 42 and 43) finished
+from fresh initialization through the create-only runner. No run restored or
+continued a checkpoint. After all four training artifacts were complete, the
+single predeclared `D_V` reveal was performed under the common protocol.
+
+The formal decision is `PERFORMANCE_FAIL`:
+
+| seed | paired true targets | paired recovered fixed misses | best cumulative comparator | Wave-A result |
+|---:|---:|---:|---:|:---|
+| 42 | 147 / 170 | 0 / 23 | 154 / 170 and 7 / 23 | fail |
+| 43 | 152 / 170 | 5 / 23 | 152 / 170 and 5 / 23 | fail (tie is not a strict improvement) |
+
+Every compared result passed the frozen false-alarm, covered-target-retention,
+and budget constraints. The failure is therefore the predeclared performance
+gate, not an execution or constraint failure. Seed 42 is worse than the best
+available comparator on both required quantities; seed 43 only ties it.
+Per-seed strict improvement was required, so averaging cannot compensate for
+either result.
+
+The resulting action is fixed:
+
+```text
+PERFORMANCE_FAIL
+  -> STOP_AND_PRESERVE_EVIDENCE
+  -> freeze this paired CURE-Lite version as a complete negative result
+  -> do not authorize Wave B or Wave C
+  -> do not authorize Full CURE or cross-backbone integration
+```
+
+`D_T` remains unread. The one-time `D_V` reveal does not alter the earlier
+meaning of the bounded evidence: the proposed bounded pass established only
+deterministic learnability on one fixed `D_R` micro-population, and the control
+pass established only executable matched controls under the frozen budget.
+
+The overall research mainline remains unchanged:
+
+```text
+CURE-Lite mechanism design and development verification
+  -> frozen confirmation only after a Lite mechanism passes
+  -> Full CURE design
+  -> cross-backbone and multi-dataset verification
+```
+
+What is frozen as negative evidence is this paired CURE-Lite version, not the
+overall CURE research direction. Any subsequent work must remain at the
+CURE-Lite mechanism-design stage until a newly specified mechanism earns a
+fresh development gate; the current result cannot be used to skip directly to
+Full CURE, Wave B/C, DNANet, UIUNet, MSHNet, SCTransNet, or other backbones.
+
+### Historical v0.1: completed diagnostic stage
 
 The two formal `fx_v3` development runs are complete:
 
@@ -36,7 +115,7 @@ selecting a legal synthetic target is not sufficiently aligned with the
 factual-miss regime**. The completed v0.1 artifacts remain unchanged and are
 used as the reference for the next single-mechanism test.
 
-### v0.2: M completed; the mechanism signal is negative
+### Historical v0.2: M completed; the mechanism signal is negative
 
 The v0.2 variant is `miss_aligned_legal`, abbreviated **M**. For every reachable
 factual miss, it:
@@ -91,10 +170,11 @@ sample size is `1024 / 108 = 9.48`. This is evidence that the one-dimensional
 hard nearest-neighbour rule concentrates the synthetic training distribution;
 it is not evidence against the broader CURE problem formulation.
 
-The current full test suite reports `376 passed`. This validates the software
-path; the two formal runs above provide the separate performance result.
+These historical runs remain valid negative evidence. The current `699 passed`
+suite additionally covers the later paired implementation; tests do not replace
+the formal performance result.
 
-### D_R-only P0: geometry gate failed before S
+### Historical D_R-only P0: geometry gate failed before S
 
 The next step was not another training run. A frozen, create-only P0 protocol
 first tested whether the existing synthetic population was suitable for a
@@ -141,8 +221,12 @@ python tools/run_p0_diagnostics.py \
   --output /path/to/new_create_only_p0_run
 ```
 
-The current decision is `rebuild_synthetic_target_extraction`. It does not
-authorize S training, `D_V` evaluation, Full CURE, or cross-backbone work.
+The decision at that protocol stage was `rebuild_synthetic_target_extraction`.
+Later failure attribution and hypothesis review stopped the entire marginal
+reweighting/S route and redefined the core learning object as same-source
+\(\Delta_gQ\). The current next step is therefore paired `D_R` preflight and
+bounded learnability, not another P0/S run. This still does not authorize
+formal paired training, `D_V` evaluation, Full CURE, or cross-backbone work.
 
 ## Mechanism comparison
 
@@ -210,11 +294,10 @@ secondary checks and cannot replace the Pd and recovery requirements.
 
 The observed result is negative under this predeclared rule in both seeds.
 Consequently, Full CURE design and cross-backbone integration remain blocked by
-the Lite-stage evidence gate. The subsequent `D_R`-only P0 audit has now shown
-that native-to-evaluation geometry must be repaired first. A
-support-preserving marginal correction cannot be trained until the repaired
-synthetic population passes P0-A and is then evaluated by P0-B/P0-C. The
-current scalar hard-matching selector must not be promoted as CURE.
+the Lite-stage evidence gate. The scalar hard-matching selector must not be
+promoted as CURE. The later P0/failure-attribution sequence stopped marginal
+distribution correction; the current paired route instead tests a coupled
+same-source coverage response without reinterpreting the old M result.
 
 All `D_V` values are development-selection results. Stage-A does not read
 `D_T`. No statement about final generalization, Full CURE, or cross-backbone
@@ -222,15 +305,19 @@ effectiveness may be made from this gate alone.
 
 ## Cache boundary
 
-The active data path is:
+The current paired data path is:
 
 ```text
 project-owned frozen reference Base
-  -> generic D_R/D_V caches: probability p_b + detached feature F_b
-  -> factual state and decoder-visible legal-target catalogs
-  -> fixed residual decoder training
-  -> A / Base@B / F / F× / U / M development evaluation
+  -> generic D_R cache: probability p_b + detached feature F_b
+  -> factual anchors + same-source clean/null pair catalog
+  -> the same fixed residual decoder
+  -> L_F+ + L_F0 + L_Delta
+  -> one-pass hard-union inference remains unchanged
 ```
+
+The historical `D_R/D_V -> A/Base@B/F/F×/U/M` path and artifacts remain
+unchanged for comparison.
 
 The CURE-Lite core consumes the generic `(p_b, F_b)` contract and does not
 import a detector architecture. This is a clean software boundary, not yet

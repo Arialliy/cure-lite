@@ -1,0 +1,139 @@
+{
+  "schema_version": "cure-lite-paired-formal-comparison-protocol-v1",
+  "dataset": "IRSTD-1K",
+  "runtime_split": "D_V",
+  "population": {
+    "images": 120,
+    "total_targets": 170,
+    "anchor_covered": 147,
+    "anchor_misses": 23
+  },
+  "ordered_d_v_sample_ids_fingerprint": "02fe0ff4392563c4471487bf5d2e11bf39854e1d40ba714a9567dae0aa8b68b5",
+  "bundle_binding": {
+    "manifest_fingerprint": "87d63d1a6aa1414c06dc08cdb5547080a18cd54baf08e72cd5a77175758e1820",
+    "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+    "preprocessing_fingerprint": "db4b3b4b37c513c3ad5547f1d05a756d9c422f8f55d846b19b50acfd59f210ca",
+    "base_fingerprint": "5f69986b95d11a89c5a5e91d6bdd63add865eda102be8ce486722fee8cd00dce",
+    "d_v_base_index_fingerprint": "3431162d68fc79c50352adb828b3ff158b335f17f35a0e2a120251c63ec356d9",
+    "d_v_base_index_sha256": "86da975813b2b17afe5ddfc2477de72680f941e170b24678510000bbd23351c1",
+    "d_v_image_fingerprint": "57a6b4dd1ec44ce2c25c9c0c4ac5ae85ff9e0982f1894cb9f1963ae38dada68e",
+    "d_v_gt_fingerprint": "6407d397d0c0db7fa9e82f8b4b650d83efb0124642f961f7622f3d33074f0eda",
+    "base_samples_fingerprint": "1066b205356a4d0c58a426e192517137b5067a3ec1213988136f849a47d50db7"
+  },
+  "occupancy_config": {
+    "threshold": 0.72,
+    "connectivity": 8,
+    "min_component_area": 1
+  },
+  "occupancy_config_fingerprint": "35ca0d721da51e44e7ae84d19ec62bdf5c69cb4bcc2ed65d707963fc8d28cdce",
+  "match_config": {
+    "max_distance": 3.0,
+    "distance_quantization": 1000000,
+    "iou_quantization": 1000000
+  },
+  "match_config_fingerprint": "e5143f3f01286b84ab817d05c8d4304c6a9b576993afad5fc50a003cb1e358b6",
+  "residual_threshold_grid": [
+    0.0,
+    0.02,
+    0.04,
+    0.06,
+    0.08,
+    0.1,
+    0.12,
+    0.14,
+    0.16,
+    0.18,
+    0.2,
+    0.22,
+    0.24,
+    0.26,
+    0.28,
+    0.3,
+    0.32,
+    0.34,
+    0.36,
+    0.38,
+    0.4,
+    0.42,
+    0.44,
+    0.46,
+    0.48,
+    0.5,
+    0.52,
+    0.54,
+    0.56,
+    0.58,
+    0.6,
+    0.62,
+    0.64,
+    0.66,
+    0.68,
+    0.7,
+    0.72,
+    0.74,
+    0.76,
+    0.78,
+    0.8,
+    0.82,
+    0.84,
+    0.86,
+    0.88,
+    0.9,
+    0.92,
+    0.94,
+    0.96,
+    0.98,
+    1.0
+  ],
+  "false_alarm_budget": {
+    "pixel_fa_budget": 0.0001,
+    "component_fa_per_mp_budget": 100.0,
+    "raw_background_fa_budget": 0.0001,
+    "minimum_retention": 0.99
+  },
+  "selection_rule": "maximize_pd_then_retention_then_minimize_pixel_fa_then_raw_background_fa_then_fp_components_per_mp_then_maximize_threshold_with_null_as_residual_off-v1",
+  "null_operating_point_policy": "include_exactly_one_null_residual_off_candidate_tie_ranked_above_numeric_thresholds-v1",
+  "historical_fx_v3": [
+    {
+      "seed": 42,
+      "run_config_fingerprint": "6f49e7f173b13062c63e2b8bdd0c946031744ca70d5dff69c90b5d7c15cf9092",
+      "config_file_sha256": "1d31a673995d45a8e517242eb7f0bc4892040655fe9f36cfef44ca83fcf75d79",
+      "calibration_receipt_fingerprint": "188947f5c8407f3fc7911cb623889dc13dbc192edfcf20a6341e5071e18893c6",
+      "results_fingerprint": "945e79c3a6e3a6f6554c5b4a2e453344c1222f6d6fe35bebedc9dc8e7ede328d",
+      "complete_fingerprint": "6a1db02001e02db1dfb3888472af5499ca63929e92ed61e77f7de22cf91ab230",
+      "method_protocol_fingerprints": {
+        "Base@B": "921a0409b9c24741b8e0b6d7e981e30f6ebc022883f5f2e6746271c3ff17d3b4",
+        "F": "8569b49be268e9ad625601caabd09068d428df601c7ae7d6d15e333449c8b6b9",
+        "F\u00d7": "ba0f7ac46e2471b8de0ae76f6177fb8b4f27f811f94577a19ef23a9adde15e39",
+        "U": "b2de35c7d07e4dcc052d99b910acc92266107cb59ef28f4dc87ef10dc596dfb4"
+      },
+      "method_metrics_fingerprints": {
+        "Base@B": "50b9427e5dc1ed07865d34428a96519f3287a01993e41a585b4dc0f8ef04cb11",
+        "F": "edd13b1a318d1c24cbe94a556767bc78824b735419df73b71dc6244a03d55954",
+        "F\u00d7": "69c9df717c531bc9909f3a1f4c02124e49916ab56a5957d4b160528d946b2f75",
+        "U": "8dc3b6e8664f865a36a74ed087467a89e856091c3cccca3dd2bfe57ccee60654"
+      }
+    },
+    {
+      "seed": 43,
+      "run_config_fingerprint": "554c1ae189aec866c37f158abed3e82a9743a201f9c573daee2d8d20ed578c7a",
+      "config_file_sha256": "53481798ac05026d04050fd6771e5d33671c3f6f48d3beb2c5c522ff47cfd30c",
+      "calibration_receipt_fingerprint": "a93a1c98cf6cd6f9821cfcbb6666b8c4033c8a2f1762ce1c8999f57f3c9ad65f",
+      "results_fingerprint": "416a3c063a86ad2e1526b89429dbff8f17426148db0047f253f6eb9d25bf800a",
+      "complete_fingerprint": "2f7cc41bc81d5ac7c27f82a7063db2e973f1773ba28401bb09be03ba932f26f9",
+      "method_protocol_fingerprints": {
+        "Base@B": "921a0409b9c24741b8e0b6d7e981e30f6ebc022883f5f2e6746271c3ff17d3b4",
+        "F": "a4e61e8d35c6f718272241e01968f56368f92c364a9eece691dfbb158b1692ba",
+        "F\u00d7": "2dc44c4b0ce081bd254efc66efe4e613488a1f626f49c4aa1fc703dff5e6a0a9",
+        "U": "4a9a5ee103a2fb94ad5525971ba3eb28e7fe6a4bfdb24cf9a5f2c4d2304f27a3"
+      },
+      "method_metrics_fingerprints": {
+        "Base@B": "50b9427e5dc1ed07865d34428a96519f3287a01993e41a585b4dc0f8ef04cb11",
+        "F": "c2c1d739c2221c58bed376cc17a55c5aab213fb060d3e17eea043087f3867f5c",
+        "F\u00d7": "a1b6e3039ded14210a6b74c374b5d09456b4fe4cdd5f3244a694ebfb690e6fbb",
+        "U": "e9a24db9f75bd816d49fb27cfc2ee4c0e11de29ee16736a762f35e93e0223484"
+      }
+    }
+  ],
+  "comparison_protocol_fingerprint": "cb2fb09c3ec7dbbb0f057d94f7f159e2b4a733296e6ea4a144d6302387014884"
+}

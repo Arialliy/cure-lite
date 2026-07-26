@@ -1,0 +1,73 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r2-execution-failure-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "R2_AUTHORITY_EXECUTION_REACHED_RESULT_ASSEMBLY_WITHOUT_RESULT_ARTIFACT",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_RESULT_NOT_PRODUCED",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_implementation_closure_r2.json",
+    "file_sha256": "3b0707d4aa9611d84f26a7c42e23b2b36a60a0f76c10ecced938afdf11925c88",
+    "receipt_fingerprint": "d0d8621585e4a3022679f5fdae12dd0ef357fcf653fa4ac249a46480b4a97315"
+  },
+  "pre_run_verification_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_r2_pre_run_verification_receipt.json",
+    "file_sha256": "4139e4f10a1b056697a0e2cb46a2e523f6a2cb82fc529bf33d2bcaeba1fe3f5f",
+    "receipt_fingerprint": "7872118c4589ca0688e1db1d8a0bef35e9c428af85ceafeef1c66c15f8beceb0"
+  },
+  "authority_invocation": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python tools/evaluate_peco_exposure_confirmation.py --output protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r2.json",
+    "exit_code": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r2.json",
+    "canonical_output_exists": false,
+    "automatic_retry_performed": false
+  },
+  "failure_attribution": {
+    "failure_class": "result_fingerprint_serialization_contract_error",
+    "exception_type": "TypeError",
+    "exception_message": "fingerprint mapping keys must be strings",
+    "failure_locus": "tools/evaluate_peco_exposure_confirmation.py:evaluate:stable_fingerprint(result)",
+    "offending_field": "contract.component_update_histogram",
+    "offending_key_type": "int",
+    "root_cause": "Counter_component_count_keys_were_inserted_into_the_result_mapping_without_string_canonicalization",
+    "model_failure_established": false,
+    "peco_objective_failure_established": false,
+    "predecessor_objective_failure_established": false,
+    "optimizer_failure_established": false
+  },
+  "computation_boundary": {
+    "both_400_update_training_routines_returned_before_the_exception": true,
+    "result_dictionary_assembly_reached": true,
+    "result_fingerprint_created": false,
+    "result_file_created": false,
+    "scientific_metrics_preserved_as_authoritative_evidence": false,
+    "confirmation_pass_or_fail_established": false
+  },
+  "allowed_r3_correction": {
+    "canonicalize_component_histogram_keys_as_strings": true,
+    "add_a_unit_test_rejecting_non_string_result_mapping_keys": true,
+    "version_result_schema_and_canonical_output_as_r3": true,
+    "create_a_new_r3_implementation_closure_and_pre_run_receipt": true,
+    "model_change": false,
+    "decoder_change": false,
+    "loss_change": false,
+    "population_change": false,
+    "schedule_change": false,
+    "optimizer_change": false,
+    "seed_change": false,
+    "learning_rate_change": false,
+    "updates_change": false,
+    "threshold_change": false,
+    "automatic_retry": false
+  },
+  "execution_boundary": {
+    "r3_authority_run_currently_authorized": false,
+    "deterministic_dry_run": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "6d4bc2cb4282a4ee1ab7b8674f99f9d675c8d88c4a434a5c4ac8f04bdae31ff7"
+}

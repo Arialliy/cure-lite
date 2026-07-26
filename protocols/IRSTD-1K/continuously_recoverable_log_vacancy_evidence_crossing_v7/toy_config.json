@@ -1,0 +1,203 @@
+{
+  "schema_version": "cure-lite-cr-lvec-v7-toy-config-v1",
+  "method_id": "cr_lvec_v7",
+  "config_fingerprint_scope": "all-fields-except-config_fingerprint",
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/continuously_recoverable_log_vacancy_evidence_crossing_v7/proposal_receipt.json",
+    "file_sha256": "fa72f4ef850f72a65003e913db1b1230d7b0b45046faf61950fb1e4ef80d3c4f",
+    "proposal_fingerprint": "9d291e6ad9ec0869aa0ab0eaebcb219cd62678420375f56af480ba105208dbf2"
+  },
+  "predecessor_v6_closure": {
+    "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_negative_closure_receipt.json",
+    "file_sha256": "b909d573050bd0f1d0aac4c30534ebe7c0d231a70c817b94a087d965872b4434",
+    "receipt_fingerprint": "f73fd4cedaa6d3b618a41b2c1b3c329ee65ddc7dec37dad47ea4e3dd26072368"
+  },
+  "operator": {
+    "occupancy_projection": "project_max_to_feature_grid",
+    "local_count": "fixed_ones_3x3_convolution",
+    "occupancy_burden": "nearest(log1p(local_count))",
+    "crossing_margin": "raw_evidence-occupancy_burden",
+    "ratio_identity": "expm1(raw-log1p(count))=exp(raw)/(1+count)-1",
+    "forward": "expm1(margin) for margin>0, explicit zero for margin<=0",
+    "backward": "explicit exp(margin) surrogate on the supported numerical axis",
+    "logit_composition": "baseline_logits+crossing_evidence",
+    "trainable_parameters_added": 0,
+    "nonfinite_policy": "fail_fast_without_clamp"
+  },
+  "decoder": {
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "trunk_residual_scale": 0.5,
+    "baseline_probability": 0.1,
+    "vacancy_kernel_size": 3,
+    "resize_policy": "bilinear_raw_nearest_burden_then_crossing_v1",
+    "expected_parameter_count": 2593
+  },
+  "optimization": {
+    "seed": 7817,
+    "optimizer": "adam",
+    "updates": 320,
+    "learning_rate": 0.004,
+    "weight_decay": 0.0,
+    "loss": "unchanged_outcome_complete_transition_plus_absolute_factual",
+    "training_step": "unchanged_outcome_complete_train_step",
+    "automatic_retry_allowed": false
+  },
+  "case_families": [
+    {
+      "family_id": "legacy_component_contains_response",
+      "removed_component": "full_top_left_4x4_subpixel_cell",
+      "cases": [
+        {
+          "case_id": "legacy_one_pixel",
+          "clean_pixels": [
+            [
+              1,
+              2
+            ]
+          ]
+        },
+        {
+          "case_id": "legacy_two_pixels",
+          "clean_pixels": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              1
+            ]
+          ]
+        },
+        {
+          "case_id": "legacy_three_pixels",
+          "clean_pixels": [
+            [
+              1,
+              2
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              2,
+              2
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "response_outside_removed_component_inside_count_support",
+      "removed_component_pixels": [
+        [
+          0,
+          0
+        ]
+      ],
+      "require_all_response_pixels_outside_removed_component": true,
+      "require_all_response_pixels_outside_direct_projected_change": true,
+      "require_all_response_pixels_inside_three_by_three_count_change_support": true,
+      "cases": [
+        {
+          "case_id": "support_one_pixel",
+          "clean_pixels": [
+            [
+              1,
+              6
+            ]
+          ]
+        },
+        {
+          "case_id": "support_two_pixels",
+          "clean_pixels": [
+            [
+              1,
+              6
+            ],
+            [
+              2,
+              5
+            ]
+          ]
+        },
+        {
+          "case_id": "support_three_pixels",
+          "clean_pixels": [
+            [
+              1,
+              6
+            ],
+            [
+              2,
+              5
+            ],
+            [
+              2,
+              6
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "thresholds": {
+    "total_loss_max_exclusive": 0.1,
+    "plus_completion_min_exclusive": 0.95,
+    "plus_background_max_exclusive": 0.05,
+    "factual_miss_target_min_exclusive": 0.95,
+    "factual_miss_background_max_exclusive": 0.05,
+    "factual_no_miss_max_exclusive": 0.05,
+    "clean_D_mean_min_inclusive": 0.8,
+    "clean_H_max_abs_max_inclusive": 0.05,
+    "clean_G_max_abs_max_inclusive": 0.05,
+    "component_H_max_abs_max_inclusive": 0.05,
+    "component_G_max_abs_max_inclusive": 0.05,
+    "dual_endpoint_gradients_required": true,
+    "all_parameter_gradients_finite_nonzero_required": true,
+    "identity_exact_required": true,
+    "outside_count_change_exact_required": true
+  },
+  "decision_rule": {
+    "required_passed_case_count": 6,
+    "required_passed_family_count": 2,
+    "per_case_all_checks_required": true,
+    "mean_cannot_override_case_failure": true,
+    "pass_decision": "CR_LVEC_V7_TOY_GATE_PASS",
+    "fail_decision": "CR_LVEC_V7_TOY_GATE_FAIL",
+    "on_fail": "freeze_negative_and_stop_v7",
+    "on_pass": "authorize_bounded_code_creation_not_real_run"
+  },
+  "replay_contract": {
+    "independent_process_replay_count": 2,
+    "canonical_payload_byte_identity_required": true
+  },
+  "numerical_contract": {
+    "dtype": "float32",
+    "finite_nonzero_negative_recovery_probe": -80.0,
+    "first_zero_recovery_probe": -104.0,
+    "largest_finite_positive_margin_probe": 88.0,
+    "first_nonfinite_positive_margin_probe": 89.0,
+    "finite_nonzero_gradient_required_at_negative_probe": true,
+    "zero_recovery_must_fail_fast": true,
+    "finite_forward_and_gradient_required_at_largest_finite_probe": true,
+    "nonfinite_fail_fast_required_at_first_nonfinite_probe": true,
+    "silent_clamp_allowed": false,
+    "maximum_observed_absolute_margin_must_be_reported": true
+  },
+  "execution_boundary": {
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "real_D_R_bounded_allowed": false,
+    "formal_800_allowed": false,
+    "automatic_retry_allowed": false,
+    "threshold_change_allowed": false,
+    "budget_change_allowed": false
+  },
+  "config_fingerprint": "b2fb7984f7ef97dc111109fed0a859424f7914ff4832693102f9fe7bad1e7a46"
+}

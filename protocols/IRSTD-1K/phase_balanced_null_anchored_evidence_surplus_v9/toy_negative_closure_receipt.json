@@ -1,0 +1,59 @@
+{
+  "schema_version": "cure-lite-pb-naes-v9-toy-negative-closure-v1",
+  "method_id": "pb_naes_v9",
+  "decision": "PB_NAES_V9_DATASET_FREE_TOY_NEGATIVE_CLOSED",
+  "phase_status": "FROZEN_TOY_MODEL_CODE_NONPASS",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/toy_implementation_closure_receipt.json",
+    "file_sha256": "b2bdb4b96f262043c1417390c286ce22c422a54e40b009c2c71c2313109df678",
+    "receipt_fingerprint": "057f801b94d4f7213787567c7e0ab9ec4203ba05679a6ec2acb701b3464757b8"
+  },
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/phase_balanced_null_anchored_evidence_surplus_v9/toy_gate_result.json",
+    "file_sha256": "717ac99c0aaaba74c3027d6a5b11285b7b97ec147faad5324d235cfff221f299",
+    "result_fingerprint": "373e7cb96726c9c48cc64b1c7086d12602fd23dd8d26919913ba0513fbc3d97e",
+    "decision": "PB_NAES_V9_TOY_GATE_FAIL"
+  },
+  "execution_summary": {
+    "case_count": 6,
+    "passed_case_count": 0,
+    "failed_case_count": 6,
+    "passed_family_count": 0,
+    "updates_per_case": 320,
+    "all_operator_counterexamples_passed": true,
+    "numerical_contract_passed": true,
+    "dual_endpoint_gradients_passed": true,
+    "all_parameter_gradients_passed": true,
+    "single_2B_endpoint_forward_passed": true,
+    "feature_detach_passed": true,
+    "clean_D_values": [
+      0.0,
+      0.0,
+      7.947286206899662e-8,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "interpretation": {
+    "implementation_failure": false,
+    "operator_contract_failure": false,
+    "model_code_gate_failure": true,
+    "finding": "phase-balanced null surplus is structurally valid but its occupancy-independent active set plus reciprocal amplitude scaling does not learn the required clean endpoint transition under the frozen paired objective",
+    "v9_retry_allowed": false,
+    "threshold_or_budget_tuning_allowed": false
+  },
+  "next_stage": {
+    "authorized": "design_only",
+    "direction": "paired endpoint crossing objective with the frozen v8 decoder forward equation",
+    "reason": "the current probability-difference response term permits both endpoints to saturate together; the next isolated hypothesis must supervise covered-plus low and uncovered-minus high without changing the decoder topology",
+    "dataset_free_code_authorized": false,
+    "D_R_authorized": false,
+    "D_V_authorized": false,
+    "D_T_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "receipt_fingerprint": "8df51743d87b002d045ac14ea9702340326e297ba740eab427a990b9c86f28c1"
+}

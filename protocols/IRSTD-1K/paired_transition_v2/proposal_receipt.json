@@ -1,0 +1,292 @@
+{
+  "schema_version": "cure-lite-anchored-paired-transition-proposal-v2",
+  "proposal_id": "irstd1k-dr-anchored-paired-transition-v2",
+  "method_name": "Anchored Paired Transition Objective",
+  "method_abbreviation": "APTO",
+  "stage_role": "versioned-model-and-code-design-not-formal-training-authorization",
+  "dataset": "IRSTD-1K",
+  "design_evidence_split": "D_R",
+  "new_runtime_data_access": [],
+  "design_document_binding": {
+    "path": "CURE_Lite_APTO_v2_模型与代码设计.md",
+    "file_sha256": "8824738b773a5c8f9c11b184de24b0505ba824d36b0a3514f2d2a56796f8d53b"
+  },
+  "status": {
+    "v1_wave_a": "frozen_performance_fail",
+    "v1_next_action": "stop_and_preserve_evidence",
+    "apto_v2_model_specification": "complete",
+    "apto_v2_code": "not_implemented",
+    "apto_v2_toy": "not_run",
+    "apto_v2_d_r_bounded": "not_run",
+    "apto_v2_null_diagnostic": "not_run",
+    "apto_v2_formal_protocol": "not_frozen",
+    "apto_v2_seed_42_43": "not_run",
+    "cure_lite_mechanism": "not_established",
+    "full_cure": "not_started",
+    "cross_detector": "not_started",
+    "paper_core": "not_established",
+    "novelty_status": "unsearched"
+  },
+  "v1_negative_result_binding": {
+    "decision_path": "runs/irstd1k_stage_a_seed42/cure_lite_paired_formal_wave_a_reveal_v1_r1/decision.json",
+    "decision_file_sha256": "7721e0ad919804394560e21cbb2889fb19b6353807ddb1de7aa722718c8ff6b4",
+    "decision_fingerprint": "481413dd8da3af95d4f6bcb8fc28ed001301ea83861cbf583cf27077709df28e",
+    "status": "PERFORMANCE_FAIL",
+    "all_seeds_pass": false,
+    "next_action": "STOP_AND_PRESERVE_EVIDENCE",
+    "seed_42": {
+      "paired_true_targets": 147,
+      "paired_recovered_anchor_misses": 0,
+      "best_comparator_true_targets": 154,
+      "best_comparator_recovered_anchor_misses": 7,
+      "true_target_margin": -7,
+      "recovered_anchor_miss_margin": -7
+    },
+    "seed_43": {
+      "paired_true_targets": 152,
+      "paired_recovered_anchor_misses": 5,
+      "best_comparator_true_targets": 152,
+      "best_comparator_recovered_anchor_misses": 5,
+      "true_target_margin": 0,
+      "recovered_anchor_miss_margin": 0
+    },
+    "v1_may_be_overwritten_or_reinterpreted": false
+  },
+  "reviewed_source_binding": {
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/model.py": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "cure_lite/paired_losses.py": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/train/paired_control_step.py": "19060a3ac8537f80e8ef95aa2ba96686c70ec600ecec47a1f241664643c2e004",
+    "cure_lite/paired_control_losses.py": "9234f345292ca73c931047f47e458d99c94124df13d1ea426c4cc4b5079cacc5"
+  },
+  "problem": {
+    "v1_learning_signal": "paired_difference_only_on_legal_pair_endpoints_plus_factual_absolute_anchors_on_other_training_states",
+    "underconstraint": "pair_specific_common_probability_offset_can_preserve_endpoint_difference_on_unsaturated_domains",
+    "why_factual_anchors_are_insufficient": "they_do_not_directly_anchor_the_absolute_baseline_of_each_clean_legal_pair_on_its_own_completion_domain",
+    "wave_a_interpretation": "independent_endpoint_equal_or_better_is_directional_design_evidence_not_causal_proof"
+  },
+  "pair_truth_contract": {
+    "occupancy_relation": "O_minus_subset_O_plus",
+    "completion_plus": "R_plus=R_G_V(O_plus)",
+    "completion_minus": "R_minus=R_G_V(O_minus)",
+    "completion_monotonicity": "R_plus_subset_R_minus",
+    "label_increment": "D=R_minus_setminus_R_plus",
+    "writable_background_plus": "B_plus=V_intersect_not_O_plus_intersect_not_union_G",
+    "baseline_valid_domain": "M_plus=R_plus_union_B_plus",
+    "shared_feature": "one_exact_detached_frozen_feature_is_reused_for_both_endpoints",
+    "optimizer_pair_kind": "clean_positive"
+  },
+  "objective": {
+    "score_definition": "q_plus=sigmoid(z_plus);q_minus=sigmoid(z_minus)",
+    "baseline_coordinate": "ell_base=CURELiteLoss(z_plus,indicator_R_plus,M_plus)",
+    "transition_coordinate": "ell_delta=mean_pair[0.5*mean_D(((q_minus-q_plus-1)/2)^2)+0.5*mean_(V_without_D)((q_minus-q_plus)^2)]",
+    "per_pair": "ell_APTO=0.5*ell_base+0.5*ell_delta",
+    "pair_batch_reduction": "arithmetic_mean_over_pairs",
+    "total": "L_v2=L_factual_miss+L_factual_no_miss+L_APTO",
+    "apto_internal_weights": {
+      "baseline": 0.5,
+      "transition": 0.5
+    },
+    "total_branch_weights": {
+      "factual_miss": 1.0,
+      "factual_no_miss": 1.0,
+      "apto": 1.0
+    },
+    "weights_are_searchable": false,
+    "both_endpoints_attached": true,
+    "difference_before_hard_mask": true,
+    "legal_minus_endpoint_independent_absolute_loss_in_proposed": false,
+    "mixed_endpoint_derivative_required": true
+  },
+  "single_mechanism_contract": {
+    "mechanism": "same_source_baseline_effect_factorization_for_one_coverage_component_intervention",
+    "adds_attention": false,
+    "adds_transformer": false,
+    "adds_multiscale_module": false,
+    "adds_second_decoder": false,
+    "adds_feature_editor": false,
+    "adds_null_regularization_to_optimizer": false,
+    "adds_marginal_reweighting": false,
+    "changes_inference_graph": false
+  },
+  "null_policy": {
+    "component_null_optimizer_role": "forbidden_in_first_apto_version",
+    "identity_null_optimizer_role": "forbidden_in_first_apto_version",
+    "component_null_diagnostic_role": "read_only_no_grad",
+    "identity_null_diagnostic_role": "read_only_no_grad",
+    "reported_statistics": [
+      "mean_absolute_delta",
+      "maximum_absolute_delta",
+      "rms_delta"
+    ],
+    "reason": "adding_null_consistency_would_change_a_second_mechanism_and_prevent_attribution_to_pair_local_gauge_fixing",
+    "future_null_loss_rule": "requires_a_separate_version_and_matched_ablation"
+  },
+  "frozen_model_boundary": {
+    "base_modified": false,
+    "decoder_topology_modified": false,
+    "feature_tap_modified": false,
+    "occupancy_projection_modified": false,
+    "occupancy_threshold_modified": false,
+    "calibration_modified": false,
+    "hard_mask_modified": false,
+    "hard_union_modified": false,
+    "inference_forward_count_modified": false,
+    "inference_contract": "one_frozen_detector_forward_plus_one_shared_residual_decoder_forward",
+    "detector_independence": "same_p_b_F_b_contract_and_algorithm_retrained_per_detector_not_zero_shot_transfer"
+  },
+  "planned_code_files": {
+    "stage_1_new": [
+      "cure_lite/paired_transition_types.py",
+      "cure_lite/paired_transition_losses.py",
+      "cure_lite/train/paired_transition_step.py",
+      "tests/test_paired_transition_types.py",
+      "tests/test_paired_transition_losses.py",
+      "tests/test_paired_transition_step.py"
+    ],
+    "stage_2_new": [
+      "tests/test_paired_transition_toy.py"
+    ],
+    "stage_3_new": [
+      "cure_lite/experiment/paired_transition_bounded.py",
+      "tools/run_paired_transition_bounded.py",
+      "tests/test_paired_transition_bounded.py"
+    ],
+    "stage_5_6_future_versioned": [
+      "cure_lite/experiment/paired_transition_formal_training.py",
+      "cure_lite/experiment/paired_transition_formal_runner.py",
+      "tools/run_paired_transition_formal.py"
+    ],
+    "v1_files_to_modify": [],
+    "v1_artifact_schema_may_be_extended": false
+  },
+  "stage_plan": [
+    {
+      "stage": 1,
+      "name": "core_code_and_unit_tests",
+      "data_access": "none",
+      "entry": "this_versioned_proposal",
+      "exit": "all_type_mask_gauge_mixed_derivative_dual_gradient_2B_forward_null_rejection_and_v1_regression_tests_pass",
+      "failure_action": "stop_at_code_stage"
+    },
+    {
+      "stage": 2,
+      "name": "toy_overfit",
+      "data_access": "synthetic_toy_only",
+      "entry": "stage_1_pass",
+      "exit": "00_01_11_transition_states_and_pair_identity_gradient_contract_pass",
+      "failure_action": "stop_without_module_weight_or_null_loss_patch"
+    },
+    {
+      "stage": 3,
+      "name": "D_R_bounded_execution",
+      "data_access": "D_R_only",
+      "entry": "stage_2_pass",
+      "exit": "real_pair_contract_gradient_loss_and_score_trajectory_gates_pass_against_bounded_controls",
+      "failure_action": "stop_and_preserve_bounded_artifacts"
+    },
+    {
+      "stage": 4,
+      "name": "read_only_null_diagnostic",
+      "data_access": "D_R_only",
+      "entry": "stage_3_pass",
+      "exit": "null_statistics_recorded_without_backward_or_optimizer_access",
+      "failure_action": "record_limitation_or_open_a_separate_future_version"
+    },
+    {
+      "stage": 5,
+      "name": "formal_protocol_freeze",
+      "data_access": "no_new_performance_read",
+      "entry": "stages_1_through_4_pass",
+      "exit": "new_v2_config_schema_hashes_schedule_comparators_thresholds_and_stop_rules_frozen",
+      "failure_action": "formal_training_not_authorized"
+    },
+    {
+      "stage": 6,
+      "name": "formal_seed_42_43",
+      "data_access": "D_V_only_after_stage_5",
+      "entry": "separate_formal_protocol_authorization",
+      "exit": "both_seeds_independently_satisfy_the_prefrozen_performance_and_constraint_gate",
+      "failure_action": "freeze_v2_negative_result_and_stop"
+    }
+  ],
+  "bounded_controls": [
+    "frozen_v1_paired_difference",
+    "plus_anchor_only",
+    "geometry_matched_independent_endpoint",
+    "factual_only",
+    "factual_exposure_matched"
+  ],
+  "formal_gate_intent": {
+    "status": "inherited_intent_not_yet_executable_or_authorizing",
+    "per_seed_not_mean": true,
+    "development_seeds": [
+      42,
+      43
+    ],
+    "minimum_additional_true_targets_over_best_frozen_matched_comparator_per_seed": 2,
+    "minimum_additional_recovered_anchor_misses_over_best_frozen_matched_comparator_per_seed": 2,
+    "constraints_must_all_pass": [
+      "retention",
+      "pixel_fa",
+      "raw_background_fa",
+      "fp_components_per_mp",
+      "budget_violation_false"
+    ],
+    "exact_comparator_set_result_binding_and_thresholds_require_separate_freeze_before_formal_v2_performance": true,
+    "development_pass_authorizes_only": "frozen_confirmation_not_full_cure"
+  },
+  "prohibited": [
+    "modify_or_overwrite_v1_negative_result",
+    "read_new_D_V_before_separate_formal_protocol_freeze",
+    "read_D_T",
+    "run_formal_seed_42_43_before_stage_5",
+    "modify_Base",
+    "modify_decoder_topology_or_feature_tap",
+    "modify_calibration_threshold_grid_or_inference",
+    "search_APTO_internal_or_total_branch_weights",
+    "put_component_null_or_identity_null_in_optimizer",
+    "add_attention_transformer_multiscale_second_decoder_or_feature_editor",
+    "jointly_train_Base",
+    "restore_factual_to_legal_matching_S_or_marginal_reweighting",
+    "integrate_other_IRSTD_detectors",
+    "start_Full_CURE_or_three_dataset_expansion",
+    "interpret_code_toy_or_bounded_pass_as_performance_success",
+    "invent_APTO_performance_stability_novelty_or_acceptance_results"
+  ],
+  "performed": {
+    "new_code_implemented": false,
+    "new_metric_computation_performed": false,
+    "toy_run": false,
+    "d_r_bounded_run": false,
+    "null_diagnostic_run": false,
+    "formal_training_performed": false,
+    "calibration_performed": false,
+    "inference_performed": false,
+    "new_d_v_accessed": false,
+    "d_t_accessed": false,
+    "base_modified": false,
+    "decoder_modified": false,
+    "full_cure_started": false,
+    "backbone_integration_performed": false
+  },
+  "authorization": {
+    "authorizes_stage_1_core_code_and_unit_tests": true,
+    "authorizes_stage_2_toy_only_after_stage_1_pass": true,
+    "authorizes_stage_3_d_r_bounded_only_after_stage_2_pass": true,
+    "authorizes_stage_4_read_only_null_diagnostic_only_after_stage_3_pass": true,
+    "authorizes_formal_protocol_draft_only_after_stages_1_through_4_pass": true,
+    "authorizes_formal_seed_training": false,
+    "authorizes_new_d_v_access": false,
+    "authorizes_d_t_access": false,
+    "authorizes_base_or_decoder_topology_modification": false,
+    "authorizes_null_optimizer_loss": false,
+    "authorizes_full_cure": false,
+    "authorizes_cross_detector_integration": false
+  },
+  "next_action": "implement_stage_1_versioned_APTO_types_loss_step_and_unit_tests_without_modifying_v1",
+  "receipt_fingerprint_scope": "all-fields-except-receipt-fingerprint",
+  "receipt_fingerprint": "d9ac137f369b0c0a538981ffe3ed5b3cfa44ad489a54683c21f2c225f83610b7"
+}

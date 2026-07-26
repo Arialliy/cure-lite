@@ -782,20 +782,60 @@ def _oof_auc(
         ]
         if not train or not test:
             raise RuntimeError("grouped classifier produced an empty fold")
+        projection_fit: dict[str, object] | None = None
         if space == "handcrafted":
             train_raw = torch.stack([records[index].hand for index in train])
             test_raw = torch.stack([records[index].hand for index in test])
         elif space == "joint":
+            legal_train = [
+                index for index in train if records[index].role == "legal"
+            ]
             legal_feature_train = torch.stack(
-                [
-                    records[index].joint_feature_raw
-                    for index in train
-                    if records[index].role == "legal"
-                ]
+                [records[index].joint_feature_raw for index in legal_train]
             )
             feature_projector = _fit_feature_projector(
                 legal_feature_train,
                 overlap.joint_feature_components,
+            )
+            projection_fit = {
+                "fit_role": "training-fold-legal-targets-only",
+                "fit_targets": len(legal_train),
+                "fit_groups": len(
+                    {records[index].group_id for index in legal_train}
+                ),
+                "fit_population_fingerprint": stable_fingerprint(
+                    [
+                        {
+                            "identity": list(records[index].identity),
+                            "group_id": records[index].group_id,
+                            "role": records[index].role,
+                        }
+                        for index in legal_train
+                    ]
+                ),
+                "raw_median": [
+                    float(value)
+                    for value in feature_projector.raw_median.tolist()
+                ],
+                "raw_scale": [
+                    float(value)
+                    for value in feature_projector.raw_scale.tolist()
+                ],
+                "pca_mean": [
+                    float(value)
+                    for value in feature_projector.pca_mean.tolist()
+                ],
+                "basis": [
+                    [float(value) for value in row]
+                    for row in feature_projector.basis.tolist()
+                ],
+                "singular_values": [
+                    float(value)
+                    for value in feature_projector.singular_values.tolist()
+                ],
+            }
+            projection_fit["parameter_fingerprint"] = stable_fingerprint(
+                projection_fit
             )
             train_raw = torch.cat(
                 (
@@ -850,6 +890,32 @@ def _oof_auc(
             [groups[index] for index in train],
             config,
         )
+        scale_fit = {
+            "fit_role": "training-fold-all-roles",
+            "fit_targets": len(train),
+            "fit_groups": len({groups[index] for index in train}),
+            "fit_population_fingerprint": stable_fingerprint(
+                [
+                    {
+                        "identity": list(records[index].identity),
+                        "group_id": records[index].group_id,
+                        "role": records[index].role,
+                    }
+                    for index in train
+                ]
+            ),
+            "median": [float(value) for value in median.tolist()],
+            "scale": [float(value) for value in scale.tolist()],
+        }
+        scale_fit["parameter_fingerprint"] = stable_fingerprint(scale_fit)
+        classifier_parameters = {
+            "coefficient_with_intercept": [
+                float(value) for value in beta.tolist()
+            ],
+        }
+        classifier_parameters["parameter_fingerprint"] = stable_fingerprint(
+            classifier_parameters
+        )
         probabilities = torch.sigmoid(
             torch.cat(
                 (
@@ -880,6 +946,9 @@ def _oof_auc(
                     for index, flag in enumerate(constant.tolist())
                     if flag
                 ],
+                "projection_fit": projection_fit,
+                "scale_fit": scale_fit,
+                "classifier_parameters": classifier_parameters,
                 "classifier_fit": fit_receipt,
             }
         )

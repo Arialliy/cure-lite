@@ -1,0 +1,325 @@
+{
+  "schema_version": "cure-lite-peco-v10-exposure-confirmation-r2-implementation-closure-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_exposure_matched_confirmation",
+  "status": "R2_IMPLEMENTATION_CLOSED_BEFORE_SINGLE_AUTHORITY_RUN",
+  "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R2_IMPLEMENTATION_CLOSED",
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_config_r2.json",
+    "file_sha256": "0d05e8caf05f37278ab018292edaf46ad5f7707b0c5d58e49572a5664638c876",
+    "config_fingerprint": "dba4d8ac7be556a85f80943f4e4d010ffa21cf357bb1b7c0b17a5108d1190cef"
+  },
+  "design_receipt_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_receipt_r2.json",
+    "file_sha256": "5ecab166a15b56e715b278ca00f0ab04aa9e096308e054b85d88ec0e9ab15804",
+    "receipt_fingerprint": "d9c18b4b42724751e02f6cf2f17c046b531f5d84cbe87858b4cacf2fb87e366b"
+  },
+  "r1_invalidation_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_design_r1_invalidation_receipt.json",
+    "file_sha256": "21bdfa2774eeb20139bb30cb30d39c502b98ab3439576ba61a1fbbade42c5e5a",
+    "receipt_fingerprint": "2f7237b49c38cfb6f3255af7f25ccec499208723b1163fc1c3fc80c8033e67fd",
+    "decision": "PECO_V10_EXPOSURE_CONFIRMATION_R1_DESIGN_INVALIDATED"
+  },
+  "development_r2_prerequisite_binding": {
+    "result_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result_r2.json",
+    "result_file_sha256": "5034ac2decaa0e4cd4e8f5d605608c3a76e55b8e264a7783650195232ba975d7",
+    "result_fingerprint": "b7b384abccd55829174e97c65c02c906349c5b1e1c4d75ffaa70eab87313e6c2",
+    "result_decision": "PECO_V10_DEVELOPMENT_REGRESSION_PASS",
+    "receipt_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r2_result_receipt.json",
+    "receipt_file_sha256": "949aed18519bc4dceadf6fe40a0bdb49f11861ec2eb235dca4ad5ae47705bae7",
+    "receipt_fingerprint": "2de255b2579f5fbbeebd5c1f4ded9a0a147bbfa487842f97ed30c76f23a9d468",
+    "receipt_decision": "PECO_V10_DEVELOPMENT_R2_CORRECTION_PASS"
+  },
+  "source_bindings": [
+    {
+      "repo_path": "cure_lite/__init__.py",
+      "file_sha256": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3"
+    },
+    {
+      "repo_path": "cure_lite/base_identity.py",
+      "file_sha256": "145b794bbd436131223631ae2df90ae11c8996c25a1dc0e3feba7c3b0190e21d"
+    },
+    {
+      "repo_path": "cure_lite/cache/__init__.py",
+      "file_sha256": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd"
+    },
+    {
+      "repo_path": "cure_lite/cache/base_cache.py",
+      "file_sha256": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd"
+    },
+    {
+      "repo_path": "cure_lite/cache/schema.py",
+      "file_sha256": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7"
+    },
+    {
+      "repo_path": "cure_lite/cache/state_cache.py",
+      "file_sha256": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189"
+    },
+    {
+      "repo_path": "cure_lite/calibration.py",
+      "file_sha256": "b94c492e91c4934d75c85abef5c25449f82c421e871c5ab3e8ca136515b2f6bf"
+    },
+    {
+      "repo_path": "cure_lite/calibration_ledger.py",
+      "file_sha256": "f5b11f3db585138c7c185b6f6f9226d13365e7fc2be7fd30fb7bf21fb054803d"
+    },
+    {
+      "repo_path": "cure_lite/config.py",
+      "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_config.py",
+      "file_sha256": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_decoder.py",
+      "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_config.py",
+      "file_sha256": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_decoder.py",
+      "file_sha256": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc"
+    },
+    {
+      "repo_path": "cure_lite/data.py",
+      "file_sha256": "ee66eb16de36dcb8fc36e51a57282530ee8082359994b4522b78ee27ff3be241"
+    },
+    {
+      "repo_path": "cure_lite/decoder.py",
+      "file_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+    },
+    {
+      "repo_path": "cure_lite/efficiency.py",
+      "file_sha256": "e1443706820c3c02fd99175636316b3b7fae53d934cc07cb3ba8ef3e6ffa12f1"
+    },
+    {
+      "repo_path": "cure_lite/experiment/__init__.py",
+      "file_sha256": "53bff9870421792cdc2a504dfdb8d6f5fba268c2f3e54e83e678c911b1a9f503"
+    },
+    {
+      "repo_path": "cure_lite/experiment/artifacts.py",
+      "file_sha256": "e0be26abf0c9446acad50e8f0668e8de7ddeb39e6ff3d6f0a2c0ae95c7acf516"
+    },
+    {
+      "repo_path": "cure_lite/experiment/cache_pipeline.py",
+      "file_sha256": "c6acebe1e173542ebaec548e64a2c0fee388544d1b8fbdb03f2b62454a7b2389"
+    },
+    {
+      "repo_path": "cure_lite/experiment/deployment.py",
+      "file_sha256": "35a9c631e768094c635b8c98b95914d2658360187b97406f228e524b52ddfdef"
+    },
+    {
+      "repo_path": "cure_lite/experiment/efficiency_evidence.py",
+      "file_sha256": "2dfe28f2840ba6a41d8384f66815a8fc8f9d258174124c132b078a80a1061cb2"
+    },
+    {
+      "repo_path": "cure_lite/experiment/evaluation_pipeline.py",
+      "file_sha256": "aab38a85984f4a29e502318a61a9c8962ebbc2de16c11eb31290cf60e0458fb3"
+    },
+    {
+      "repo_path": "cure_lite/experiment/formal_anchor.py",
+      "file_sha256": "f217b957a5ff67610a6c10a684aeaa19cc55ac4e0f9274b3ba3e907593953a38"
+    },
+    {
+      "repo_path": "cure_lite/experiment/formal_evaluation.py",
+      "file_sha256": "8f0579332eb53384f316ce81b4615722b7669a095e9998bbf07dcdc3ed4616aa"
+    },
+    {
+      "repo_path": "cure_lite/experiment/formal_training.py",
+      "file_sha256": "9ee57907d069ecd068e29400c4ba305f46a171bcbb29ff657a34a7c0952162c2"
+    },
+    {
+      "repo_path": "cure_lite/experiment/paired_artifacts.py",
+      "file_sha256": "6c4ccfdfcb9abf50bb9e3370c654d549fdcfe4c394bd53c4608137f5004f0fc4"
+    },
+    {
+      "repo_path": "cure_lite/experiment/peco_exposure_confirmation.py",
+      "file_sha256": "87ef1f11c1d8ea192314b0765630d45ff7b441f314fecaf9fb6fac27214f2168"
+    },
+    {
+      "repo_path": "cure_lite/experiment/seed_registry.py",
+      "file_sha256": "1ae5b3c3926126ea6e430b20768aa4095f41ead06b39c250a85c3a1f4a4f4576"
+    },
+    {
+      "repo_path": "cure_lite/experiment/stage_a_m_extension.py",
+      "file_sha256": "8a787fa50103449424703c3f8fbf331c58ee53ad6bcfc1c0e2b57ef485636c49"
+    },
+    {
+      "repo_path": "cure_lite/experiment/stage_a_m_runner.py",
+      "file_sha256": "9a3688832c973c58cbc5cd65d24e744fa4707bc16aa6a2a0983c535c9fb787da"
+    },
+    {
+      "repo_path": "cure_lite/experiment/stage_a_runner.py",
+      "file_sha256": "384c02c0febb0650a7e46430863ca18f4833ebcbf81e3c85c3ade2bb3e02b127"
+    },
+    {
+      "repo_path": "cure_lite/experiment/training_pipeline.py",
+      "file_sha256": "cb557b3d675e97e232de3da7f5b8c545254a99a19e2becfe38414d8bc1d334f8"
+    },
+    {
+      "repo_path": "cure_lite/factorized_config.py",
+      "file_sha256": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246"
+    },
+    {
+      "repo_path": "cure_lite/factorized_decoder.py",
+      "file_sha256": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9"
+    },
+    {
+      "repo_path": "cure_lite/frozen_base.py",
+      "file_sha256": "969bc2b0ccbb4c38cb2ee07353c7162f80b3f1041ff8c9c1ccf9b14ea689b050"
+    },
+    {
+      "repo_path": "cure_lite/instances.py",
+      "file_sha256": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721"
+    },
+    {
+      "repo_path": "cure_lite/intervention.py",
+      "file_sha256": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215"
+    },
+    {
+      "repo_path": "cure_lite/losses.py",
+      "file_sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9"
+    },
+    {
+      "repo_path": "cure_lite/matching.py",
+      "file_sha256": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06"
+    },
+    {
+      "repo_path": "cure_lite/metrics.py",
+      "file_sha256": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b"
+    },
+    {
+      "repo_path": "cure_lite/model.py",
+      "file_sha256": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53"
+    },
+    {
+      "repo_path": "cure_lite/occupancy.py",
+      "file_sha256": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76"
+    },
+    {
+      "repo_path": "cure_lite/paired_control_inputs.py",
+      "file_sha256": "99c89ad9861803ce4908f061f3931594f3424bfff07ba7b24b3b57dcf5abf44d"
+    },
+    {
+      "repo_path": "cure_lite/paired_control_losses.py",
+      "file_sha256": "9234f345292ca73c931047f47e458d99c94124df13d1ea426c4cc4b5079cacc5"
+    },
+    {
+      "repo_path": "cure_lite/paired_endpoint_crossing_losses.py",
+      "file_sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205"
+    },
+    {
+      "repo_path": "cure_lite/paired_losses.py",
+      "file_sha256": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_losses.py",
+      "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_types.py",
+      "file_sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a"
+    },
+    {
+      "repo_path": "cure_lite/paired_types.py",
+      "file_sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+    },
+    {
+      "repo_path": "cure_lite/sampling.py",
+      "file_sha256": "f48104dafedd9fd230726e1f80d884524135dd280d7ed53bc527df23eff4809f"
+    },
+    {
+      "repo_path": "cure_lite/splits.py",
+      "file_sha256": "891fb2f2b07e0ee850c31f734b4fd70abc13625cccf62a38dba11b8ced0bca99"
+    },
+    {
+      "repo_path": "cure_lite/stage_a.py",
+      "file_sha256": "a5b7095fa99a6ce6d67663837f73e6cb5034387758f0440dbdc6d48c5600409a"
+    },
+    {
+      "repo_path": "cure_lite/supervision.py",
+      "file_sha256": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a"
+    },
+    {
+      "repo_path": "cure_lite/train/__init__.py",
+      "file_sha256": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+    },
+    {
+      "repo_path": "cure_lite/train/engine.py",
+      "file_sha256": "78334aecf62c8797d8f1e77cbe80624ce7da4d9d0cb82d4272e2962f042f54e8"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_control_step.py",
+      "file_sha256": "19060a3ac8537f80e8ef95aa2ba96686c70ec600ecec47a1f241664643c2e004"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_outcome_step.py",
+      "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_step.py",
+      "file_sha256": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139"
+    },
+    {
+      "repo_path": "cure_lite/train/pools.py",
+      "file_sha256": "8d3789f125c264492f68649ecf7bf1844e8afe622821d7ad391bf274bb2b6ffe"
+    },
+    {
+      "repo_path": "cure_lite/train/step.py",
+      "file_sha256": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe"
+    },
+    {
+      "repo_path": "cure_lite/types.py",
+      "file_sha256": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb"
+    },
+    {
+      "repo_path": "tests_v10/test_peco_exposure_confirmation.py",
+      "file_sha256": "8608213a9dd506d3cd9d8dcf27b18ad42c7fefe8cf64e1aea674d604eeb4a063"
+    },
+    {
+      "repo_path": "tools/__init__.py",
+      "file_sha256": "7f5bd72b5bbbd6ec497085fcbde0f9861fa071e7f4d95346ecad599cacb14bce"
+    },
+    {
+      "repo_path": "tools/evaluate_peco_exposure_confirmation.py",
+      "file_sha256": "c4914a279a89e1ed8cf9380444c8b3fa375b1f6bf050f6a5f058664d30594ff7"
+    }
+  ],
+  "runtime_import_contract": {
+    "clean_imported_local_python_source_count": 63,
+    "clean_imported_local_python_paths_fingerprint": "bb693eb72f41290a500b77e852663b6f525d32b1339025ea40bd12f38d5a5b6e",
+    "all_observed_local_imports_must_be_bound": true,
+    "package_initializers_included": true
+  },
+  "corrections_closed": {
+    "all_frozen_Adam_fields_explicitly_passed": true,
+    "exact_optimizer_contract_checked_before_training": true,
+    "exact_eight_group_set_and_counts_required": true,
+    "single_canonical_create_only_output_required": true,
+    "model_decoder_loss_population_schedule_seed_updates_and_thresholds_changed": false
+  },
+  "scope_limitations": {
+    "exact_v8_update_order_replayed": false,
+    "exact_v8_source_structure_replayed": false,
+    "synthetic_role_features_intentionally_separable": true,
+    "pass_scope": "dataset_free_exposure_matched_constructive_learnability_only"
+  },
+  "authorization": {
+    "authority_run_count": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/exposure_confirmation_result_r2.json",
+    "automatic_retry_allowed": false,
+    "deterministic_dry_run_currently_authorized": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "receipt_fingerprint": "d0d8621585e4a3022679f5fdae12dd0ef357fcf653fa4ac249a46480b4a97315"
+}

@@ -1,0 +1,183 @@
+{
+  "schema_version": "cure-lite-pr-svef-v6-bounded-config-v1",
+  "method_id": "pr_svef_v6",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "proposal_binding": {
+    "path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/proposal_receipt.json",
+    "file_sha256": "7641329070a1f9b94a350b705fd374d361cd1abf5af342ab9fb067fb10c0e1b8",
+    "proposal_fingerprint": "873c54950259f87863738ccede23132dbfb1f985ac4e27baf4ce8c24e1c7b71b"
+  },
+  "toy_gate_authorization": {
+    "closure_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/toy_gate_closure_receipt.json",
+    "closure_file_sha256": "9543693f4071091d95bbb52a1beb9abb94db2b98c07558bddd14d5b95dac17a2",
+    "closure_receipt_fingerprint": "46760ddffc0fd65c3a4b036a152c7fe966c1d236ab851e6fb7b9faa93d0b3ad3",
+    "toy_result_file_sha256": "675856650ebee518c9290d82562bca662d521e049da4ebc87cc3b7f186d9cead",
+    "toy_result_fingerprint": "c8239340ad19b98d9cbc0aab01e1421971938bea065e0b4a575047146677f5d3",
+    "decision": "PRSVEF_V6_TOY_GATE_PASS",
+    "passed_cases": 3,
+    "required_cases": 3,
+    "bounded_code_creation_authorized": true,
+    "real_D_R_bounded_authorized_by_toy_closure": false
+  },
+  "predecessor_v4": {
+    "artifact_path": "runs/irstd1k_stage_a_seed42/cure_lite_svef_v4_bounded_r1",
+    "complete_file_sha256": "8b9f6a1f1fce7801f8610ceff244bc63f9b9989ee2f8ee9ea3ec7dd6e7dd91a3",
+    "complete_fingerprint": "1e693369db718b47ee86fd6a8b883914fe1e37975026fd8d75ca6503e6188d3d",
+    "result_file_sha256": "7121f6433c63c59e54a697196bfe760b961e6908fefc610caca131021b76b35d",
+    "result_fingerprint": "7e51d11012b7ffd8e1abb9edc2c928ee3d9d861f98c1518c67c23d1e6cfed39a",
+    "result_receipt_fingerprint": "9d6d9d026f1d2953c480cfa0fb71f86c1be60313cef94ac7cfd85c6f96840b94",
+    "decision_file_sha256": "e47afb7c7b6842bcac6ff6e0f1b550f192b8e86adb2c121c2303d28e49e25496",
+    "decision_fingerprint": "521a3a9d6ef1aca0c35e1b1cb0c6d955bcc864654e5c123f8eea4a3900b58b90",
+    "implementation_file_sha256": "2ee1cf6447d7715db9291bf7e72779d49281ba98f69051253891a79e381bf190",
+    "implementation_fingerprint": "1e01ea64f64f27a59dec84cf071eaefdc6c6bfbceec360cfc1bc66b9365cf975",
+    "decision": "BOUNDED_MODEL_CODE_GATE_FAIL"
+  },
+  "source_reconstruction": {
+    "loader_role": "frozen_D_R_input_reconstruction_only",
+    "source_config_path": "protocols/IRSTD-1K/paired_bounded_learnability_v1/config.json",
+    "source_config_file_sha256": "90bb22fb6e46add584b99b24f54b9926a9cda8e63d73eda5a67447f6668eabd5",
+    "source_config_fingerprint": "0c2895c843bcd5ed5dd3865118e8006d8bc3a2d74665052cddb2c1572f007785",
+    "source_config_is_not_method_or_loss_authority": true,
+    "required_pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76",
+    "required_prepared_catalog_fingerprint": "4955e5b4f1749b5f267db0ac1f031335a16cc48a470d6446ca6c99d04a5e85ed",
+    "required_anchor_population_fingerprint": "d251ed9061dd373aa0bf0e4ceeebbafc7ca32a4bab72c2f24601a20868d6d1cd",
+    "required_materializer_fingerprint": "8cc4eac43ad708265d8639c4b577b37bd81be8ccde73e79993ba18c65dca10ff",
+    "required_all_pair_inputs_fingerprint": "f3573b469464015865870440427deed341b7e2cddd8e866bdede2ee44c509b6c",
+    "required_gt_union_population_fingerprint": "afa80e88581fa5ee5f832dc70624d9ee54ca9541d1b33b7f5957ef0ed08e3ae5",
+    "required_factual_schedule_fingerprint": "57264042879d9850aa538e01563496a8d3de7b82556d2b5ef15ca7f32b66fac3",
+    "required_outcome_schedule_fingerprint": "747123867c88fd1444a514bf70e51013b739f39df2857e5ed021239e4847ec93",
+    "required_outcome_sequence_fingerprint": "6f4c45d51cfa8364d97a620af1bad1ea565f9ce4fc72c4d638d141fb056cffd0"
+  },
+  "anchor_population": {
+    "seed": 42,
+    "factual_miss_anchors": 16,
+    "factual_no_miss_anchors": 16,
+    "identity_null_pairs": 16,
+    "selection_rule": "stable_hash_over_frozen_D_R_identities_v1"
+  },
+  "outcome_population": {
+    "clean_positive": 206,
+    "component_null": 16,
+    "union": 222,
+    "identity_null_optimizer_exposure": 0,
+    "sampling": "pair_level_uniform_deterministic_over_outcome_union",
+    "source_disjoint_within_update": true
+  },
+  "optimization": {
+    "decoder": {
+      "feature_channels": 64,
+      "feature_stride": 4,
+      "width": 32,
+      "groups": 8,
+      "trunk_residual_scale": 0.5,
+      "baseline_probability": 0.1,
+      "vacancy_kernel_size": 3,
+      "forward_evidence_transform": "one_sided_zero_anchored_squared_softplus_v2",
+      "backward_surrogate_policy": "negative_half_axis_softplus_recovery_v1",
+      "zero_boundary_policy": "recovery_branch_gradient_half_v1",
+      "resize_policy": "separate_fields_then_final_gate_v1"
+    },
+    "loss": {
+      "dice_weight": 1.0,
+      "epsilon": 0.000001
+    },
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "seed": 42,
+    "trainable_scope": "CURELiteRecoverableFactorizedDecoder_only"
+  },
+  "budget": {
+    "epochs": 10,
+    "steps_per_epoch": 40,
+    "optimizer_updates": 400,
+    "factual_miss_states_per_update": 4,
+    "factual_no_miss_states_per_update": 4,
+    "outcome_pairs_per_update": 2,
+    "outcome_endpoint_states_per_update": 4,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "pair_slots": 800,
+    "evaluation_chunk_size": 32,
+    "resume_allowed": false
+  },
+  "structural_gates": {
+    "negative_raw_evidence_forward_exact_zero": true,
+    "zero_raw_evidence_forward_exact_zero": true,
+    "positive_raw_evidence_forward_equals_v4": true,
+    "negative_raw_surrogate_gradient_positive": true,
+    "zero_raw_surrogate_gradient": 0.5,
+    "positive_raw_surrogate_gradient_equals_v4": true,
+    "zero_feature_occupancy_delta_max": 0.0,
+    "gate_support_outside_logit_delta_max": 0.0,
+    "gate_support_outside_probability_delta_max": 0.0,
+    "deletion_logit_monotonicity_violations": 0,
+    "deletion_probability_monotonicity_violations": 0,
+    "field_resize_endpoint_count": 0,
+    "clean_full_D_reachable_pairs": 206,
+    "clean_D_reachable_pixels": 2551,
+    "factual_full_target_reachable_anchors": 16,
+    "factual_target_reachable_pixels": 150
+  },
+  "bounded_gates": {
+    "all_222_pairs_bound": true,
+    "pair_exposure_counts": [
+      3,
+      4
+    ],
+    "factual_miss_anchor_final_over_initial_max": 0.75,
+    "factual_no_miss_anchor_final_over_initial_max": 0.75,
+    "plus_baseline_final_over_initial_max": 0.75,
+    "clean_transition_final_over_initial_max": 0.5,
+    "clean_mean_delta_on_D_min": 0.5,
+    "clean_pairs_delta_at_least_0_25_fraction_min": 0.75,
+    "clean_zero_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_global_max_abs_delta_max": 0.25,
+    "component_null_context_macro_mean_abs_delta_max": 0.05,
+    "identity_null_max_abs_delta_max": 0.0000001,
+    "clean_joint_D_ge_0_25_and_H_le_0_05_fraction_min": 0.75,
+    "tiny_target_strata_report_required": true
+  },
+  "pre_run_authorization_contract": {
+    "required": true,
+    "repo_path": "protocols/IRSTD-1K/polarity_recoverable_subpixel_vacancy_evidence_factorization_v6/bounded_code_authorization_receipt.json",
+    "schema_version": "cure-lite-pr-svef-v6-bounded-code-authorization-v1",
+    "must_bind_bounded_config": true,
+    "must_bind_runtime_implementation": true,
+    "must_bind_focused_tests": true,
+    "must_authorize_exactly_one_real_D_R_run": true,
+    "may_authorize_D_V_or_D_T": false,
+    "may_authorize_formal_800": false
+  },
+  "execution_policy": {
+    "create_only_output": true,
+    "resume_allowed": false,
+    "same_version_real_bounded_runs_max": 1,
+    "automatic_retry_allowed": false,
+    "allowed_runtime_splits": [
+      "D_R"
+    ],
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "base_or_backbone_update_allowed": false,
+    "decoder_topology_change_allowed_during_execution": false,
+    "only_evidence_operator_differs_from_v4": true,
+    "loss_change_allowed": false,
+    "calibration_allowed": false,
+    "performance_evaluation_allowed": false,
+    "formal_800_training_allowed_by_this_config": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "decision_semantics": {
+    "pass_meaning": "the_frozen_PR_SVEF_model_code_learns_the_complete_D_R_outcome_population_under_the_bounded_budget_and_joint_gate",
+    "fail_meaning": "the_current_frozen_PR_SVEF_model_code_does_not_pass_its_bounded_gate",
+    "not_detection_performance_evidence": true,
+    "pass_requires_separate_frozen_review_before_formal_800": true,
+    "directly_authorizes_formal_800": false
+  },
+  "config_fingerprint_scope": "all_fields_except_config_fingerprint",
+  "config_fingerprint": "b29810030a7bf5cc46e310126ac190ad8e6b42bb1e90484c93c9c73500c12d73"
+}

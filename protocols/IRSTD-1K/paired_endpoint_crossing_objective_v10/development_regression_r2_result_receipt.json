@@ -1,0 +1,60 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-r2-result-receipt-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "correction_id": "restore_frozen_v8_relative_roundoff_r2",
+  "status": "R2_CORRECTION_RESULT_SEALED",
+  "decision": "PECO_V10_DEVELOPMENT_R2_CORRECTION_PASS",
+  "r1_invalidation_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r1_verifier_invalidation_receipt.json",
+    "file_sha256": "d4a91ef7c204fcd3b7ff7b0b1b1d65d961fc186c6d2414e17f42b5967e2f2688",
+    "receipt_fingerprint": "b020a307f5d311cddde359ba690f3930f48cb2a82eaf4f12909a814441d4fb8d",
+    "decision": "PECO_V10_DEVELOPMENT_R1_VERIFIER_INVALIDATED"
+  },
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r2_implementation_closure.json",
+    "file_sha256": "66bbdaf34650be9e7bb0d25f29baea9acf88c09fd9d164d17ebbd782a59ee22d",
+    "receipt_fingerprint": "8b562a55f64e7f0cc12b7956ceb0c3a440bac1aec7532b7454ee1a598504f125"
+  },
+  "pre_run_verification_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_r2_pre_run_verification_receipt.json",
+    "file_sha256": "baee0c68267ef261fb3b72536dfeed48612e29e2ce36e3b9ea69f8b021731222",
+    "receipt_fingerprint": "ef9d7ed10536c07108deccb751814f13b572b26fda9a407e56bb7db06d748dc3"
+  },
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result_r2.json",
+    "file_sha256": "5034ac2decaa0e4cd4e8f5d605608c3a76e55b8e264a7783650195232ba975d7",
+    "result_fingerprint": "b7b384abccd55829174e97c65c02c906349c5b1e1c4d75ffaa70eab87313e6c2",
+    "reported_decision": "PECO_V10_DEVELOPMENT_REGRESSION_PASS",
+    "reported_correction_decision": "PECO_V10_DEVELOPMENT_R2_CORRECTION_PASS",
+    "passed_cases": 6,
+    "failed_cases": 0,
+    "passed_families": 2
+  },
+  "correction_observation": {
+    "maximum_absolute_error": 0.0000152587890625,
+    "maximum_relative_error": 0.0000002440918933643843,
+    "frozen_relative_tolerance": 0.000001,
+    "all_case_relative_checks_passed": true,
+    "all_model_objective_gradient_forward_and_operator_checks_passed": true,
+    "r1_absolute_roundoff_misclassification_resolved": true
+  },
+  "evidence_scope": {
+    "development_implementation_regression_supported": true,
+    "independent_confirmation_supported": false,
+    "detection_performance_supported": false,
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "formal_800_executed": false
+  },
+  "next_stage_boundary": {
+    "exposure_confirmation_implementation_check_allowed": true,
+    "exposure_confirmation_run_requires_its_own_frozen_closure": true,
+    "real_D_R_run_allowed": false,
+    "formal_800_allowed": false,
+    "full_CURE_allowed": false,
+    "cross_detector_allowed": false
+  },
+  "receipt_fingerprint": "2de255b2579f5fbbeebd5c1f4ded9a0a147bbfa487842f97ed30c76f23a9d468"
+}

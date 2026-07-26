@@ -1,0 +1,115 @@
+{
+  "schema_version": "cure-lite-pb-naes-v9-proposal-v1",
+  "method_id": "pb_naes_v9",
+  "method_name": "Phase-Balanced Null-Anchored Evidence Surplus",
+  "short_name": "PB-NAES v9",
+  "status": "FROZEN_BEFORE_DATASET_FREE_IMPLEMENTATION_GATE",
+  "problem": "selectively release occupancy-conditioned evidence onto supported subpixel phases while retaining a finite no-correction state, full-phase capacity, and recovery gradients without changing the decoder topology",
+  "predecessor_v8": {
+    "repo_path": "protocols/IRSTD-1K/coverage_conserving_subpixel_evidence_allocation_v8/verifier_correction_r2/bounded_negative_closure_receipt.json",
+    "file_sha256": "c3264fc93ff6329184e72f8ce4f2b37d26eba98968cea0b6db000740c1a36aa1",
+    "receipt_fingerprint": "99df195fe4906b71f2dd63444f84b6bcd84820b3e40d020828a5ed02d04925f9",
+    "decision": "CC_SEA_V8_R2_BOUNDED_NEGATIVE_CLOSED",
+    "frozen_interpretation": "the fixed shared budget improved restraint but diluted clean response and forced every finite softmax phase to consume positive mass"
+  },
+  "design_document": {
+    "repo_path": "CURE_Lite_PBNAES_v9_模型与代码设计.md",
+    "file_sha256": "89f8340ffae4b9150b15d432b6833eda64ff66ccdebe1f4ef095db97d2763f8c"
+  },
+  "single_mechanism": {
+    "name": "phase_balanced_implicit_null_recoverable_surplus",
+    "phase_count": "P=feature_stride_squared",
+    "phase_intensity": "x_j=exp(raw_phase_j)",
+    "implicit_null": "P fixed unit-intensity null mass; no learned null coordinate",
+    "balanced_reference": "m=(P+sum_phase(x))/(2P)=(1+mean_phase(x))/2",
+    "occupancy_count": "C=ones3x3*project_max(occupancy)",
+    "signed_surplus": "z_j=(x_j-m)/(1+C)",
+    "forward_evidence": "e_j=max(z_j,0)",
+    "backward_carrier": "d_e_j/d_z_j=1 on the complete finite axis via direct signed-surplus detach construction",
+    "composition": "baseline_plus_pixelshuffle_phase_evidence",
+    "trainable_parameters_added": 0,
+    "parameter_tensors_added": 0,
+    "search_parameters_added": 0
+  },
+  "analytic_contract": {
+    "forward_nonnegative": true,
+    "inactive_phase_exact_zero": true,
+    "finite_all_null_region": true,
+    "uniform_zero_is_exact_null": true,
+    "uniform_positive_can_activate_all_phases": true,
+    "stride_one_non_degenerate": true,
+    "inactive_phase_has_recovery_gradient": true,
+    "occupancy_deletion_phasewise_monotone": true,
+    "count_support_outside_exact_zero_delta": true,
+    "endpoint_phase_selection_occupancy_invariant": true,
+    "local_output_sum_upper_bound": "sum_phase(e)<=(sum_phase(x))/(1+C)",
+    "reference_C64_stride4_parameter_count": 4385,
+    "reference_parameter_tensor_count": 6
+  },
+  "predeclared_counterexample_gates": [
+    "uniform_zero_null",
+    "uniform_negative_finite_null_region",
+    "uniform_positive_full_phase",
+    "stride_one_non_degenerate",
+    "wrong_winner_recovery",
+    "multi_phase_capacity_1_2_3",
+    "peaked_component_null_is_not_assumed_solved",
+    "endpoint_selection_invariance",
+    "deletion_monotonicity_and_count_support_locality",
+    "topology_and_initial_state_identity"
+  ],
+  "claim_evidence_matrix": [
+    {
+      "claim": "the operator has an implicit null state, sparse phase support, full-phase capacity, and recovery gradients",
+      "required_evidence": "analytic contract plus operator counterexample unit tests",
+      "stage": "dataset_free_unit"
+    },
+    {
+      "claim": "the unchanged topology and objective can learn selective 1/2/3-pixel corrections",
+      "required_evidence": "fixed per-case toy gates with no averaging override",
+      "stage": "dataset_free_toy"
+    },
+    {
+      "claim": "the candidate remains learnable under the real 206:16 role imbalance and 800 pair-slot exposure scale",
+      "required_evidence": "exposure-matched synthetic population toy",
+      "stage": "dataset_free_exposure_matched_toy"
+    },
+    {
+      "claim": "the implementation is connected and deterministic",
+      "required_evidence": "eight-update dry-run exact replay and complete gradient observations",
+      "stage": "dataset_free_dry_run"
+    },
+    {
+      "claim": "PB-NAES resolves the frozen v8 response-restraint conflict",
+      "required_evidence": "exactly one separately authorized real D_R bounded400 using the unchanged twelve gates",
+      "stage": "real_D_R_bounded"
+    },
+    {
+      "claim": "CURE-Lite improves natural-miss recovery",
+      "required_evidence": "formal800 seed42/43 per-seed Pd/recovery/FA/retention after bounded pass",
+      "stage": "formal_only_after_bounded_pass"
+    }
+  ],
+  "unchanged_contract": {
+    "base": "frozen_adapter_output_probability_and_feature",
+    "decoder_topology": "v4_shared_trunk_baseline_head_evidence_head",
+    "parameter_budget_reference_C64_stride4": 4385,
+    "loss": "outcome_complete_transition_plus_absolute_factual",
+    "training_step": "unchanged_outcome_complete_train_step",
+    "pair_population": "clean_positive_and_component_null",
+    "real_bounded_updates": 400,
+    "inference": "single_decoder_forward_pre_mask_threshold_hard_union"
+  },
+  "current_authorization": {
+    "dataset_free_unit_code": true,
+    "dataset_free_toy_code": true,
+    "dataset_free_dry_run_code": false,
+    "real_D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "proposal_fingerprint": "90dd2931d2e8aa5ed76e86165b8d68363d7735e522b0a7cca228cc04269de5e6"
+}

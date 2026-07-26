@@ -1,0 +1,176 @@
+{
+  "schema_version": "cure-lite-ccfr-v11-exposure-holdout-r2-closure-v2",
+  "method_id": "ccfr_v11",
+  "stage_id": "dataset_free_exposure_holdout_confirmation",
+  "correction_id": "preattempt_int_key_diagnostic_map_canonicalization_r2",
+  "status": "FROZEN_BEFORE_R2_ATTEMPT",
+  "correction_scope": "PRE_ATTEMPT_SERIALIZATION_ONLY",
+  "evidence_scope_clarification": {
+    "r1_scientific_state_scope": "listed_r1_launch_events_only",
+    "launch_events_are_sealed_statements_not_raw_log_artifacts": true,
+    "root_cause_independently_reproduced_by_tests": true,
+    "preformal_wiring_smoke_disclosure_bound": true,
+    "no_full_400_result_or_gate_metric_observed": true
+  },
+  "canonicalization_contract": {
+    "exact_path": "prerequisites.holdout_contract.factual_exposures_per_state",
+    "accepted_input_keys": "exact_int_range_0_through_15",
+    "accepted_value": "exact_int_100_for_each_state",
+    "output_key_rule": "decimal_str_index_in_numeric_order",
+    "values_changed": false,
+    "cardinality_changed": false,
+    "aggregate_changed": false,
+    "recursive_or_generic_coercion_allowed": false,
+    "json_round_trip_identity_required": true,
+    "fingerprintability_required": true
+  },
+  "scientific_contract_invariance": {
+    "model": true,
+    "data_generator": true,
+    "pair_population": true,
+    "features": true,
+    "geometry": true,
+    "schedule": true,
+    "loss": true,
+    "optimizer": true,
+    "seed": true,
+    "update_count": true,
+    "thresholds": true,
+    "decision": true,
+    "comparator_report_only": true,
+    "execution_boundary": true
+  },
+  "r2_canonical_artifacts": {
+    "attempt_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_attempt_r2.json",
+    "result_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.json",
+    "complete_repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.COMPLETE.sha256",
+    "runner_revision": "r2",
+    "scientific_attempt_ordinal": 1,
+    "automatic_retry_allowed": false
+  },
+  "execution_boundary": {
+    "dataset_access_allowed": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "attempt_budget": {
+    "design_confirmation_budget": 1,
+    "r1_scientific_attempts_consumed": 0,
+    "r2_scientific_attempt_ordinal": 1,
+    "remaining_before_r2_attempt": 1,
+    "remaining_after_r2_attempt_write": 0,
+    "r2_is_retry": false,
+    "rerun_after_pass_fail_or_exception_allowed": false
+  },
+  "hash_chain_chronology": [
+    "frozen_design_receipt",
+    "development_config_attempt_result_complete",
+    "r1_pre_attempt_failure_receipt",
+    "r2_pre_run_v1_invalidation_receipt",
+    "r2_implementation_closure_v2",
+    "r2_pre_run_verification_v2",
+    "r2_attempt_create_only_consumes_budget",
+    "r2_result_pass_or_fail_is_authoritative",
+    "r2_complete"
+  ],
+  "failure_receipt_binding": {
+    "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r1_pre_attempt_failure_receipt.json",
+    "file_sha256": "3ce909d1eaa3315b6dd2bb525e607790826413cf7750371caa2066f8635e6496",
+    "failure_receipt_fingerprint": "f7a74d2210b0993ebc40393a9b085ee653f9d0016f98cb960b4b995bf22ea24c"
+  },
+  "frozen_authority_bindings": {
+    "design_receipt": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_design_receipt.json",
+      "file_sha256": "e595df43f5c4bb78b4a6aa7ce01f300e759dc6235cd3fe30f3749f70cb28e795",
+      "receipt_fingerprint": "4527aaa81646274ddeb85b7f4c2de5b4ffb539735297064d25e34bacec002bcb"
+    },
+    "development_config": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_config.json",
+      "file_sha256": "3910e5150b79ca1b83ffe1e94f9cfd66b46520b6ca1d3e19d3ca33775264af96",
+      "config_fingerprint": "8e999a56842e3db00f0ddcc22d077052c7d7a0a9c793af5393e3d2e064f7e587"
+    },
+    "development_attempt": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_attempt_r1.json",
+      "file_sha256": "4416666773280d0ceb87749c4afd03d7424f1c6ab6967955f539a4eb59b8f630",
+      "attempt_fingerprint": "f82842da58624b19c99b77408bcf18950c1c7346662a14d3791188c2dab9ffc9"
+    },
+    "development_result": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_result_r1.json",
+      "file_sha256": "f23b3ac720d818aab7054161e5a74732c6864588f992b17e73946b7c4797e14f",
+      "result_fingerprint": "8abcaf430b29c7f102fb7ae8262907a97fa56f54e9b2962ba7b49c4691f7f69c"
+    },
+    "development_complete": {
+      "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/development_regression_result_r1.COMPLETE.sha256",
+      "file_sha256": "1476073a3f734865d2a6b9b5e74e4b4e767cd9aa8f61016017d7cd5eedfefa9b"
+    },
+    "r1_evaluator": {
+      "repo_path": "tools/evaluate_ccfr_exposure_holdout.py",
+      "file_sha256": "abcafee779b1527f06f1aaa9337a5f36cf316c96d2ac08226d956b1e3ad0218a"
+    },
+    "r1_tests": {
+      "repo_path": "tests_v11/test_ccfr_exposure_holdout.py",
+      "file_sha256": "98e8d8da810dfd88aa6b53ad646055e84eede6b4bae1fdc2e888affc1cce4168"
+    }
+  },
+  "source_bindings": {
+    "CURE_Lite_CCFR_v11_模型与代码设计.md": "1fb743035ac2f6fac434eaaf26e0c1da3bde590932aca97a53f433f98eff833c",
+    "cure_lite/__init__.py": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3",
+    "cure_lite/cache/__init__.py": "84afa8cfc8fa15d8f8288d270394120c59f4baa1438da41cf1b9f163797e7acd",
+    "cure_lite/cache/base_cache.py": "712feda239be8ffe190bf33deaa64a5a80ee263564083847c617072d37eec1fd",
+    "cure_lite/cache/schema.py": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7",
+    "cure_lite/cache/state_cache.py": "e5a8723733476689706da4926497d700d3ff0ecc4761e6c6ee8200f9b8c7d189",
+    "cure_lite/calibration.py": "b94c492e91c4934d75c85abef5c25449f82c421e871c5ab3e8ca136515b2f6bf",
+    "cure_lite/ccfr_development_inputs.py": "4d2cf5dda2fbab46a5c02bf1b0fbc96b30c7e8fb0817f0f770059bd7e461fb10",
+    "cure_lite/config.py": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471",
+    "cure_lite/conservative_factorized_config.py": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967",
+    "cure_lite/conservative_factorized_decoder.py": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528",
+    "cure_lite/coverage_feature_release_config.py": "f949c18a59633de5f5676bf60deccd56db2b4e9a6fe30a95e6781bea3dd937f9",
+    "cure_lite/coverage_feature_release_decoder.py": "76443a63085c472926ce754c2a6e492e2829398a8dc1895f3a143923117eedc2",
+    "cure_lite/crossing_factorized_config.py": "3ef0f45196f912700622f2bb141ae016fc32751cbdbf664022e2eda1e510c565",
+    "cure_lite/crossing_factorized_decoder.py": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/ccfr_holdout_inputs.py": "52d0ccb33e353cff6a73a18ccff25017e9f8568f9dccec42f0a7e7b590eebfe5",
+    "cure_lite/factorized_config.py": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246",
+    "cure_lite/factorized_decoder.py": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9",
+    "cure_lite/frozen_base.py": "969bc2b0ccbb4c38cb2ee07353c7162f80b3f1041ff8c9c1ccf9b14ea689b050",
+    "cure_lite/instances.py": "196178915e1b0ff2000f7ca86c75f53e403b81d554525e1dd2066cf3c0921721",
+    "cure_lite/intervention.py": "dc318fbb2d9d461fcd16a8848e256dace84cd6cd0379dc7146561335a01f6215",
+    "cure_lite/losses.py": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9",
+    "cure_lite/matching.py": "b11819b651e7880114d85e634be0043afbcc86939ac93414e2e1dd536cbdbf06",
+    "cure_lite/metrics.py": "7c84e01992df6dbe58d42c58b57a4b9a86e2c57eb6121f6e355978ef3ccf027b",
+    "cure_lite/model.py": "0a1f58895b17f643d46488e5d3e2a082372d54b91ae56e6b21eaaa8f0258fc53",
+    "cure_lite/occupancy.py": "efc931640076474fa6cb552740e55508df52701d830c1243d8c36bdd8c3fed76",
+    "cure_lite/paired_endpoint_crossing_losses.py": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+    "cure_lite/paired_losses.py": "953b55eb2e184e0848369cd3dacdde4887e31eaa65afda470cccf597c57f48b3",
+    "cure_lite/paired_outcome_losses.py": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "cure_lite/paired_outcome_types.py": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a",
+    "cure_lite/paired_types.py": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e",
+    "cure_lite/sampling.py": "f48104dafedd9fd230726e1f80d884524135dd280d7ed53bc527df23eff4809f",
+    "cure_lite/supervision.py": "7825a9bee4509cd375a59562ba5970f60ac6f7fc2d5b2da1b34aaed252ab6e7a",
+    "cure_lite/train/__init__.py": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf",
+    "cure_lite/train/engine.py": "78334aecf62c8797d8f1e77cbe80624ce7da4d9d0cb82d4272e2962f042f54e8",
+    "cure_lite/train/paired_outcome_step.py": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "cure_lite/train/pools.py": "8d3789f125c264492f68649ecf7bf1844e8afe622821d7ad391bf274bb2b6ffe",
+    "cure_lite/train/step.py": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe",
+    "cure_lite/types.py": "8280f49b66ac9108c8129ff29ddab9072568ddc2445c85734a6b5bb47e43a3cb",
+    "tests_v11/test_ccfr_development_regression.py": "b84f7296abfbe27e398a73b033063fbfb09297151fbb6c1841531be63b043f9f",
+    "tests_v11/test_ccfr_exposure_holdout.py": "98e8d8da810dfd88aa6b53ad646055e84eede6b4bae1fdc2e888affc1cce4168",
+    "tests_v11/test_ccfr_holdout_inputs.py": "a4fd284158e718aebe9550f4121a4c63f2502f1ab9e77f7b8e42774970dbba66",
+    "tools/evaluate_ccfr_development_regression.py": "3edc8b68f0ef533df5c90c22f214458d7cf0d0b482b96ffc735a2b405d14d684",
+    "tools/__init__.py": "7f5bd72b5bbbd6ec497085fcbde0f9861fa071e7f4d95346ecad599cacb14bce",
+    "tools/evaluate_ccfr_exposure_holdout.py": "abcafee779b1527f06f1aaa9337a5f36cf316c96d2ac08226d956b1e3ad0218a",
+    "tests_v11/test_ccfr_exposure_holdout_r2.py": "d688811f46b87641eda896f8c7992b4a5ee8b6ff86bd59d219a8c1a951518152",
+    "tools/evaluate_ccfr_exposure_holdout_r2.py": "abadd4dd69017bb38c9cce605c5d5ad4732b37e9a3f632676cd808ad6a57bc33"
+  },
+  "pre_run_v1_invalidation_binding": {
+    "repo_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_r2_pre_run_v1_invalidation_receipt.json",
+    "file_sha256": "083e3f6fe48d486e0b71ff60bdf043262b63c691ebb918844190fbfe10072077",
+    "invalidation_fingerprint": "8f7732576dd03d38f8bcb96a80a9aedd229e0b18686fa9675d8a13a810ce2645"
+  },
+  "closure_fingerprint": "84cee287eb2124f2a484c9289b5c0db5dd0aa7cf749f8cc18f222e535e49ed20"
+}

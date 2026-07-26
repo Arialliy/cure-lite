@@ -1,0 +1,46 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-pre-run-verification-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "status": "VERIFIED_BEFORE_SINGLE_AUTHORITY_RUN",
+  "decision": "PECO_V10_DEVELOPMENT_PRE_RUN_VERIFICATION_PASS",
+  "implementation_closure_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_implementation_closure.json",
+    "file_sha256": "3e26fcb39a8baf1143d4faae7c18f77ccddffb06ee158f5f5c00bf51124edb2f",
+    "receipt_fingerprint": "8c9acdca49ca36bb4b121b31d18482a6e0593a5c7ab8ccf808c3a66b30ff2981"
+  },
+  "test_evidence": [
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v10/test_paired_endpoint_crossing_protocol.py tests_v10/test_paired_endpoint_crossing_losses.py tests_v10/test_paired_endpoint_crossing_development_regression.py",
+      "passed": 21,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 4.31
+    },
+    {
+      "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v8/test_conservative_factorized_config.py tests_v8/test_conservative_factorized_decoder.py tests_v8/test_conservative_factorized_model.py tests_v8/test_conservative_factorized_support_toy.py tests_v8/test_conservative_factorized_toy_overfit.py tests/test_paired_outcome_losses.py tests/test_paired_outcome_step.py",
+      "passed": 49,
+      "failed": 0,
+      "exit_code": 0,
+      "duration_seconds": 42.13
+    }
+  ],
+  "runtime": {
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "training_executed": false,
+    "dataset_accessed": false
+  },
+  "authorization": {
+    "canonical_development_regression_run": true,
+    "automatic_retry_allowed": false,
+    "exposure_matched_confirmation_run": false,
+    "D_R": false,
+    "D_V": false,
+    "D_T": false,
+    "formal_800": false,
+    "full_CURE": false,
+    "cross_detector": false
+  },
+  "receipt_fingerprint": "1ae1ee5423d3112a97aabfb7129da341ac689ef708a1257ce1459d7f48cdd30d"
+}

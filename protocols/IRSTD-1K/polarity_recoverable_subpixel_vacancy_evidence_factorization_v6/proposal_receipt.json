@@ -1,0 +1,137 @@
+{
+  "schema_version": "cure-lite-pr-svef-v6-proposal-v1",
+  "method_id": "pr_svef_v6",
+  "method_name": "Polarity-Recoverable Subpixel Vacancy-Evidence Factorization",
+  "method_abbreviation": "PR-SVEF",
+  "status": "specified_not_implemented",
+  "proposal_fingerprint_scope": "all-fields-except-proposal_fingerprint",
+  "design_document": {
+    "repo_path": "CURE_Lite_PRSVEF_v6_模型与代码设计.md",
+    "file_sha256": "86dcfc6c72bec57723f1ee9a98496c74b168330b70d2f9e9dbddc3fb96842c8d"
+  },
+  "predecessor_v5": {
+    "method_id": "dsvef_v5",
+    "closure_repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/toy_gate_closure_receipt.json",
+    "closure_file_sha256": "caf84ff0b57535b162ccf8f1c8d873f758a7b5a23e1b92bc543ead8be677035e",
+    "closure_receipt_fingerprint": "cc44eb59e318f190adda3ed82a6283ab5d47d84710a480e986c63686770a0054",
+    "toy_result_repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/toy_gate_result.json",
+    "toy_result_file_sha256": "664f62cd955b0ac8ec79d271336295ac5ca70ddce50291582f04880ad3acfad2",
+    "toy_result_fingerprint": "9f6f17f3465fe471111b679fd323436160252ade4e1a0967bd7748afee6d2bf5",
+    "decision": "DSVEF_V5_TOY_GATE_FAIL",
+    "failure": "negative_target_phase_gradient_starvation"
+  },
+  "predecessor_v4": {
+    "artifact_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_svef_v4_bounded_r1",
+    "complete_file_sha256": "8b9f6a1f1fce7801f8610ceff244bc63f9b9989ee2f8ee9ea3ec7dd6e7dd91a3",
+    "complete_fingerprint": "1e693369db718b47ee86fd6a8b883914fe1e37975026fd8d75ca6503e6188d3d",
+    "result_file_sha256": "7121f6433c63c59e54a697196bfe760b961e6908fefc610caca131021b76b35d",
+    "result_fingerprint": "7e51d11012b7ffd8e1abb9edc2c928ee3d9d861f98c1518c67c23d1e6cfed39a",
+    "decision_fingerprint": "521a3a9d6ef1aca0c35e1b1cb0c6d955bcc864654e5c123f8eea4a3900b58b90",
+    "implementation_fingerprint": "1e01ea64f64f27a59dec84cf071eaefdc6c6bfbceec360cfc1bc66b9365cf975",
+    "decision": "BOUNDED_MODEL_CODE_GATE_FAIL"
+  },
+  "mechanism_identity": {
+    "family": "shared_subpixel_feature_baseline_times_fixed_local_vacancy_evidence_v3",
+    "single_new_mechanism": "forward_directed_evidence_with_backward_polarity_recovery_v1",
+    "forward_evidence_transform": "softplus(square(relu(raw_evidence)))-log(2), with explicit exact-zero branch for raw<=0",
+    "backward_surrogate_policy": "raw>0:2*raw*sigmoid(raw^2); raw<=0:sigmoid(raw)",
+    "zero_boundary_policy": "recovery_branch_with_gradient_0.5",
+    "operator_position": "after_raw_evidence_resize_before_vacancy_multiplication",
+    "trainable_parameters_added": 0,
+    "modules_added": 0,
+    "heads_added": 0,
+    "loss_terms_added": 0,
+    "inference_branches_added": 0,
+    "changed_from_v5": [
+      "forward_evidence_transform",
+      "backward_surrogate_policy"
+    ],
+    "unchanged_from_v4_v5": [
+      "input_contract",
+      "shared_trunk",
+      "baseline_head",
+      "evidence_head",
+      "pixelshuffle",
+      "vacancy_gate",
+      "parameter_count",
+      "loss",
+      "train_step",
+      "pair_population",
+      "schedule",
+      "optimization_budget",
+      "toy_thresholds",
+      "bounded_thresholds",
+      "inference_composition"
+    ]
+  },
+  "mathematical_contract": {
+    "forward_real_formula": "phi(r)=softplus(relu(r)^2)-log(2)",
+    "forward_negative_half_axis": "exact_zero_by_explicit_branch",
+    "forward_positive_half_axis": "identical_to_svef_v4",
+    "surrogate_formula": "sg(phi(r))+psi(r)-sg(psi(r))",
+    "psi_negative_or_zero": "softplus(r)-log(2)",
+    "psi_positive": "phi(r)",
+    "positive_gradient": "2*r*sigmoid(r^2)",
+    "negative_gradient": "sigmoid(r)",
+    "zero_gradient": 0.5,
+    "surrogate_is_not_forward_true_derivative_on_negative_half_axis": true,
+    "float32_tiny_positive_strict_positivity_claimed": false
+  },
+  "decoder_contract": {
+    "input_feature": "float[B,C,h,w], detached inside decoder",
+    "input_occupancy": "bool[B,1,H,W]",
+    "output": "float logits[B,1,H,W]",
+    "pair_kind_input": false,
+    "ground_truth_input": false,
+    "base_probability_input": false,
+    "feature_channels": 64,
+    "feature_stride": 4,
+    "width": 32,
+    "groups": 8,
+    "reference_parameter_count": 4385,
+    "new_model_wrapper_required": false
+  },
+  "toy_gate": {
+    "seed": 7817,
+    "optimizer": "adam",
+    "updates": 320,
+    "learning_rate": 0.004,
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "cases": [
+      "one_pixel",
+      "two_pixels",
+      "three_pixels"
+    ],
+    "per_case_pass_required": true,
+    "required_passed_case_count": 3,
+    "thresholds_unchanged_from_v4_v5": true,
+    "automatic_retry_allowed": false
+  },
+  "planned_additive_files_before_toy": [
+    "cure_lite/recoverable_factorized_config.py",
+    "cure_lite/recoverable_factorized_decoder.py",
+    "tools/evaluate_recoverable_factorized_toy_gate.py",
+    "tests/test_recoverable_factorized_config.py",
+    "tests/test_recoverable_factorized_decoder.py",
+    "tests/test_recoverable_factorized_model.py",
+    "tests/test_recoverable_factorized_outcome_toy_overfit.py"
+  ],
+  "forbidden_before_toy_pass": [
+    "v6_real_D_R_bounded_executor",
+    "v6_real_D_R_cli",
+    "D_V_or_D_T_access",
+    "calibration",
+    "Pd_or_FA_evaluation",
+    "formal_800",
+    "full_CURE",
+    "other_detector_integration"
+  ],
+  "stage_decision": {
+    "toy_fail": "freeze_v6_toy_negative_and_stop_v6",
+    "toy_pass": "authorize_v6_bounded_code_creation_only",
+    "real_D_R_run_authorized_at_proposal_time": false,
+    "formal_800_authorized_at_proposal_time": false
+  },
+  "proposal_fingerprint": "873c54950259f87863738ccede23132dbfb1f985ac4e27baf4ce8c24e1c7b71b"
+}

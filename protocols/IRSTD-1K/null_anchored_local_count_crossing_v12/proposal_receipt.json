@@ -1,0 +1,163 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.proposal.v1",
+  "method_id": "nlcc_v12",
+  "method_name": "Null-Anchored Local Count Crossing",
+  "stage_id": "model_design_prefreeze",
+  "created_date": "2026-07-26",
+  "status": "DESIGN_PREFROZEN_IMPLEMENTATION_NOT_STARTED",
+  "research_mainline": [
+    "CURE-Lite core mechanism",
+    "frozen confirmation",
+    "Full CURE design",
+    "cross-detector and three-dataset validation"
+  ],
+  "predecessor_negative_result": {
+    "method_id": "ccfr_v11",
+    "decision": "CCFR_V11_EXPOSURE_HOLDOUT_CONFIRMATION_FAIL",
+    "result_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.json",
+    "result_sha256": "8f1ef523212f8eb1b8acd804597f53726e39b64d82b0ae51a8d0d127fb6e0615",
+    "complete_path": "protocols/IRSTD-1K/coverage_conditioned_feature_release_v11/exposure_holdout_result_r2.COMPLETE.sha256",
+    "complete_sha256": "e4b1180fd756122984061951c59c297c49a3aaac8c673c123f7e8b3f86838b3b",
+    "historical_state": "READ_ONLY_NEGATIVE_RESULT"
+  },
+  "design_binding": {
+    "path": "CURE_Lite_NLCC_v12_模型与代码设计.md",
+    "sha256": "8e9381dbcb8d649fcb1ac10308420f5144b84c74462c12bad2adc2a9faa0fddb"
+  },
+  "frozen_topology": {
+    "freeze_v0_1_decoder": false,
+    "freeze_active_v4_factorized_topology": true,
+    "reference_feature_channels": 64,
+    "reference_feature_stride": 4,
+    "reference_parameter_count": 4385,
+    "dataset_free_feature_channels": 8,
+    "dataset_free_parameter_count": 2593,
+    "parameter_tensor_count": 6,
+    "state_dict_entry_count": 7,
+    "new_modules": 0,
+    "new_parameters": 0,
+    "new_parameter_tensors": 0,
+    "new_persistent_buffers": 0,
+    "new_heads": 0,
+    "new_decoder_passes": 0,
+    "new_inference_branches": 0
+  },
+  "single_state_equation": {
+    "feature_trunk": "H=H0+0.5*Wp*SiLU(GN_d(Wd*H0)); H0=SiLU(GN_s(Ws*stopgrad(F)))",
+    "raw_phase_response": "r=We*H",
+    "fixed_null_coordinate": "r_null=0",
+    "null_anchored_reference": "mu_null=sum_k(r_k)/(P+1)",
+    "projected_local_count": "C=ones_3x3*adaptive_max_project(O)",
+    "crossing_margin": "m_j=r_j-mu_null-C",
+    "observable_evidence": "e_j=0 if m_j<=0 else exp(m_j)-1",
+    "recovery_backward": "d(e_tilde_j)/d(m_j)=exp(m_j)",
+    "baseline": "B(F)=-softplus(beta+PixelShuffle(Wb*H))",
+    "logits": "z(F,O)=B(F)+PixelShuffle(e_tilde)",
+    "count_scale": 1.0,
+    "count_scale_searchable": false,
+    "temperature_searchable": false,
+    "surrogate_searchable": false
+  },
+  "formal_reachability": {
+    "linear_c_over_9_rejected": true,
+    "linear_raw_count_rejected": true,
+    "linear_c_over_9_max_probability_delta": 0.0277706,
+    "linear_raw_count_max_probability_delta": 0.2449187,
+    "frozen_endpoint_logit_separation_required": 5.88887796,
+    "raw_count_exponential_formally_unbounded_when_both_endpoints_active": true,
+    "minimum_symmetric_witness_plus_margin": 1.23174063,
+    "minimum_symmetric_witness_plus_evidence": 2.42719,
+    "minimum_symmetric_witness_minus_evidence": 8.31607,
+    "minimum_symmetric_witness_baseline": -5.37163
+  },
+  "frozen_dependencies": {
+    "cure_lite/__init__.py": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3",
+    "cure_lite/decoder.py": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4",
+    "cure_lite/factorized_config.py": "10ebaef4b3df76c538962026dcfef194833db04a10f02a05c24365ad9ee56246",
+    "cure_lite/factorized_decoder.py": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9",
+    "cure_lite/factorized_model.py": "e8eb2f8ddd2d13684dc78d3bb9a81669bc99b2a71e11953885343e974980f6b5",
+    "cure_lite/paired_endpoint_crossing_losses.py": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+    "cure_lite/paired_outcome_losses.py": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e",
+    "cure_lite/train/__init__.py": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf",
+    "cure_lite/train/paired_outcome_step.py": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265",
+    "cure_lite/train/paired_step.py": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139",
+    "tests/test_package_import.py": "9d871a0594bb4d1f9a934bd1b432825e44b7d2b12497d4f67e96380fb085e57f"
+  },
+  "implementation_contract": {
+    "new_config_path": "cure_lite/null_anchored_local_count_crossing_config.py",
+    "new_decoder_path": "cure_lite/null_anchored_local_count_crossing_decoder.py",
+    "new_test_directory": "tests_v12",
+    "root_init_must_remain_unchanged": true,
+    "train_init_must_remain_unchanged": true,
+    "v4_to_v11_sources_must_remain_unchanged": true,
+    "existing_results_must_remain_unchanged": true,
+    "additive_only": true
+  },
+  "dataset_free_holdout_contract": {
+    "v11_far_completion_reused": false,
+    "new_unique_population_required": true,
+    "new_design_seed_required": true,
+    "must_be_frozen_before_any_v12_training_result": true,
+    "completion_feature_witness_channels": [
+      6,
+      7
+    ],
+    "matched_anchor_null_required": true,
+    "unwitnessed_completion_count_required": 0,
+    "completion_changed_support_overlap_count_required": 0,
+    "opposite_label_identical_input_count_required": 0,
+    "opposite_label_local_signature_conflict_count_required": 0,
+    "clean_D_without_feature_witness_count_required": 0,
+    "clean_D_without_count_difference_count_required": 0,
+    "update_count": 400,
+    "batch_contract": "4_factual_miss+4_factual_no_miss+2_pairs",
+    "thresholds_must_not_be_relaxed": true
+  },
+  "frozen_nonchanges": {
+    "base": "one frozen Base extract",
+    "objective": "PECO-v10",
+    "training_step": "outcome-complete 4/4/2",
+    "paired_forward": "one 2B decoder forward",
+    "feature": "detached",
+    "inference": "one Base plus one decoder, pre-mask, frozen threshold, hard union",
+    "calibration": "unchanged",
+    "real_dataset_inputs": "not authorized"
+  },
+  "authorization": {
+    "implementation": true,
+    "focused_unit_tests": true,
+    "dataset_free_development": false,
+    "dataset_free_holdout": false,
+    "real_D_R": false,
+    "DV": false,
+    "DT": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "novelty_boundary": {
+    "core_claim": "coupled same-source detector-coverage response learning under a frozen detector and natural-miss/FA/retention constraints",
+    "nlcc_role": "candidate detector-independent state equation for the CURE learning object",
+    "not_claimed_as_novel": [
+      "generic mask refinement",
+      "frozen Base",
+      "lightweight decoder",
+      "synthetic deletion alone",
+      "false-alarm reduction alone",
+      "cross-backbone plugin alone"
+    ],
+    "public_priority_claim_authorized": false,
+    "performance_claim_authorized": false,
+    "ICLR_claim_authorized": false
+  },
+  "stop_rules": [
+    "Any topology, state, initialization, inference, loss, or batch-contract drift stops v12.",
+    "Any nonfinite forward, loss, recovery factor, or gradient stops the current attempt.",
+    "Any local-signature conflict or unreachable positive anchor stops holdout construction.",
+    "Dataset-free development failure stops before an independent holdout.",
+    "Independent holdout failure stops before real D_R.",
+    "Real D_R failure stops before 32000-step and formal800.",
+    "Either formal800 seed failing its frozen Pd, recovery, FA, or retention gate stops before Full CURE."
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "schema_version": "cure-lite-svef-v4-bounded-config-v1",
+  "method_id": "svef_v4",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "proposal_binding": {
+    "path": "protocols/IRSTD-1K/subpixel_vacancy_evidence_factorization_v4/proposal_receipt.json",
+    "file_sha256": "89a2dbc8fcbb0edfff8d33ce2e109a93cd24c3f7bec4a325d9ded2fe33e32115",
+    "proposal_fingerprint": "d10ecd79f217ac692d965de1475529a1b9e0f6a38e8909db25560ec31bb28ccf"
+  },
+  "source_reconstruction": {
+    "loader_role": "frozen_D_R_input_reconstruction_only",
+    "source_config_path": "protocols/IRSTD-1K/paired_bounded_learnability_v1/config.json",
+    "source_config_file_sha256": "90bb22fb6e46add584b99b24f54b9926a9cda8e63d73eda5a67447f6668eabd5",
+    "source_config_fingerprint": "0c2895c843bcd5ed5dd3865118e8006d8bc3a2d74665052cddb2c1572f007785",
+    "source_config_is_not_method_or_loss_authority": true,
+    "required_pair_catalog_fingerprint": "4886e52d2cfb3392d0f4fdda376159d6e7f694fd449dc809cf8874793febde76"
+  },
+  "anchor_population": {
+    "seed": 42,
+    "factual_miss_anchors": 16,
+    "factual_no_miss_anchors": 16,
+    "identity_null_pairs": 16,
+    "selection_rule": "stable_hash_over_frozen_D_R_identities_v1"
+  },
+  "outcome_population": {
+    "clean_positive": 206,
+    "component_null": 16,
+    "union": 222,
+    "identity_null_optimizer_exposure": 0,
+    "sampling": "pair_level_uniform_deterministic_over_outcome_union",
+    "source_disjoint_within_update": true
+  },
+  "optimization": {
+    "decoder": {
+      "feature_channels": 64,
+      "feature_stride": 4,
+      "width": 32,
+      "groups": 8,
+      "trunk_residual_scale": 0.5,
+      "baseline_probability": 0.1,
+      "vacancy_kernel_size": 3,
+      "evidence_transform": "zero_anchored_squared_softplus_v1",
+      "resize_policy": "separate_fields_then_final_gate_v1"
+    },
+    "loss": {
+      "dice_weight": 1.0,
+      "epsilon": 1e-06
+    },
+    "optimizer": "adam",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0,
+    "seed": 42,
+    "trainable_scope": "CURELiteFactorizedDecoder_only"
+  },
+  "budget": {
+    "epochs": 10,
+    "steps_per_epoch": 40,
+    "optimizer_updates": 400,
+    "factual_miss_states_per_update": 4,
+    "factual_no_miss_states_per_update": 4,
+    "outcome_pairs_per_update": 2,
+    "outcome_endpoint_states_per_update": 4,
+    "decoder_forward_calls_per_update": 3,
+    "decoder_states_per_update": 12,
+    "pair_slots": 800,
+    "evaluation_chunk_size": 32,
+    "resume_allowed": false
+  },
+  "structural_gates": {
+    "zero_feature_occupancy_delta_max": 0.0,
+    "gate_support_outside_logit_delta_max": 0.0,
+    "gate_support_outside_probability_delta_max": 0.0,
+    "deletion_logit_monotonicity_violations": 0,
+    "deletion_probability_monotonicity_violations": 0,
+    "field_resize_endpoint_count": 0,
+    "clean_full_D_reachable_pairs": 206,
+    "clean_D_reachable_pixels": 2551,
+    "factual_full_target_reachable_anchors": 16,
+    "factual_target_reachable_pixels": 150
+  },
+  "bounded_gates": {
+    "all_222_pairs_bound": true,
+    "pair_exposure_counts": [
+      3,
+      4
+    ],
+    "factual_miss_anchor_final_over_initial_max": 0.75,
+    "factual_no_miss_anchor_final_over_initial_max": 0.75,
+    "plus_baseline_final_over_initial_max": 0.75,
+    "clean_transition_final_over_initial_max": 0.5,
+    "clean_mean_delta_on_D_min": 0.5,
+    "clean_pairs_delta_at_least_0_25_fraction_min": 0.75,
+    "clean_zero_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_macro_mean_abs_delta_max": 0.05,
+    "component_null_footprint_global_max_abs_delta_max": 0.25,
+    "component_null_context_macro_mean_abs_delta_max": 0.05,
+    "identity_null_max_abs_delta_max": 1e-07,
+    "clean_joint_D_ge_0_25_and_H_le_0_05_fraction_min": 0.75,
+    "tiny_target_strata_report_required": true
+  },
+  "execution_policy": {
+    "create_only_output": true,
+    "resume_allowed": false,
+    "same_version_real_bounded_runs_max": 1,
+    "allowed_runtime_splits": [
+      "D_R"
+    ],
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "base_or_backbone_update_allowed": false,
+    "decoder_topology_change_allowed_during_execution": false,
+    "loss_change_allowed": false,
+    "calibration_allowed": false,
+    "performance_evaluation_allowed": false,
+    "formal_800_training_allowed_by_this_config": false,
+    "full_cure_allowed": false,
+    "other_detector_integration_allowed": false
+  },
+  "decision_semantics": {
+    "pass_meaning": "the_frozen_SVEF_model_code_learns_the_complete_D_R_outcome_population_under_the_bounded_budget_and_joint_gate",
+    "fail_meaning": "the_current_frozen_SVEF_model_code_does_not_pass_its_bounded_gate",
+    "not_detection_performance_evidence": true,
+    "pass_requires_separate_frozen_test_review_before_formal_800": true,
+    "directly_authorizes_formal_800": false
+  },
+  "config_fingerprint_scope": "all_fields_except_config_fingerprint",
+  "config_fingerprint": "9637df9e8b84f61d914b38e4677374c8fd4cccbb17bb8afde5708daad518adde"
+}

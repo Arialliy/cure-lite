@@ -1,0 +1,145 @@
+{
+  "schema_version": "cure-lite-peco-v10-development-implementation-closure-v1",
+  "method_id": "peco_v10",
+  "stage_id": "dataset_free_development_regression",
+  "status": "CLOSED_BEFORE_SINGLE_AUTHORITY_RUN",
+  "decision": "PECO_V10_DEVELOPMENT_IMPLEMENTATION_CLOSED",
+  "config_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_config.json",
+    "file_sha256": "9b08bc4a89e29414cdcc7f4a100fac29e0eb524ae9613e7985be52d1f486ae4b",
+    "config_fingerprint": "3f6f9b4559cb6c813d966486c798583f076b210d5527f409d8a35571ac97f98a"
+  },
+  "proposal_binding": {
+    "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/proposal_receipt.json",
+    "file_sha256": "74eb7196944135fa8c620dca8c6593460fc7b7086d08ce6104071dad9d88e47a",
+    "proposal_fingerprint": "377d3b5e5cdf7fdb2b903bd423897b9aea436ee943e00206cd26865b95599365"
+  },
+  "source_bindings": [
+    {
+      "repo_path": "CURE_Lite_PECO_v10_模型与代码设计.md",
+      "file_sha256": "2aae545beb7cef818c64edde12ba21a14d52d9ff42b52cdd15a7355d700a8203"
+    },
+    {
+      "repo_path": "cure_lite/__init__.py",
+      "file_sha256": "7441502257d78aaa3024ca9d1c3419c0f566d0e77b6fc73e2a79a8bf40f4cba3"
+    },
+    {
+      "repo_path": "cure_lite/cache/schema.py",
+      "file_sha256": "9d57ba1af9a18d1c77d5726ddcb36b6e8963c5d6a5139a7ce0c186e069d68dc7"
+    },
+    {
+      "repo_path": "cure_lite/config.py",
+      "file_sha256": "63399343ba36c5d2a06cc26b8fbfc575f056eca1c9280eb417d57434e1bcf471"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_config.py",
+      "file_sha256": "b4d6551314e5d62578165737a0a4458f85dbcdabcf0f0343309a16988928b967"
+    },
+    {
+      "repo_path": "cure_lite/conservative_factorized_decoder.py",
+      "file_sha256": "fb7b4aeb16934218d5add300a3be2350d6c77615064486cb92cf93399ab05528"
+    },
+    {
+      "repo_path": "cure_lite/crossing_factorized_decoder.py",
+      "file_sha256": "4f9b3e8144c3c4cb2e797bbd8fe1f0c3a07bc4cc547fb0b65f5a26190a3413dc"
+    },
+    {
+      "repo_path": "cure_lite/decoder.py",
+      "file_sha256": "228ec6ac02c637051d87aa12c9c0d6beb79dfb8b87c18fb492ddd00ad5d738d4"
+    },
+    {
+      "repo_path": "cure_lite/experiment/conservative_toy_inputs.py",
+      "file_sha256": "f86418a06adfc6866a900e697992c0a4959e936e2ed439d6d5f13b94aeca40b0"
+    },
+    {
+      "repo_path": "cure_lite/factorized_decoder.py",
+      "file_sha256": "0b36f4d74406be90a614a051379a9419f394c04413e660b6b6c60f30068da5f9"
+    },
+    {
+      "repo_path": "cure_lite/losses.py",
+      "file_sha256": "fa47592c89462a694e1fe19f87f223486a4c07f3e5d48fbf8fce6262c0ff25e9"
+    },
+    {
+      "repo_path": "cure_lite/paired_endpoint_crossing_losses.py",
+      "file_sha256": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_losses.py",
+      "file_sha256": "c873b23afe76038f72a93ed99ef9023c090a7fda321c6ac5f725938d774b5c0e"
+    },
+    {
+      "repo_path": "cure_lite/paired_outcome_types.py",
+      "file_sha256": "8de665035a4ac03c59f75bd195247d040ac42b25c3fc1ecac5f7e3ebcb6a9d6a"
+    },
+    {
+      "repo_path": "cure_lite/paired_types.py",
+      "file_sha256": "5cce85b7c29abd48132c0ecc83dbe2ed58dffbf8c45c00e1d14574cd120cd64e"
+    },
+    {
+      "repo_path": "cure_lite/train/__init__.py",
+      "file_sha256": "c7d04fbeaa71ab9c29cf1f0d5b91d234b16b12200e7fa14f79fe0c599e7e0bbf"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_outcome_step.py",
+      "file_sha256": "479cc663779a48ff7eee447e9582850d8431ccc633e970452ad4c35f526a2265"
+    },
+    {
+      "repo_path": "cure_lite/train/paired_step.py",
+      "file_sha256": "d15582b9012ea1b172c0c11f838cf9ae5ef3948b3bcf8313bc67f406cf05c139"
+    },
+    {
+      "repo_path": "cure_lite/train/step.py",
+      "file_sha256": "db89bb7c4f88a4b7e2b066901fa9109347ffba999c0e9b101934a4b29bdf9ffe"
+    },
+    {
+      "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_config.json",
+      "file_sha256": "9b08bc4a89e29414cdcc7f4a100fac29e0eb524ae9613e7985be52d1f486ae4b"
+    },
+    {
+      "repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/proposal_receipt.json",
+      "file_sha256": "74eb7196944135fa8c620dca8c6593460fc7b7086d08ce6104071dad9d88e47a"
+    },
+    {
+      "repo_path": "tests_v10/test_paired_endpoint_crossing_development_regression.py",
+      "file_sha256": "eb5afccd78854730ce3031be726314e71927a37c0574c505d21b75b98998d924"
+    },
+    {
+      "repo_path": "tests_v10/test_paired_endpoint_crossing_losses.py",
+      "file_sha256": "1f7758e660f69f00eef3ac3398bb300c4860da9d2bfb181827118fb52d20f6d5"
+    },
+    {
+      "repo_path": "tests_v10/test_paired_endpoint_crossing_protocol.py",
+      "file_sha256": "28739fecfd3ce2251d29c63252680c258c1bca6830dc8a596c35d16d9cecae77"
+    },
+    {
+      "repo_path": "tools/evaluate_paired_endpoint_crossing_development_regression.py",
+      "file_sha256": "43c2a51635476b49f9ddd656991befecc3ac7fb635bf34288ad256fd4e00d116"
+    }
+  ],
+  "required_pre_run_verification": {
+    "v10_development_command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v10/test_paired_endpoint_crossing_protocol.py tests_v10/test_paired_endpoint_crossing_losses.py tests_v10/test_paired_endpoint_crossing_development_regression.py",
+    "v8_and_parent_regression_command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests_v8/test_conservative_factorized_config.py tests_v8/test_conservative_factorized_decoder.py tests_v8/test_conservative_factorized_model.py tests_v8/test_conservative_factorized_support_toy.py tests_v8/test_conservative_factorized_toy_overfit.py tests/test_paired_outcome_losses.py tests/test_paired_outcome_step.py",
+    "both_commands_must_pass_after_this_closure_exists": true
+  },
+  "semantic_scope": {
+    "component_null_transition_group": "zero_risk_only_when_D_is_empty",
+    "component_null_complete_pair_loss": "unchanged_plus_anchor_plus_zero_transition",
+    "crossing_boundary": "training_residual_logit_zero_not_frozen_calibration_threshold",
+    "evidentiary_scope": "candidate_selection_development_regression_only"
+  },
+  "authorization": {
+    "dataset_free_development_authority_run_count": 1,
+    "canonical_output_repo_path": "protocols/IRSTD-1K/paired_endpoint_crossing_objective_v10/development_regression_result.json",
+    "automatic_retry_allowed": false,
+    "D_R_access_allowed": false,
+    "D_V_access_allowed": false,
+    "D_T_access_allowed": false,
+    "detection_performance_allowed": false,
+    "exposure_matched_confirmation_run_authorized": false,
+    "real_bounded_authorized": false,
+    "formal_800_authorized": false,
+    "full_CURE_authorized": false,
+    "cross_detector_authorized": false
+  },
+  "receipt_fingerprint": "8c9acdca49ca36bb4b121b31d18482a6e0593a5c7ab8ccf808c3a66b30ff2981"
+}

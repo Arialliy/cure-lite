@@ -1,0 +1,127 @@
+{
+  "schema_version": "cure-lite-dsvef-v5-toy-gate-closure-v1",
+  "artifact_kind": "frozen_toy_model_code_gate_negative_closure",
+  "method_id": "dsvef_v5",
+  "method_name": "Directed Subpixel Vacancy-Evidence Factorization",
+  "phase_status": "FROZEN_VALID_TOY_GATE_NEGATIVE",
+  "decision": "DSVEF_V5_TOY_GATE_FAIL",
+  "receipt_fingerprint_scope": "all-fields-except-receipt_fingerprint",
+  "result_binding": {
+    "repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/toy_gate_result.json",
+    "file_sha256": "664f62cd955b0ac8ec79d271336295ac5ca70ddce50291582f04880ad3acfad2",
+    "schema_version": "cure-lite-dsvef-v5-toy-gate-result-v1",
+    "result_fingerprint": "9f6f17f3465fe471111b679fd323436160252ade4e1a0967bd7748afee6d2bf5",
+    "process_replay_count": 3,
+    "byte_identical": true,
+    "expected_cli_exit_code": 2,
+    "exit_code_semantics": "completed_negative_gate_not_execution_error"
+  },
+  "gate_summary": {
+    "implementation_contract_pass": true,
+    "structural_code_tests_pass": true,
+    "focused_test_count": 27,
+    "focused_test_status": "PASS",
+    "toy_gate_pass": false,
+    "passed_case_count": 0,
+    "failed_case_count": 3,
+    "passed_cases": [],
+    "failed_cases": [
+      "one_pixel",
+      "two_pixels",
+      "three_pixels"
+    ],
+    "overall_code_gate_pass": false
+  },
+  "frozen_contract": {
+    "seed": 7817,
+    "optimizer": "adam",
+    "updates": 320,
+    "learning_rate": 0.004,
+    "feature_channels": 8,
+    "feature_stride": 4,
+    "threshold_or_budget_changed_after_result": false
+  },
+  "protocol_bindings": {
+    "design_document": {
+      "repo_path": "CURE_Lite_DSVEF_v5_模型与代码设计.md",
+      "file_sha256": "8b9cb232652ac21d32155f915ef42adf243f8d933b330f3284ae7838203108cc"
+    },
+    "proposal": {
+      "repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/proposal_receipt.json",
+      "file_sha256": "b338ab1d0437ebc4ae831c5ea62002422e9aceda274255884835b03f3f82d569",
+      "proposal_fingerprint": "5e5d5427ba0367b596744d8f6366c6ec90589c3db1e1cdf2bef28f822d17d813"
+    },
+    "bounded_config": {
+      "repo_path": "protocols/IRSTD-1K/directed_subpixel_vacancy_evidence_factorization_v5/bounded_config.json",
+      "file_sha256": "2aea68808a542f8e14bfdcf51b990058057d88fbc91c6c08521515b29a52b044",
+      "config_fingerprint": "ec9c322e17296a320f6c87508cc5e7f6de53cdac8ba8fc0f75019f5244ef7ebd"
+    },
+    "negative_result_report": {
+      "repo_path": "CURE_Lite_DSVEF_v5_Toy门禁负结果.md",
+      "file_sha256": "b366582adacf192bc62080ce0925f28eb93e455627497adafa4c81dde2d7f174"
+    },
+    "predecessor_v4": {
+      "artifact_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_svef_v4_bounded_r1",
+      "complete_file_sha256": "8b9f6a1f1fce7801f8610ceff244bc63f9b9989ee2f8ee9ea3ec7dd6e7dd91a3",
+      "complete_fingerprint": "1e693369db718b47ee86fd6a8b883914fe1e37975026fd8d75ca6503e6188d3d",
+      "result_file_sha256": "7121f6433c63c59e54a697196bfe760b961e6908fefc610caca131021b76b35d",
+      "result_fingerprint": "7e51d11012b7ffd8e1abb9edc2c928ee3d9d861f98c1518c67c23d1e6cfed39a",
+      "result_receipt_fingerprint": "9d6d9d026f1d2953c480cfa0fb71f86c1be60313cef94ac7cfd85c6f96840b94",
+      "decision_file_sha256": "e47afb7c7b6842bcac6ff6e0f1b550f192b8e86adb2c121c2303d28e49e25496",
+      "decision_fingerprint": "521a3a9d6ef1aca0c35e1b1cb0c6d955bcc864654e5c123f8eea4a3900b58b90",
+      "implementation_file_sha256": "2ee1cf6447d7715db9291bf7e72779d49281ba98f69051253891a79e381bf190",
+      "implementation_fingerprint": "1e01ea64f64f27a59dec84cf071eaefdc6c6bfbceec360cfc1bc66b9365cf975",
+      "decision": "BOUNDED_MODEL_CODE_GATE_FAIL"
+    }
+  },
+  "implementation_bindings": {
+    "v5_runtime_files": {
+      "cure_lite/directed_factorized_config.py": "f371b2757961e056c54876553a26609f380e073b64be9c9b2596275452832fba",
+      "cure_lite/directed_factorized_decoder.py": "35a69d30da6999d35922dd35d2f33e89f8e29a05bead6302310318a4e06f2118",
+      "cure_lite/experiment/directed_factorized_outcome_bounded.py": "644563428a45f432dbb2e8e3c4512bebcbe2c3355a24e497911ba20feba4708b",
+      "tools/evaluate_directed_factorized_toy_gate.py": "c7fd9abb5ecb48b93e61423fafdfa8bb82e83e04a2ea39caf87af8175482dd6e"
+    },
+    "toy_fixture": {
+      "tests/test_factorized_outcome_toy_overfit.py": "39c3ea85306c3a98c14875829b4d188f43e31cf85eb4d4ad6149b90a4c3315ce"
+    },
+    "verification_tests": {
+      "tests/test_directed_factorized_config.py": "a3f28316bf763a54661f46c574783a6f2aa7f1576c85e42dbfa4c07c8d4b2a6c",
+      "tests/test_directed_factorized_decoder.py": "2658b82456d3d0aea46e1a5541368c72cde194535f7359b0b09f4055b74206bb",
+      "tests/test_directed_factorized_model.py": "fd40eb3aab46794aa129719711b6cd64aa0746ab6a2b5153fae70e3b180312b9",
+      "tests/test_directed_factorized_outcome_bounded.py": "5908ec8961e4be32e0e2d5c6968008df01afea8a1227bed72c20e716ba61edbc",
+      "tests/test_directed_factorized_outcome_toy_overfit.py": "0f85826aaec5e5def0b4556fa62ef3389da9d9e6a4ea103cfb5d2af7e332c6af"
+    }
+  },
+  "historical_snapshot": {
+    "original_positive_expectation_test_sha256": "8170c6cbc7e0709778396d935e805bbdabd8c7d75617c52c7314c429ebf2912b",
+    "role": "pre-closure-failing-assertion-snapshot-not-current-file-binding"
+  },
+  "execution_environment": {
+    "git_head": "a9dcfb23f44e2cbd54849464d0d47c7e2f43e499",
+    "python_version": "3.12.3",
+    "python_executable": "/home/md0/ly/MSHNet/.venv/bin/python",
+    "torch_version": "2.13.0+cu130",
+    "cuda_build_version": "13.0",
+    "pytest_version": "9.1.1"
+  },
+  "focused_test_evidence": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python -m pytest -q tests/test_directed_factorized_config.py tests/test_directed_factorized_decoder.py tests/test_directed_factorized_model.py tests/test_directed_factorized_outcome_bounded.py tests/test_directed_factorized_outcome_toy_overfit.py",
+    "result": "27 passed in 44.47s"
+  },
+  "boundary": {
+    "D_R_accessed_by_toy_gate": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false,
+    "real_D_R_status": "NOT_RUN_BY_TOY_STOP_RULE",
+    "real_D_R_authorized": false,
+    "real_D_R_cli_created": false,
+    "detection_performance_evaluated": false,
+    "calibration_performed": false,
+    "formal_800_authorized": false,
+    "full_cure_authorized": false,
+    "other_detector_integration_authorized": false,
+    "automatic_retry_performed": false
+  },
+  "next_action": "freeze_v5_negative_and_open_new_additive_candidate_version",
+  "receipt_fingerprint": "cc44eb59e318f190adda3ed82a6283ab5d47d84710a480e986c63686770a0054"
+}

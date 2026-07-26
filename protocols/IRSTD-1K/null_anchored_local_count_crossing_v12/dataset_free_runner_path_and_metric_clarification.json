@@ -1,0 +1,132 @@
+{
+  "schema_version": "cure-lite.nlcc-v12.dataset-free-runner-path-and-metric-clarification.v1",
+  "method_id": "nlcc_v12",
+  "stage_id": "dataset_free_runner_path_and_metric_clarification",
+  "created_date": "2026-07-26",
+  "status": "FROZEN_BEFORE_SHARED_RUNNER_CLI_TEST_OR_SCIENTIFIC_EXECUTION",
+  "upstream_binding": {
+    "repo_path": "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/dataset_free_runner_evaluation_preregistration.json",
+    "file_sha256": "014a5df9b9b7088b504e53ef1921a2f0c43e9ca392997b3cde2085e50fa430bd",
+    "preregistration_fingerprint": "3a3ca440e974a6810d047730ea993c553eb6266a8fb0e68d99a137842011a0f9"
+  },
+  "evidence_state_at_freeze": {
+    "runner_config_source_present_but_not_frozen": true,
+    "original_shared_runner_path_present": false,
+    "replacement_shared_runner_path_present": false,
+    "development_cli_present": false,
+    "holdout_cli_present": false,
+    "runner_tests_present": false,
+    "scientific_optimizer_updates": 0,
+    "development_metrics_observed": false,
+    "holdout_metrics_observed": false
+  },
+  "path_clarification": {
+    "superseded_expected_path": "cure_lite/experiment/nlcc_dataset_free_runner.py",
+    "replacement_expected_path": "cure_lite/nlcc_dataset_free_runner.py",
+    "reason": "normal import of cure_lite.experiment executes its existing package initializer and imports real-data pipeline modules excluded by the frozen dataset-free runtime boundary",
+    "original_path_must_remain_absent": true,
+    "experiment_package_initializer_must_not_be_modified": true,
+    "replacement_is_additive_root_package_module": true,
+    "all_other_expected_additive_paths_unchanged": true,
+    "effective_additive_paths": [
+      "cure_lite/nlcc_dataset_free_runner_config.py",
+      "cure_lite/nlcc_dataset_free_runner.py",
+      "tools/evaluate_nlcc_development_regression.py",
+      "tools/evaluate_nlcc_exposure_holdout.py",
+      "tests_v12/test_nlcc_dataset_free_runner_config.py",
+      "tests_v12/test_nlcc_dataset_free_runner.py"
+    ]
+  },
+  "objective_clarification": {
+    "absolute_loss_class": "CURELiteLoss",
+    "outcome_loss_class": "PairedEndpointCrossingLoss",
+    "dice_weight": 1.0,
+    "epsilon": 1e-06,
+    "both_losses_use_the_same_explicit_loss_config": true,
+    "population_pair_loss_is_one_equal_row_mean_over_the_full_unique_population": true,
+    "group_loss_reweighting_allowed": false
+  },
+  "materialization_and_training_clarification": {
+    "pair_specs_built_once": true,
+    "pair_population_outcome_tensors_built_once": true,
+    "factual_population_tensors_built_once": true,
+    "schedule_built_once": true,
+    "per_update_operation": "index_select cached pair and factual tensors only, followed by lightweight immutable batch views",
+    "per_update_builder_reentry_allowed": false,
+    "cached_pair_and_factual_feature_leaves_require_grad_for_detach_witness": true,
+    "all_cached_feature_leaf_gradients_remain_none_after_training": true,
+    "training_decoder_call_batches_per_update": [
+      4,
+      4,
+      4
+    ],
+    "training_decoder_calls_per_update": 3,
+    "training_parameter_gradient_tensors_per_update": 6,
+    "every_training_parameter_gradient_finite_and_l2_strictly_positive": true,
+    "initial_and_final_decoder_fingerprints_reported": true
+  },
+  "final_evaluation_clarification": {
+    "mode": "decoder.eval and torch.no_grad after the final optimizer step",
+    "unique_population_weighting": "each frozen row exactly once and never exposure-weighted",
+    "pair_endpoint_forward": "one concatenated 2N endpoint forward_fields call split into plus and minus logits",
+    "factual_forwards": "one full factual_miss forward_fields call and one full factual_no_miss forward_fields call",
+    "final_decoder_calls": 3,
+    "repeated_group_forwards_allowed": false,
+    "all_pair_loss_and_group_metrics_use_the_same_single_pair_endpoint_outputs": true,
+    "raw_decoder_logits_only": true,
+    "mask_union_calibration_threshold_or_postprocess_allowed": false,
+    "score_plus": "sigmoid(logits_plus)",
+    "score_minus": "sigmoid(logits_minus)",
+    "delta": "score_minus-score_plus",
+    "positive_anchor_endpoint": "plus",
+    "matched_anchor_null_endpoint": "plus",
+    "plus_background_endpoint": "plus",
+    "clean_D_delta_aggregation": "one pooled pixel-weighted mean over all D pixels from both anchor roles in one group",
+    "D_wrong_direction_definition": "count of D pixels with delta strictly less than zero",
+    "null_anchor_coordinate": "output row=feature_stride*anchor_cell_row+anchor_phase_row and output column=feature_stride*anchor_cell_column+anchor_phase_column",
+    "matched_twins_join_key": "match_id",
+    "matched_twin_gap": "positive-role plus score at the matched anchor coordinate minus null-role plus score at that same coordinate",
+    "matched_twin_gap_reporting": "every match value plus per-group minimum mean and maximum",
+    "matched_twin_gap_is_gate": false,
+    "operator_field_diagnostics": "finite minimum and maximum of crossing_margin and recovery_factor from the same three final forward_fields calls, without extra forward",
+    "component_null_D": "must be empty and explicitly NOT_APPLICABLE for all four clean-only D gates"
+  },
+  "gate_algebra_clarification": {
+    "numeric_threshold_gate_count": 76,
+    "global_numeric_gate_count": 4,
+    "every_group_numeric_gate_count": 48,
+    "clean_only_numeric_gate_count": 24,
+    "structural_training_aggregate_gate_count": 1,
+    "formula": "structural AND global4 AND every one of eight universal6 AND every one of six clean-only4",
+    "mean_can_override_any_group_failure": false,
+    "missing_or_extra_group_is_failure": true,
+    "empty_applicable_mask_is_failure": true,
+    "nonfinite_applicable_metric_is_failure": true,
+    "component_null_not_applicable_is_not_a_synthetic_pass_value": true
+  },
+  "publication_clarification": {
+    "attempt_precedes_optimizer_construction": true,
+    "create_only_files_are_flushed_and_fsynced_before_reload": true,
+    "containing_directory_is_fsynced_after_create_only_claims": true,
+    "decision_is_recomputed_from_reloaded_result_or_failure": true,
+    "complete_inventory_is_independently_reloaded_before_incomplete_marker_removal": true,
+    "holdout_reads_and_verifies_development_artifacts_but_does_not_import_the_development_input_profile": true
+  },
+  "authorization": {
+    "replacement_runner_config_cli_and_unit_test_implementation": true,
+    "scientific_training_in_tests": false,
+    "development_pre_run_authorization_creation": false,
+    "development_scientific_execution": false,
+    "holdout_pre_run_authorization_creation": false,
+    "holdout_scientific_execution": false,
+    "real_D_R": false,
+    "DV": false,
+    "DT": false,
+    "formal800": false,
+    "Full_CURE": false,
+    "cross_detector": false,
+    "three_datasets": false
+  },
+  "clarification_fingerprint_scope": "all_fields_except_clarification_fingerprint",
+  "clarification_fingerprint": "e4e91db7b93eec33fac321cf07329e3afdb4f41e5b69f4e68e6510c2c20e4166"
+}

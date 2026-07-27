@@ -11,6 +11,10 @@ from cure_lite.coverage_state_level_set import (
     CURELiteCoverageStateLevelSet,
     CoverageStateLevelSetConfig,
 )
+from cure_lite.coverage_state_centered_mixed_interaction import (
+    CURELiteCenteredMixedInteractionLevelSet,
+    CoverageStateCenteredMixedInteractionConfig,
+)
 from cure_lite.coverage_state_schedule import (
     CoverageStateScheduleConfig,
     build_coverage_state_training_schedule,
@@ -22,6 +26,7 @@ from cure_lite.coverage_state_phase_preserving import (
 from cure_lite.experiment.coverage_state_training import (
     CoverageStateMatchedTrainingConfig,
     coverage_state_model_fingerprint,
+    train_matched_coverage_state_cmif_support_oriented_objectives,
     train_matched_coverage_state_completion_rooted_objectives,
     train_matched_coverage_state_objectives,
     train_matched_coverage_state_phase_preserving_support_oriented_objectives,
@@ -588,6 +593,59 @@ def test_phase_preserving_matched_runner_uses_one_shared_ppce_model() -> None:
     )
     assert payload["fairness"]["same_model_class"] is True
     assert payload["fairness"]["same_model_config"] is True
+
+
+def test_cmif_matched_runner_uses_one_shared_model_and_latency_contract(
+) -> None:
+    cache = make_training_scalar_cache()
+    schedule = build_coverage_state_training_schedule(
+        cache,
+        CoverageStateScheduleConfig(
+            seed=42,
+            epochs=1,
+            steps_per_epoch=3,
+        ),
+    )
+    model_config = CoverageStateCenteredMixedInteractionConfig(
+        feature_channels=2,
+        feature_stride=TOY_STRIDE,
+        width=4,
+    )
+    result = train_matched_coverage_state_cmif_support_oriented_objectives(
+        model_config,
+        cache,
+        schedule,
+        config=CoverageStateMatchedTrainingConfig(seed=42),
+        device="cpu",
+    )
+    assert tuple(value.objective for value in result.results) == (
+        "support_oriented_response_joint",
+        "identity_joint",
+        "separable_endpoint",
+    )
+    assert all(
+        type(model) is CURELiteCenteredMixedInteractionLevelSet
+        for _, model in result.models
+    )
+    assert all(
+        model.config == model_config for _, model in result.models
+    )
+    assert {
+        value.initial_model_fingerprint for value in result.results
+    } == {result.common_initial_model_fingerprint}
+    for value in result.results:
+        latency = dict(value.first_nonzero_gradient_update)
+        assert latency["scalar_energy_weight"] == 0
+        assert latency["joint_state_weight"] <= 2
+        assert latency["joint_hidden_bias"] <= 2
+    payload = result.canonical_payload()
+    assert all(payload["fairness"].values())
+    assert payload["model_contract"]["model_class"].endswith(
+        ".CURELiteCenteredMixedInteractionLevelSet"
+    )
+    assert payload["model_contract"]["parameter_count"] == (
+        model_config.expected_parameter_count
+    )
     assert payload["fairness"]["same_parameter_count"] is True
     assert payload["fairness"]["same_parameter_shapes"] is True
 

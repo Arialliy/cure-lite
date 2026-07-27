@@ -22,60 +22,52 @@ claim.
 
 ## Current status
 
-### Latest node: CSLF-v15B complete; PPCE-CSLF v16 is the next bounded candidate
+### Latest node: CMIF-v18 PMOPE is a complete bounded-400 negative result
 
-The current mainline is the coverage-state level-set field (CSLF), a single
-scalar completion field
+The current mainline remains a single coverage-state level-set field:
 
 ```text
-(frozen Base feature, occupancy) -> phi
+(frozen Base feature, phase-preserving occupancy) -> phi
 completion = (phi < 0) and not occupancy
 ```
 
-CSLF-v15, v15A, and v15B each completed the frozen seed-42, `D_R`-only,
-bounded-400 protocol. They tested plus-root, completion-root, and
-support-oriented root coordinates while keeping the model, finite coverage
-response, signed-distance target, optimizer, schedule, controls, and fixed
-zero threshold unchanged.
+The sequence after CSLF-v15B is now complete through v18:
 
-The latest completed candidate, v15B `support_oriented_response_joint`,
-substantially improved zero-level localization relative to v15A:
+1. v16 PPCE replaced lossy coarse occupancy with exact
+   `PixelUnshuffle` phase encoding. Its bounded-400 run completed normally but
+   failed the factual, compact-support, and outside-completion gates.
+2. v17 CMIF constrained field updates to centered feature/coverage
+   interactions. All three frozen objectives completed, but none passed the
+   candidate gate.
+3. v18 kept the CMIF model fixed and replaced continuous target regression
+   with PMOPE, a fixed-margin orthant-violation objective aligned to the
+   zero-level inference rule. Its unique seed-42 bounded-400 run also completed
+   normally and failed the predeclared seven zero-level gates.
 
-| bounded item | v15A | v15B |
-|---|---:|---:|
-| factual-miss gates | 13 / 16 | 15 / 16 |
-| factual target-negative pixels | 289 / 335 | 324 / 335 |
-| clean added-target-negative pixels | 125 / 149 | 145 / 149 |
-| clean compact exact | 1 / 16 | 9 / 16 |
-| target-exterior completion pixels | 43 | 12 |
-| component-null / identity-null | 17 / 17, 16 / 16 | 17 / 17, 16 / 16 |
-
-The execution and artifact checks passed, but the predeclared candidate gate
-did not:
+The latest formal decision is:
 
 ```text
-BOUNDED_SUPPORT_ORIENTED_CSLF_GATE_FAIL
-  -> freeze v15B as a complete negative result
-  -> stop root-coordinate search
+PMOPE_V18_BOUNDED_400_GATE_FAIL
+  -> freeze the v18 bounded result
+  -> review the structure before proposing another candidate
   -> do not authorize Formal-800, Full CURE, or cross-backbone work
 ```
 
-The remaining failures are localized: factual sample `XDU680` reaches only
-`64/75` target-negative pixels, eight clean pairs miss exact compactness, four
-added-target pixels do not cross zero, and 12 target-exterior completion pixels
-remain. `D_V` and `D_T` were not read for this bounded stage.
+The v18 candidate recovered 15/16 factual misses, with 11/16 passing the strict
+factual gate and 296/335 target pixels below zero. For clean pairs it placed
+123/149 added-target pixels below zero, but no pair achieved exact compact
+support; 47 completion pixels lay outside added targets. Component-null passed
+16/17, while factual-no-miss, identity-null, and diagnostic-null gates passed.
 
-The next candidate is PPCE-CSLF v16. It keeps the v15B objective and replaces
-the lossy one-channel coarse occupancy input with phase-preserving
-`PixelUnshuffle` encoding aligned to the `PixelShuffle` scalar-field output.
-The implementation, dataset-free checks, bounded runners, and tests are present
-in this repository; this does not itself constitute a passed bounded result or
-Formal-800 authorization.
+This is a valid structural negative result, not an execution failure. The run
+used only frozen `D_R`; `D_V` and `D_T` were not read, no threshold search or
+performance evaluation was performed, and automatic retry is forbidden.
+No v19 candidate is currently authorized by the evidence recorded here.
 
 See
-[the v15B bounded result and v16 decision](CURE_Lite_CSLF_v15B_bounded400正式结果与v16结构模块决定.md),
-[the v15A bounded result](CURE_Lite_CSLF_v15A_bounded400正式结果与v15B模型决定.md),
-[the v15 bounded result](CURE_Lite_CSLF_v15_bounded400正式结果.md),
+[the v18 design rationale](CURE_Lite_v17_CMIF正式负结果与v18_PMOPE修改方案.md),
+[the v16 formal result](CURE_Lite_CSLF_v16_PPCE_bounded400正式负结果与下一结构约束.md),
+[the v15B bounded result](CURE_Lite_CSLF_v15B_bounded400正式结果与v16结构模块决定.md),
 and
 [the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
 

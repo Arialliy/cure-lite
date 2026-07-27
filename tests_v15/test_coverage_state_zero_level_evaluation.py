@@ -21,7 +21,10 @@ from cure_lite.coverage_state_phase_preserving import (
 from cure_lite.experiment.coverage_state_zero_level_evaluation import (
     COVERAGE_STATE_BINARY_OUTPUT_RULE,
     COVERAGE_STATE_COMPACT_SUPPORT_POLICY,
+    COVERAGE_STATE_PHASE_DIAGNOSTIC_NULL_POLICY,
     COVERAGE_STATE_PHASE_INPUT_REPRESENTATION,
+    COVERAGE_STATE_PHASE_ZERO_LEVEL_CONFIG_SCHEMA,
+    COVERAGE_STATE_PHASE_ZERO_LEVEL_EVALUATION_SCHEMA,
     COVERAGE_STATE_SCALAR_INPUT_REPRESENTATION,
     CoverageStateZeroLevelEvaluationConfig,
     evaluate_coverage_state_zero_level_checkpoint,
@@ -159,6 +162,15 @@ def _perfect_fields(
                 0.9,
                 dtype=torch.float32,
             )
+            if (
+                value.optimizer_role == "diagnostic_only"
+                and input_representation
+                == COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+            ):
+                # The phase-visible endpoints are genuinely different
+                # inputs.  Their continuous fields may differ while both
+                # encode the same empty completion.
+                field_minus[..., 0, 0] = 0.8
         else:
             field_plus = value.joint_targets.target_field_plus
             field_minus = value.joint_targets.target_field_minus
@@ -412,6 +424,102 @@ def test_phase_representation_distinguishes_scalar_aliases_without_reuse() -> No
     assert phase.config.canonical_payload()[
         "input_representation"
     ] == COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+    assert phase.config.canonical_payload()["schema_version"] == (
+        COVERAGE_STATE_PHASE_ZERO_LEVEL_CONFIG_SCHEMA
+    )
+    assert phase.config.canonical_payload()[
+        "diagnostic_null_policy"
+    ] == COVERAGE_STATE_PHASE_DIAGNOSTIC_NULL_POLICY
+    _, scalar_pairs = _diagnostics_by_id(scalar)
+    _, phase_pairs = _diagnostics_by_id(phase)
+    scalar_hidden = scalar_pairs[hidden.record.pair_id]
+    phase_visible = phase_pairs[hidden.record.pair_id]
+    assert scalar_hidden.field_exact_equal
+    assert scalar_hidden.completion_exact_equal
+    assert scalar_hidden.gate_passed
+    assert not phase_visible.field_exact_equal
+    assert phase_visible.completion_exact_equal
+    assert phase_visible.gate_passed
+    assert phase.scalar_hidden_diagnostic_gate_passed
+    assert phase.diagnostic_null_gate_passed
+    phase_payload = phase.canonical_payload()
+    assert phase_payload["schema_version"] == (
+        COVERAGE_STATE_PHASE_ZERO_LEVEL_EVALUATION_SCHEMA
+    )
+    assert "diagnostic_null" in phase_payload["gates"]
+    assert "scalar_hidden_diagnostic" not in phase_payload["gates"]
+    diagnostic_payload = next(
+        value
+        for value in phase_payload["pair_diagnostics"]
+        if value["pair_id"] == hidden.record.pair_id
+    )
+    assert "scalar_hidden" not in diagnostic_payload
+    assert not diagnostic_payload["actual_inputs_equal"]
+    assert diagnostic_payload["input_relation"] == (
+        "phase_visible_distinct_actual_inputs"
+    )
+
+
+def test_phase_visible_component_null_rejects_changed_completion() -> None:
+    cache, phase_fields = _perfect_fields(
+        COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+    )
+    hidden = next(
+        value
+        for value in cache.pair_records
+        if value.optimizer_role == "diagnostic_only"
+    )
+    minus_phase = occupancy_to_phase_grid(
+        hidden.record.occupancy_minus,
+        stride=cache.raw_catalog.feature_stride,
+    )
+    minus_key = actual_input_fingerprint(
+        normalize_cslf_feature(hidden.record.feature),
+        minus_phase,
+        representation=COVERAGE_STATE_PHASE_INPUT_REPRESENTATION,
+        stride=cache.raw_catalog.feature_stride,
+    )
+    writable = (
+        hidden.record.valid_mask
+        & ~hidden.record.occupancy_minus
+    )
+    changed_index = tuple(
+        int(value)
+        for value in torch.nonzero(
+            writable,
+            as_tuple=False,
+        )[0].tolist()
+    )
+    phase_fields[minus_key][changed_index] = -0.9
+
+    model = LookupFieldCheckpoint(
+        phase_fields,
+        input_representation=(
+            COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+        ),
+    )
+    model.eval()
+    result = evaluate_coverage_state_zero_level_checkpoint(
+        model,
+        cache,
+        device="cpu",
+        config=CoverageStateZeroLevelEvaluationConfig(
+            input_representation=(
+                COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+            ),
+        ),
+    )
+    _, pairs = _diagnostics_by_id(result)
+    diagnostic = pairs[hidden.record.pair_id]
+    assert not diagnostic.field_exact_equal
+    assert not diagnostic.completion_exact_equal
+    assert not diagnostic.gate_passed
+    assert not result.scalar_hidden_diagnostic_gate_passed
+    assert not result.diagnostic_null_gate_passed
+    assert (
+        "defined_metric_gate_failed:diagnostic_null"
+        in result.fail_closed_reasons
+    )
 
 
 def test_representation_binding_fails_closed_and_legacy_payload_is_exact() -> None:

@@ -19,12 +19,14 @@ from ..coverage_state_level_set import (
 )
 from ..coverage_state_sobolev import (
     CSLF_COMPLETION_ROOTED_RESPONSE_POLICY,
+    CSLF_PMOPE_POLICY,
     CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY,
     CoverageStateSobolevConfig,
     coverage_state_absolute_sobolev_loss_from_targets,
     coverage_state_completion_rooted_pair_sobolev_loss_from_targets,
     coverage_state_identity_joint_loss_from_targets,
     coverage_state_pair_sobolev_loss_from_targets,
+    coverage_state_pmope_pair_loss_from_targets,
     coverage_state_support_oriented_pair_sobolev_loss_from_targets,
 )
 
@@ -37,6 +39,7 @@ class CoverageStatePairObjective(str, Enum):
     SUPPORT_ORIENTED_RESPONSE_JOINT = (
         "support_oriented_response_joint"
     )
+    PMOPE_JOINT = "pmope_joint"
     IDENTITY_JOINT = "identity_joint"
     SEPARABLE_ENDPOINT = "separable_endpoint"
 
@@ -55,6 +58,9 @@ COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES = (
     CoverageStatePairObjective.SUPPORT_ORIENTED_RESPONSE_JOINT,
     CoverageStatePairObjective.IDENTITY_JOINT,
     CoverageStatePairObjective.SEPARABLE_ENDPOINT,
+)
+COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES = (
+    CoverageStatePairObjective.PMOPE_JOINT,
 )
 
 
@@ -87,6 +93,8 @@ def coverage_state_pair_objective_policy(
         is CoverageStatePairObjective.SUPPORT_ORIENTED_RESPONSE_JOINT
     ):
         return CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY
+    if objective is CoverageStatePairObjective.PMOPE_JOINT:
+        return CSLF_PMOPE_POLICY
     return objective.value
 
 
@@ -238,6 +246,14 @@ def _pair_loss(
         is CoverageStatePairObjective.SUPPORT_ORIENTED_RESPONSE_JOINT
     ):
         return coverage_state_support_oriented_pair_sobolev_loss_from_targets(
+            field_plus,
+            field_minus,
+            batch.pairs.joint_targets,
+            config=config,
+            validate=False,
+        ).loss
+    if objective is CoverageStatePairObjective.PMOPE_JOINT:
+        return coverage_state_pmope_pair_loss_from_targets(
             field_plus,
             field_minus,
             batch.pairs.joint_targets,
@@ -464,6 +480,7 @@ def coverage_state_fused_train_step(
 __all__ = [
     "COVERAGE_STATE_COMPLETION_ROOTED_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_LEGACY_MATCHED_OBJECTIVES",
+    "COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES",
     "CoverageStatePairObjective",
     "audit_coverage_state_training_state",

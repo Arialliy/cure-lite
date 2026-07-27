@@ -38,6 +38,10 @@ CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY = (
     "added_target_support_oriented_absolute_root_"
     "with_finite_coverage_response_v1"
 )
+CSLF_PMOPE_POLICY = (
+    "paired_minimum_sdf_margin_target_orthant_projection_"
+    "joint_w1p4_energy_v1"
+)
 CSLF_MEASURE_POLICY = (
     "equal_mass_focus_support_exterior_band_far_background_measure_v2"
 )
@@ -791,6 +795,25 @@ class CoverageStatePairLossFields:
 
 
 @dataclass(frozen=True)
+class CoverageStatePMOPELossFields:
+    """Paired target-orthant margin violations in one joint field energy."""
+
+    loss: Tensor
+    value_power: Tensor
+    spatial_power: Tensor
+    per_state_loss: Tensor
+    per_state_value_power: Tensor
+    per_state_spatial_power: Tensor
+    violation_plus: Tensor
+    violation_minus: Tensor
+    margin: Tensor
+    target_field_plus: Tensor
+    target_field_minus: Tensor
+    integration_measure: Tensor
+    valid_mask: Tensor
+
+
+@dataclass(frozen=True)
 class CoverageStatePairTargets:
     """Precomputed geometry shared by coupled and independent controls."""
 
@@ -958,6 +981,110 @@ def _pair_energy(
     ):
         raise FloatingPointError("coverage-state field energy is non-finite")
     return loss, per_loss, per_value_power, per_spatial_power
+
+
+def coverage_state_pmope_pair_loss_from_targets(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    targets: CoverageStatePairTargets,
+    *,
+    config: CoverageStateSobolevConfig,
+    validate: bool = True,
+) -> CoverageStatePMOPELossFields:
+    """Penalize only violations of the paired target-sign margin cone.
+
+    For each endpoint ``sigma`` and every valid pixel, the nonnegative
+    violation field is
+
+    ``q_sigma = relu(m0 - sign(target_field_sigma) * field_sigma)``,
+
+    where ``m0 = field_amplitude / truncation_radius`` is fixed by the
+    existing signed-distance geometry.  The two violation fields are
+    consumed together by exactly one existing joint W1,p4/Sobolev energy.
+    Consequently zero loss requires both raw fields to have the target sign
+    with at least the fixed minimum margin over the complete valid domain,
+    while fields farther inside the feasible orthant incur no extra cost.
+    """
+
+    if not isinstance(config, CoverageStateSobolevConfig):
+        raise TypeError("config must be CoverageStateSobolevConfig")
+    if not isinstance(targets, CoverageStatePairTargets):
+        raise TypeError("targets must be CoverageStatePairTargets")
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
+    if (
+        not isinstance(field_plus, Tensor)
+        or not isinstance(field_minus, Tensor)
+        or tuple(field_plus.shape) != tuple(targets.target_field_plus.shape)
+        or tuple(field_minus.shape) != tuple(field_plus.shape)
+        or field_plus.device != targets.target_field_plus.device
+        or field_minus.device != field_plus.device
+        or field_plus.dtype != torch.float32
+        or field_minus.dtype != torch.float32
+        or (validate and not bool(torch.isfinite(field_plus).all()))
+        or (validate and not bool(torch.isfinite(field_minus).all()))
+    ):
+        raise ValueError("PMOPE fields and precomputed geometry must align")
+    if validate and (
+        bool(
+            torch.any(
+                targets.target_field_plus[targets.valid_mask] == 0.0
+            )
+        )
+        or bool(
+            torch.any(
+                targets.target_field_minus[targets.valid_mask] == 0.0
+            )
+        )
+    ):
+        raise ValueError(
+            "PMOPE requires strictly nonzero target fields on valid pixels"
+        )
+
+    margin = torch.full(
+        (),
+        config.field_amplitude / float(config.truncation_radius),
+        dtype=field_plus.dtype,
+        device=field_plus.device,
+    )
+    valid = targets.valid_mask.to(dtype=field_plus.dtype)
+    violation_plus = (
+        valid
+        * torch.relu(
+            margin
+            - torch.sign(targets.target_field_plus) * field_plus
+        )
+    ).contiguous()
+    violation_minus = (
+        valid
+        * torch.relu(
+            margin
+            - torch.sign(targets.target_field_minus) * field_minus
+        )
+    ).contiguous()
+    loss, per_loss, per_value_power, per_spatial_power = _pair_energy(
+        (violation_plus, violation_minus),
+        targets,
+        config=config,
+        audit_finite=validate,
+    )
+    return CoverageStatePMOPELossFields(
+        loss=loss,
+        value_power=per_value_power.mean(),
+        spatial_power=per_spatial_power.mean(),
+        per_state_loss=per_loss,
+        per_state_value_power=per_value_power,
+        per_state_spatial_power=per_spatial_power,
+        violation_plus=violation_plus,
+        violation_minus=violation_minus,
+        margin=margin,
+        target_field_plus=targets.target_field_plus,
+        target_field_minus=targets.target_field_minus,
+        integration_measure=targets.integration_measure,
+        valid_mask=targets.valid_mask,
+    )
 
 
 def coverage_state_pair_sobolev_loss_from_targets(
@@ -1554,11 +1681,13 @@ __all__ = [
     "CSLF_NORM_EPSILON",
     "CSLF_NORM_ORDER",
     "CSLF_OBJECTIVE_POLICY",
+    "CSLF_PMOPE_POLICY",
     "CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY",
     "CoverageStateAbsoluteLossFields",
     "CoverageStateAbsoluteTargets",
     "CoverageStateIndependentEndpointLoss",
     "CoverageStateIndependentLossFields",
+    "CoverageStatePMOPELossFields",
     "CoverageStatePairBatch",
     "CoverageStatePairLossFields",
     "CoverageStatePairTargets",
@@ -1575,6 +1704,7 @@ __all__ = [
     "coverage_state_identity_joint_loss_from_targets",
     "coverage_state_pair_sobolev_loss",
     "coverage_state_pair_sobolev_loss_from_targets",
+    "coverage_state_pmope_pair_loss_from_targets",
     "coverage_state_support_oriented_pair_sobolev_loss",
     "coverage_state_support_oriented_pair_sobolev_loss_from_targets",
     "prepare_coverage_state_focused_absolute_targets",

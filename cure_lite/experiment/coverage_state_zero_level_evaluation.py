@@ -1,4 +1,4 @@
-"""Read-only zero-level diagnostics for a trained scalar CSLF checkpoint.
+"""Read-only zero-level diagnostics for a trained CSLF/PP-CSLF checkpoint.
 
 The evaluator consumes only a frozen :class:`CoverageStateScalarCache` on
 ``D_R`` and a checkpoint-loaded module in evaluation mode.  It never trains,
@@ -52,6 +52,15 @@ COVERAGE_STATE_ZERO_LEVEL_EVALUATION_SCHEMA = (
 )
 COVERAGE_STATE_ZERO_LEVEL_CONFIG_SCHEMA = (
     "cure-lite-cslf-zero-level-evaluation-config-v2"
+)
+COVERAGE_STATE_PHASE_ZERO_LEVEL_EVALUATION_SCHEMA = (
+    "cure-lite-pp-cslf-zero-level-evaluation-v3"
+)
+COVERAGE_STATE_PHASE_ZERO_LEVEL_CONFIG_SCHEMA = (
+    "cure-lite-pp-cslf-zero-level-evaluation-config-v3"
+)
+COVERAGE_STATE_PHASE_DIAGNOSTIC_NULL_POLICY = (
+    "phase_visible_distinct_input_completion_semantic_null_v1"
 )
 COVERAGE_STATE_RESIDUAL_THRESHOLD = 0.0
 COVERAGE_STATE_COMPONENT_CONNECTIVITY = 8
@@ -193,8 +202,16 @@ class CoverageStateZeroLevelEvaluationConfig:
                 )
 
     def canonical_payload(self) -> dict[str, object]:
+        phase_visible = (
+            self.input_representation
+            == COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+        )
         payload: dict[str, object] = {
-            "schema_version": COVERAGE_STATE_ZERO_LEVEL_CONFIG_SCHEMA,
+            "schema_version": (
+                COVERAGE_STATE_PHASE_ZERO_LEVEL_CONFIG_SCHEMA
+                if phase_visible
+                else COVERAGE_STATE_ZERO_LEVEL_CONFIG_SCHEMA
+            ),
             "split": self.split,
             "residual_threshold_hex": self.residual_threshold.hex(),
             "threshold_search_performed": (
@@ -214,11 +231,11 @@ class CoverageStateZeroLevelEvaluationConfig:
         }
         # Keep the established scalar-max receipt byte-for-byte compatible.
         # The field is emitted only for the new phase-preserving protocol.
-        if (
-            self.input_representation
-            != COVERAGE_STATE_SCALAR_INPUT_REPRESENTATION
-        ):
+        if phase_visible:
             payload["input_representation"] = self.input_representation
+            payload["diagnostic_null_policy"] = (
+                COVERAGE_STATE_PHASE_DIAGNOSTIC_NULL_POLICY
+            )
         return payload
 
     @cached_property
@@ -321,6 +338,7 @@ class CoverageStatePairZeroLevelDiagnostic:
     pair_kind: str
     optimizer_role: str
     scalar_hidden: bool
+    actual_inputs_equal: bool
     invalid_completion_pixels_plus: int
     invalid_completion_pixels_minus: int
     field_exact_equal: bool
@@ -347,8 +365,12 @@ class CoverageStatePairZeroLevelDiagnostic:
     defined_metrics_passed: bool
     gate_passed: bool
 
-    def canonical_payload(self) -> dict[str, object]:
-        return {
+    def canonical_payload(
+        self,
+        *,
+        include_input_relation: bool = False,
+    ) -> dict[str, object]:
+        payload: dict[str, object] = {
             "pair_id": self.pair_id,
             "sample_id": self.sample_id,
             "pair_kind": self.pair_kind,
@@ -404,6 +426,18 @@ class CoverageStatePairZeroLevelDiagnostic:
             "defined_metrics_passed": self.defined_metrics_passed,
             "gate_passed": self.gate_passed,
         }
+        if include_input_relation:
+            # ``scalar_hidden`` describes the historical scalar projection,
+            # not the actual PP-CSLF input relation.  The phase schema
+            # therefore replaces it with the representation-aware relation.
+            payload.pop("scalar_hidden")
+            payload["actual_inputs_equal"] = self.actual_inputs_equal
+            payload["input_relation"] = (
+                "exact_same_actual_input"
+                if self.actual_inputs_equal
+                else "phase_visible_distinct_actual_inputs"
+            )
+        return payload
 
 
 @dataclass(frozen=True)
@@ -441,10 +475,40 @@ class CoverageStateZeroLevelEvaluationResult:
     bounded_gate_passed: bool
     fail_closed_reasons: tuple[str, ...]
 
+    @property
+    def diagnostic_null_gate_passed(self) -> bool:
+        """Representation-neutral alias for the historical field name."""
+
+        return self.scalar_hidden_diagnostic_gate_passed
+
     def canonical_payload(self) -> dict[str, object]:
+        phase_visible = (
+            self.config.input_representation
+            == COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+        )
+        gates: dict[str, object] = {
+            "factual_miss": self.factual_miss_gate_passed,
+            "factual_no_miss": self.factual_no_miss_gate_passed,
+            "clean_defined_metrics": (
+                self.clean_defined_metrics_passed
+            ),
+            "clean_compact_support": (
+                self.clean_compact_support_gate_passed
+            ),
+            "component_null": self.component_null_gate_passed,
+            "identity_null": self.identity_null_gate_passed,
+            (
+                "diagnostic_null"
+                if phase_visible
+                else "scalar_hidden_diagnostic"
+            ): self.diagnostic_null_gate_passed,
+            "bounded_gate_passed": self.bounded_gate_passed,
+        }
         return {
             "schema_version": (
-                COVERAGE_STATE_ZERO_LEVEL_EVALUATION_SCHEMA
+                COVERAGE_STATE_PHASE_ZERO_LEVEL_EVALUATION_SCHEMA
+                if phase_visible
+                else COVERAGE_STATE_ZERO_LEVEL_EVALUATION_SCHEMA
             ),
             "config": self.config.canonical_payload(),
             "config_fingerprint": self.config.config_fingerprint,
@@ -460,7 +524,9 @@ class CoverageStateZeroLevelEvaluationResult:
                 for value in self.natural_diagnostics
             ],
             "pair_diagnostics": [
-                value.canonical_payload()
+                value.canonical_payload(
+                    include_input_relation=phase_visible,
+                )
                 for value in self.pair_diagnostics
             ],
             "compute": {
@@ -482,24 +548,7 @@ class CoverageStateZeroLevelEvaluationResult:
                 "backward_calls": self.backward_calls,
                 "optimizer_steps": self.optimizer_steps,
             },
-            "gates": {
-                "factual_miss": self.factual_miss_gate_passed,
-                "factual_no_miss": (
-                    self.factual_no_miss_gate_passed
-                ),
-                "clean_defined_metrics": (
-                    self.clean_defined_metrics_passed
-                ),
-                "clean_compact_support": (
-                    self.clean_compact_support_gate_passed
-                ),
-                "component_null": self.component_null_gate_passed,
-                "identity_null": self.identity_null_gate_passed,
-                "scalar_hidden_diagnostic": (
-                    self.scalar_hidden_diagnostic_gate_passed
-                ),
-                "bounded_gate_passed": self.bounded_gate_passed,
-            },
+            "gates": gates,
             "fail_closed_reasons": list(self.fail_closed_reasons),
             "execution": {
                 "training_performed": False,
@@ -833,6 +882,8 @@ def _pair_diagnostic(
     value: CoverageStateCachedPair,
     plus: _StateOutput,
     minus: _StateOutput,
+    *,
+    actual_inputs_equal: bool,
 ) -> CoverageStatePairZeroLevelDiagnostic:
     record = value.record
     valid = record.valid_mask
@@ -944,11 +995,15 @@ def _pair_diagnostic(
             and invalid_minus == 0
         )
         if value.optimizer_role == "diagnostic_only":
-            defined = (
-                defined
-                and field_equal
-                and completion_equal
-            )
+            # A scalar-hidden pair is an exact replay: identical actual
+            # inputs must produce an identical continuous field.  A
+            # phase-visible pair deliberately has distinct actual inputs,
+            # so continuous-field equality is neither expected nor a
+            # semantic null requirement.  It must still leave the binary
+            # completion state unchanged.
+            defined = defined and completion_equal
+            if actual_inputs_equal:
+                defined = defined and field_equal
         gate = defined
     else:
         if not torch.equal(record.target_plus, record.target_minus):
@@ -968,6 +1023,7 @@ def _pair_diagnostic(
         pair_kind=record.pair_kind,
         optimizer_role=value.optimizer_role,
         scalar_hidden=not value.scalar_visible,
+        actual_inputs_equal=actual_inputs_equal,
         invalid_completion_pixels_plus=invalid_plus,
         invalid_completion_pixels_minus=invalid_minus,
         field_exact_equal=field_equal,
@@ -1035,6 +1091,9 @@ def evaluate_coverage_state_zero_level_checkpoint(
         cache,
         input_representation=resolved_config.input_representation,
     )
+    state_specs_by_id = {value.state_id: value for value in state_specs}
+    if len(state_specs_by_id) != len(state_specs):
+        raise RuntimeError("diagnostic state ids must be unique")
     outputs: dict[str, _StateOutput] = {}
     output_by_input: dict[str, _StateOutput] = {}
     state_ledger: list[CoverageStateDiagnosticStateLedger] = []
@@ -1104,6 +1163,14 @@ def evaluate_coverage_state_zero_level_checkpoint(
             value,
             outputs[f"pair:{value.record.pair_id}:plus"],
             outputs[f"pair:{value.record.pair_id}:minus"],
+            actual_inputs_equal=(
+                state_specs_by_id[
+                    f"pair:{value.record.pair_id}:plus"
+                ].actual_input_fingerprint
+                == state_specs_by_id[
+                    f"pair:{value.record.pair_id}:minus"
+                ].actual_input_fingerprint
+            ),
         )
         for value in cache.pair_records
     )
@@ -1134,7 +1201,7 @@ def evaluate_coverage_state_zero_level_checkpoint(
         for value in pair_diagnostics
         if value.pair_kind == "identity_null"
     )
-    scalar_hidden = tuple(
+    diagnostic_null = tuple(
         value
         for value in pair_diagnostics
         if value.optimizer_role == "diagnostic_only"
@@ -1158,8 +1225,8 @@ def evaluate_coverage_state_zero_level_checkpoint(
     identity_gate = bool(identity) and all(
         value.gate_passed for value in identity
     )
-    hidden_gate = bool(scalar_hidden) and all(
-        value.gate_passed for value in scalar_hidden
+    hidden_gate = bool(diagnostic_null) and all(
+        value.gate_passed for value in diagnostic_null
     )
     bounded_gate = all(
         (
@@ -1174,6 +1241,14 @@ def evaluate_coverage_state_zero_level_checkpoint(
     )
 
     reasons: list[str] = []
+    diagnostic_null_name = (
+        "diagnostic_null"
+        if (
+            resolved_config.input_representation
+            == COVERAGE_STATE_PHASE_INPUT_REPRESENTATION
+        )
+        else "scalar_hidden_diagnostic"
+    )
     for name, present, passed in (
         ("factual_miss", bool(factual_miss), miss_gate),
         ("factual_no_miss", bool(factual_no_miss), no_miss_gate),
@@ -1181,8 +1256,8 @@ def evaluate_coverage_state_zero_level_checkpoint(
         ("component_null", bool(component), component_gate),
         ("identity_null", bool(identity), identity_gate),
         (
-            "scalar_hidden_diagnostic",
-            bool(scalar_hidden),
+            diagnostic_null_name,
+            bool(diagnostic_null),
             hidden_gate,
         ),
     ):
@@ -1236,7 +1311,10 @@ __all__ = [
     "COVERAGE_STATE_CONNECTED_SUPPORT_POLICY",
     "COVERAGE_STATE_FACTUAL_TARGET_NEGATIVE_FRACTION",
     "COVERAGE_STATE_INPUT_REPRESENTATIONS",
+    "COVERAGE_STATE_PHASE_DIAGNOSTIC_NULL_POLICY",
     "COVERAGE_STATE_PHASE_INPUT_REPRESENTATION",
+    "COVERAGE_STATE_PHASE_ZERO_LEVEL_CONFIG_SCHEMA",
+    "COVERAGE_STATE_PHASE_ZERO_LEVEL_EVALUATION_SCHEMA",
     "COVERAGE_STATE_RESIDUAL_THRESHOLD",
     "COVERAGE_STATE_SCALAR_INPUT_REPRESENTATION",
     "COVERAGE_STATE_ZERO_LEVEL_CONFIG_SCHEMA",

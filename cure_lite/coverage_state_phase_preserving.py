@@ -285,12 +285,19 @@ def build_coverage_state_level_set(
 ) -> CURELiteCoverageStateLevelSet:
     """Build the exact model family named by one structural config."""
 
+    from .coverage_state_centered_mixed_interaction import (
+        CURELiteCenteredMixedInteractionLevelSet,
+        CoverageStateCenteredMixedInteractionConfig,
+    )
+
+    if isinstance(config, CoverageStateCenteredMixedInteractionConfig):
+        return CURELiteCenteredMixedInteractionLevelSet(config)
     if isinstance(config, CoverageStatePhasePreservingConfig):
         return CURELitePhasePreservingCoverageStateLevelSet(config)
     if isinstance(config, CoverageStateLevelSetConfig):
         return CURELiteCoverageStateLevelSet(config)
     raise TypeError(
-        "config must be a legacy or phase-preserving level-set config"
+        "config must be a registered coverage-state level-set config"
     )
 
 

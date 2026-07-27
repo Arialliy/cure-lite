@@ -16,6 +16,9 @@ from ..coverage_state_device_cache import (
 )
 from ..coverage_state_level_set import CURELiteCoverageStateLevelSet
 from ..coverage_state_level_set import CoverageStateLevelSetConfig
+from ..coverage_state_centered_mixed_interaction import (
+    CoverageStateCenteredMixedInteractionConfig,
+)
 from ..coverage_state_phase_preserving import (
     CoverageStatePhasePreservingConfig,
     build_coverage_state_level_set,
@@ -29,6 +32,7 @@ from ..paired_types import tensor_content_fingerprint
 from ..train.coverage_state_fused_step import (
     COVERAGE_STATE_COMPLETION_ROOTED_MATCHED_OBJECTIVES,
     COVERAGE_STATE_LEGACY_MATCHED_OBJECTIVES,
+    COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
     COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES,
     CoverageStatePairObjective,
     audit_coverage_state_training_state,
@@ -49,7 +53,20 @@ COVERAGE_STATE_REGISTERED_MATCHED_OBJECTIVE_SUITES = (
     COVERAGE_STATE_LEGACY_MATCHED_OBJECTIVES,
     COVERAGE_STATE_COMPLETION_ROOTED_MATCHED_OBJECTIVES,
     COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES,
+    COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
 )
+
+_COVERAGE_STATE_LEGACY_GRADIENT_LATENCY = {
+    "phase_projection.weight": 0,
+    "phase_projection.bias": 0,
+    "input_projection.weight": 2,
+    "spatial_mixing.weight": 2,
+}
+_COVERAGE_STATE_CMIF_GRADIENT_LATENCY = {
+    "scalar_energy_weight": 0,
+    "joint_state_weight": 2,
+    "joint_hidden_bias": 2,
+}
 
 
 class CoverageStateRunAuthorization(ABC):
@@ -64,6 +81,41 @@ class CoverageStateRunAuthorization(ABC):
         scope: str,
     ) -> None:
         """Raise unless this exact cache, schedule, and scope are approved."""
+
+
+def _validate_coverage_state_gradient_latency(
+    model: CURELiteCoverageStateLevelSet,
+    first_nonzero: Mapping[str, int],
+) -> None:
+    """Validate the frozen initialization-specific gradient path.
+
+    Legacy/PPCE models expose their output projection immediately.  CMIF
+    deliberately initializes only its scalar energy readout to zero, so the
+    readout must receive a gradient on update zero while the joint energy
+    kernel and hidden bias may become visible only after that readout moves.
+    """
+
+    actual_names = {name for name, _ in model.named_parameters()}
+    latency = dict(first_nonzero)
+    if isinstance(
+        model.config,
+        CoverageStateCenteredMixedInteractionConfig,
+    ):
+        contract = _COVERAGE_STATE_CMIF_GRADIENT_LATENCY
+    else:
+        contract = _COVERAGE_STATE_LEGACY_GRADIENT_LATENCY
+    if actual_names != set(contract):
+        raise RuntimeError(
+            "coverage-state gradient-latency contract does not match "
+            "the model parameters"
+        )
+    if any(
+        latency.get(name, maximum + 1) > maximum
+        for name, maximum in contract.items()
+    ):
+        raise RuntimeError(
+            "CSLF upstream-gradient latency gate did not pass"
+        )
 
 
 def coverage_state_model_fingerprint(
@@ -268,7 +320,7 @@ class CoverageStateTrainingResult:
 
 @dataclass(frozen=True)
 class CoverageStateMatchedTrainingConfig:
-    """One optimizer policy shared by all three objective coordinates."""
+    """One optimizer policy shared by a registered objective suite."""
 
     seed: int
     learning_rate: float = 0.001
@@ -307,7 +359,7 @@ class CoverageStateMatchedTrainingConfig:
 
 @dataclass(frozen=True, eq=False)
 class CoverageStateMatchedTrainingResult:
-    """Three trained models sharing initialization, schedule, and endpoints."""
+    """Registered objective results sharing initialization and schedule."""
 
     config: CoverageStateMatchedTrainingConfig
     common_initial_model_fingerprint: str
@@ -391,19 +443,30 @@ class CoverageStateMatchedTrainingResult:
         objective_suite = tuple(
             value.objective for value in self.results
         )
-        payload: dict[str, object] = {
-            "schema_version": COVERAGE_STATE_MATCHED_RESULT_SCHEMA,
-            "config": self.config.canonical_payload(),
-            "common_initial_model_fingerprint": (
-                self.common_initial_model_fingerprint
-            ),
-            "schedule_fingerprint": self.schedule_fingerprint,
-            "cache_fingerprint": self.cache_fingerprint,
-            "objectives": [
-                value.canonical_payload() for value in self.results
-            ],
-            "objective_suite": list(objective_suite),
-            "fairness": {
+        is_pmope_single_candidate = objective_suite == tuple(
+            value.value
+            for value in COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES
+        )
+        if is_pmope_single_candidate:
+            fairness: dict[str, object] = {
+                "single_candidate_only": True,
+                "same_initial_state": True,
+                "same_schedule": True,
+                "same_endpoints": True,
+                "same_model": True,
+                "same_optimizer": True,
+                "same_device_cache": True,
+                "same_compute_budget": True,
+                "same_natural_branches": True,
+                "historical_controls_retrained": False,
+                "allowed_difference_from_sealed_v17": (
+                    "predeclared_pair_objective_only"
+                ),
+            }
+        else:
+            # Keep the historical three-objective payload byte-for-byte
+            # unchanged so the sealed v17 evidence remains verifiable.
+            fairness = {
                 "same_initial_state": True,
                 "same_schedule": True,
                 "same_endpoints": True,
@@ -417,12 +480,28 @@ class CoverageStateMatchedTrainingResult:
                 "allowed_difference": (
                     "pair_coordinate_and_predeclared_pair_measure"
                 ),
-            },
+            }
+        payload: dict[str, object] = {
+            "schema_version": COVERAGE_STATE_MATCHED_RESULT_SCHEMA,
+            "config": self.config.canonical_payload(),
+            "common_initial_model_fingerprint": (
+                self.common_initial_model_fingerprint
+            ),
+            "schedule_fingerprint": self.schedule_fingerprint,
+            "cache_fingerprint": self.cache_fingerprint,
+            "objectives": [
+                value.canonical_payload() for value in self.results
+            ],
+            "objective_suite": list(objective_suite),
+            "fairness": fairness,
         }
         if all(
             isinstance(
                 model.config,
-                CoverageStatePhasePreservingConfig,
+                (
+                    CoverageStatePhasePreservingConfig,
+                    CoverageStateCenteredMixedInteractionConfig,
+                ),
             )
             for _, model in self.models
         ):
@@ -739,16 +818,7 @@ def _train_coverage_state_objective(
             "CSLF parameters never received a nonzero gradient: "
             + ", ".join(missing)
         )
-    latency = dict(first_nonzero)
-    if (
-        latency.get("phase_projection.weight") != 0
-        or latency.get("phase_projection.bias") != 0
-        or latency.get("input_projection.weight", 3) > 2
-        or latency.get("spatial_mixing.weight", 3) > 2
-    ):
-        raise RuntimeError(
-            "CSLF upstream-gradient latency gate did not pass"
-        )
+    _validate_coverage_state_gradient_latency(model, first_nonzero)
     if not _schedule_already_verified:
         coverage_state_schedule_exposure_report(cache, schedule)
     device_cache.verify_unchanged(
@@ -1049,11 +1119,80 @@ def train_matched_coverage_state_phase_preserving_support_oriented_objectives(
     )
 
 
+def train_matched_coverage_state_cmif_support_oriented_objectives(
+    model_config: CoverageStateCenteredMixedInteractionConfig,
+    cache: CoverageStateScalarCache,
+    schedule: CoverageStateTrainingSchedule,
+    *,
+    config: CoverageStateMatchedTrainingConfig,
+    device: torch.device | str,
+    authorization: object | None = None,
+    epoch_callback: (
+        Callable[[str, Mapping[str, object]], None] | None
+    ) = None,
+) -> CoverageStateMatchedTrainingResult:
+    """Train the frozen SORR suite with one shared CMIF architecture."""
+
+    if not isinstance(
+        model_config,
+        CoverageStateCenteredMixedInteractionConfig,
+    ):
+        raise TypeError(
+            "model_config must be "
+            "CoverageStateCenteredMixedInteractionConfig"
+        )
+    return _train_matched_coverage_state_objective_suite(
+        model_config,
+        cache,
+        schedule,
+        config=config,
+        device=device,
+        objectives=COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES,
+        authorization=authorization,
+        epoch_callback=epoch_callback,
+    )
+
+
+def train_matched_coverage_state_cmif_pmope_objectives(
+    model_config: CoverageStateCenteredMixedInteractionConfig,
+    cache: CoverageStateScalarCache,
+    schedule: CoverageStateTrainingSchedule,
+    *,
+    config: CoverageStateMatchedTrainingConfig,
+    device: torch.device | str,
+    authorization: object | None = None,
+    epoch_callback: (
+        Callable[[str, Mapping[str, object]], None] | None
+    ) = None,
+) -> CoverageStateMatchedTrainingResult:
+    """Train only the fixed PMOPE candidate with the CMIF architecture."""
+
+    if not isinstance(
+        model_config,
+        CoverageStateCenteredMixedInteractionConfig,
+    ):
+        raise TypeError(
+            "model_config must be "
+            "CoverageStateCenteredMixedInteractionConfig"
+        )
+    return _train_matched_coverage_state_objective_suite(
+        model_config,
+        cache,
+        schedule,
+        config=config,
+        device=device,
+        objectives=COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
+        authorization=authorization,
+        epoch_callback=epoch_callback,
+    )
+
+
 __all__ = [
     "COVERAGE_STATE_TRAINING_RESULT_SCHEMA",
     "COVERAGE_STATE_MATCHED_RESULT_SCHEMA",
     "COVERAGE_STATE_BOUNDED_SCOPE",
     "COVERAGE_STATE_FORMAL_SCOPE",
+    "COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_REGISTERED_MATCHED_OBJECTIVE_SUITES",
     "CoverageStateMatchedTrainingConfig",
     "CoverageStateMatchedTrainingResult",
@@ -1064,6 +1203,8 @@ __all__ = [
     "coverage_state_optimizer_config_fingerprint",
     "train_matched_coverage_state_objectives",
     "train_matched_coverage_state_completion_rooted_objectives",
+    "train_matched_coverage_state_cmif_pmope_objectives",
+    "train_matched_coverage_state_cmif_support_oriented_objectives",
     (
         "train_matched_coverage_state_"
         "phase_preserving_support_oriented_objectives"

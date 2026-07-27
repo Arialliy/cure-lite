@@ -12,6 +12,7 @@ from cure_lite.coverage_state_level_set import (
 )
 from cure_lite.coverage_state_sobolev import (
     CSLF_COMPLETION_ROOTED_RESPONSE_POLICY,
+    CSLF_PMOPE_POLICY,
     CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY,
     CoverageStateSobolevConfig,
 )
@@ -96,6 +97,7 @@ def test_fused_step_uses_one_forward_backward_step_and_twelve_states(
         CoverageStatePairObjective.SUPPORT_ORIENTED_RESPONSE_JOINT: (
             CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY
         ),
+        CoverageStatePairObjective.PMOPE_JOINT: CSLF_PMOPE_POLICY,
     }.get(objective, objective.value)
     assert logs["pair_objective_policy"] == expected_policy
     assert logs["total"] == pytest.approx(

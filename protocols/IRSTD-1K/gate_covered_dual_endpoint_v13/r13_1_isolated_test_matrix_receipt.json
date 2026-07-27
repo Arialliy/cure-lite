@@ -1,0 +1,79 @@
+{
+  "schema_version": "cure-lite.gcde-v13.r13-1-test-matrix-v1",
+  "created_at": "2026-07-27",
+  "python": "/home/md0/ly/MSHNet/.venv/bin/python",
+  "authoritative_process_contract": "tests, each versioned directory, and each tests_v12 file run in isolated Python processes",
+  "authoritative_results": {
+    "tests": {
+      "passed": 1105,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 650.56
+    },
+    "tests_v8": {
+      "passed": 90,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 322.65
+    },
+    "tests_v9": {
+      "passed": 43,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 60.79
+    },
+    "tests_v10": {
+      "passed": 36,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 6.76
+    },
+    "tests_v11": {
+      "passed": 93,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 52.66
+    },
+    "tests_v12_per_file_isolated": {
+      "passed": 117,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "summed_pytest_seconds": 88.83,
+      "file_process_count": 10
+    },
+    "tests_v13": {
+      "passed": 7,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0,
+      "pytest_seconds": 15.56
+    },
+    "total": {
+      "passed": 1491,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "non_authoritative_combined_process_attempt": {
+    "passed": 1470,
+    "failed": 5,
+    "errors": 16,
+    "skipped": 0,
+    "pytest_seconds": 986.64,
+    "classification": "INVALID_TEST_PROCESS_COMPOSITION",
+    "reason": "tests_v12 collection imports cure_lite.experiment integration modules before dataset-free runner tests execute; the frozen runtime import boundary then correctly refuses the contaminated process"
+  },
+  "decision": {
+    "isolated_test_matrix_pass": true,
+    "v12_runtime_boundary_relaxed": false,
+    "gcde_training_authorized": false,
+    "training_authority_source": "R13-1 role quotient decision, not software test status"
+  }
+}

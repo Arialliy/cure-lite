@@ -1,0 +1,25 @@
+{
+  "schema_version": "cure-lite.gcde-v13.r13-0-v1",
+  "created_at": "2026-07-27",
+  "repository_head_at_snapshot": "a6e1192c099311d08dc7c180f18c24d665e38b0a",
+  "scope": "read-only SHA256 baseline for frozen NLCC-v12 inputs, model, objective, and terminal artifacts",
+  "formal_artifacts": {
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/result.json": "665325f774844ebd2026a9448903d3142653bac1f66729748b9cb5699ab6ae9e",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/decision.json": "c539b5d5d4b5a5cf81f5a4e3865039e252d002aa8afe3005859adb10f73144c2",
+    "protocols/IRSTD-1K/null_anchored_local_count_crossing_v12/development_regression_r1/COMPLETE.json": "dfc0219b85366774be97bf2eb5501f4a1cebe1949d7762f8643a5fa971c4807c"
+  },
+  "frozen_sources": {
+    "cure_lite/null_anchored_local_count_crossing_decoder.py": "d12cae59b7fd7d5da7d3b8565ea11ac976e26cdd2d3f802e223019d0a7818feb",
+    "cure_lite/paired_endpoint_crossing_losses.py": "dd8c83f00cd26dcfb55116998bcd53541471f3b17ff9d7e6a7be69e784883205",
+    "cure_lite/nlcc_dataset_free_inputs.py": "2690d6a7c0f537fa0d33f302f8805868b710482e1a61410483964a82e956398d",
+    "cure_lite/nlcc_development_inputs.py": "7dace28b9d2892de54ed86e613144cbfc7766befe023a24ce44cabd5759f7779",
+    "cure_lite/nlcc_holdout_inputs.py": "d682634bdc8435892b357de62e81945611aeaa48195523ddd57dd1ab3a16f13a"
+  },
+  "decision": {
+    "r13_0_complete": true,
+    "v12_mutation_authorized": false,
+    "r13_1_input_identifiability_audit_authorized": true,
+    "gcde_implementation_authorized": false,
+    "gcde_training_authorized": false
+  }
+}

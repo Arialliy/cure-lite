@@ -3,18 +3,73 @@
 > 更新日期：2026-07-27
 > 仓库：`/home/md0/ly/cure_lite`
 > 当前源码基线：`538660aa7e200bd7acad8964af25121ea56142cf`；NLCC-v12 runner/evidence r2 与正式结果位于当前工作树
-> 当前软件验证收据：runner/evidence targeted `43 passed`；repository full `1105 passed`
-> 最新结果范围：NLCC-v12 的 R0 runner/evidence r2 已闭合；唯一一次
-> dataset-free Development 已完成并得到 `NLCC_V12_DEVELOPMENT_FAIL`。
-> Holdout、真实 \(D_R\)、32,000-step 暴露重放和 formal800 未获授权；未读取
-> 新的 \(D_V/D_T\)，未设计 Full CURE，未接入其他 detector。
+> 最新软件验证收据：PFCR 归因、真实 pipeline、artifact、decoder 与 training
+> 联合回归 `40 passed`。更早阶段的软件收据保留在历史章节中。
+> 最新结果范围：PFCR-v2 + bounded evidence-v3 已完成真实 \(D_R\) 的
+> seed 42/43 Formal-800、一次冻结的正式 \(D_V\) 揭示，以及严格
+> \(D_R\)-only 失败归因。
+> 两个 seed 均通过 Base 保留与误报预算，但均未超过最强固定比较器，正式状态为
+> `PFCR_D_V_GATE_FAIL`。\(D_T\) 未读取；Full CURE、三数据集和其他 detector
+> 均未获授权。
 
-> **2026-07-27 最新补充：** 本文主体保留历史阶段完整记录；最新候选
-> NLCC-v12 的 dataset-free Development 已完整执行并正式 FAIL。该结论优先于
-> 本文较早章节及 CCFR-v11 追加中的“下一步”表述。完整明细见
+> **2026-07-27 PFCR 正式 \(D_V\) 状态（优先于下方全部历史阶段）：**
+> seed 42 为 151/170、找回 4/23，相对最强比较器为 \(-3/-3\)；seed 43
+> 为 150/170、找回 3/23，相对最强比较器为 \(-2/-2\)。两个 seed 的
+> retention 均为 1，三项误报约束均通过，选择阈值均为 0.08。完整训练、评估、
+> 指纹与判定见
+> [CURE-Lite PFCR 真实训练正式结果](CURE_Lite_PFCR_真实训练正式结果.md)。
+
+## 最新追加：PFCR Formal-800、正式 \(D_V\) 揭示与 \(D_R\) 归因
+
+| 项目 | 权威结果 | 当前决定 |
+| --- | --- | --- |
+| Formal-800 seed 42/43 | 每个 seed 800 epochs、32,000 updates、384,000 states | COMPLETE / COMPLETE |
+| 正式揭示完整性 | create-only；COMPLETE-last；严格加载与独立审计通过 | PASS |
+| seed 42 | PFCR 151/170、4/23；最佳比较器 154/170、7/23 | \(-3/-3\)，FAIL |
+| seed 43 | PFCR 150/170、3/23；最佳比较器 152/170、5/23 | \(-2/-2\)，FAIL |
+| 保留率 | 两个 seed 均 147/147 = 1.0 | PASS |
+| 误报预算 | 两个 seed 的 pixel FA、raw-background FA、components/MP 均在冻结预算内 | PASS |
+| 正式决定 | `PFCR_D_V_GATE_FAIL` | 冻结负结果 |
+| \(D_R\)-only attribution r2 | factual 2/32、synthetic 8/206 具有局部 occupancy 支持 | 当前 relation 在绝大多数正目标处不参与 |
+| residual peak / full-support | 两个 seed 均为 factual 32/32 peak；完整极值分离为 24/32、25/32 | 稳定产生峰值，但支持不够紧致完整 |
+| 后续授权 | confirmation / Full CURE / cross-backbone 均为 false | 继续 CURE-Lite 结构设计 |
+| 数据边界 | \(D_V\) 已按冻结协议读取一次；\(D_T\) 未读取 | 不得在 \(D_V\) 上调参 |
+
+这次结果把“PFCR 可学习、可完成真实训练”与“PFCR 具有真实检测增益”明确分开：
+前者已经成立，后者没有成立。seed 42 与 U 同为 151/4，但 PFCR 产生更多误报
+组件；seed 43 只达到 Base@B 的 150/3，同样产生更多组件。因此当前候选的首要
+问题不是 Base 被破坏或预算越界，而是释放证据没有形成稳定优于固定比较器的目标
+排序和空间聚集。后续 r2 已严格重放两个冻结 decoder 在 \(D_R\) 的逐状态响应：
+30/32 factual miss 和 198/206 synthetic target 的局部 occupancy basis 为零；
+与此同时，两个 seed 在 32/32 factual miss 上都形成超过背景 q99.9 的目标峰，
+但只有 24/32、25/32 达到完整 target-min 超过 background-max。该证据定位了
+“relation 大多不参与、feature 峰值不够紧致完整”的结构性缺口，但仍不构成唯一
+因果归因。权威 r2 result fingerprint 为
+`e23cf378d28468d884e8a221e9537e4e23e293943fd5087e1f3eb2ebd3af45f8`。
+
+## 历史追加：PFCR-v2 relation-controlled CURE-Lite
+
+| 项目 | 正式结果 | 当前决定 |
+| --- | ---: | --- |
+| R13-1A exact / abs-value quotient | 0 / 0 conflicts | 单独位置或符号不是首个区分因素 |
+| R13-1A signed / unsigned role quotient | 8 / 7 conflict keys；46 / 64 records | 旧输入依赖样本专属数值，继续冻结 |
+| PFCR input contract | 32 states；25,088 records；0 conflicts | PASS |
+| matched same-geometry relevance | 8 / 8 groups | PASS |
+| analytic completion | 0 mismatch pixels | PASS |
+| learned seed 42 | mismatch 0；positive min 0.994816601；negative max 0.009262450 | PASS |
+| learned seed 43 | mismatch 0；positive min 0.998534203；negative max 0.007652447 | PASS |
+| PFCR 参数量（固定预检配置） | 1,089 | 轻量 |
+| v14 tests | 27 passed | PASS |
+| v13 + v14 tests | 39 passed | PASS |
+| 当时的真实数据性能 | NOT RUN | 该历史状态已被本文顶部 Formal-800 与正式 \(D_V\) 结果覆盖 |
+| Full CURE | OUT OF CURRENT SCOPE | 当前持久范围只完成 CURE-Lite |
+
+> **2026-07-27 历史补充：** 本文主体保留历史阶段完整记录；NLCC-v12 的
+> dataset-free Development 已完整执行并正式 FAIL。该结论只覆盖更早的
+> CCFR-v11 阶段，当前最新结论仍以本文顶部 PFCR 正式 \(D_V\) 揭示为准。完整明细见
 > [CURE-Lite NLCC-v12 Development 正式负结果](CURE_Lite_NLCC_v12_Development正式负结果.md)。
 
-## 最新追加：NLCC-v12 dataset-free Development
+## 历史追加：NLCC-v12 dataset-free Development
 
 | 项目 | 权威结果 | 当前决定 |
 | --- | --- | --- |
@@ -104,6 +159,10 @@ NLCC_V12_DEVELOPMENT_FAIL
 | NLCC-v12 runner/evidence r2 | R0-C1～C8 通过；43/43 targeted、1105/1105 repository tests | Development 运行结论可由原始字段独立重算 |
 | NLCC-v12 Development | 320/320 updates；25/25 structural gates；26/76 numeric gates；0/8 groups | `NLCC_V12_DEVELOPMENT_FAIL`；不重跑，不进入 Holdout |
 | NLCC-v12 后续阶段 | Holdout、真实 \(D_R\)、32,000-step exposure、formal800 均未运行 | 均因 Development stop rule 未获授权 |
+| PFCR-v2 + evidence-v3 Formal-800 | seed 42/43 均完成 800×40；共 64,000 updates、768,000 states；无 checkpoint/resume | 两个正式训练 artifact 均 COMPLETE |
+| PFCR 正式 \(D_V\) seed 42 | 151/170 TP、4/23 找回、147/147 保留；全部误报预算通过 | 相对最佳 154/170、7/23 为 \(-3/-3\)，FAIL |
+| PFCR 正式 \(D_V\) seed 43 | 150/170 TP、3/23 找回、147/147 保留；全部误报预算通过 | 相对最佳 152/170、5/23 为 \(-2/-2\)，FAIL |
+| PFCR 正式总决定 | `PFCR_D_V_GATE_FAIL`；`all_seeds_pass=false` | 冻结当前候选；不授权 confirmation、Full CURE 或跨 backbone |
 | P0-D | 未运行 | B/C 已失败，不能构造 S，也不能进入 exposure replay |
 | Full CURE | 未设计、未实现 | 当前 paired 版本未通过，仍停在 CURE-Lite |
 | 其他 IRSTD backbone | DNANet、UIUNet、MSHNet、SCTransNet 均未接入 | 目前没有跨 backbone 性能结论 |

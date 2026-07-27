@@ -84,10 +84,54 @@ def _draw(
     step: int,
     global_seed: int,
 ) -> tuple[StateExample, ...]:
+    indices = fixed_branch_selection_indices(
+        len(pool),
+        count,
+        branch=branch,
+        epoch=epoch,
+        step=step,
+        global_seed=global_seed,
+    )
+    return tuple(pool[index] for index in indices)
+
+
+def fixed_branch_selection_indices(
+    pool_size: int,
+    count: int,
+    *,
+    branch: str,
+    epoch: int,
+    step: int,
+    global_seed: int,
+) -> tuple[int, ...]:
+    """Return the exact stable-hash indices consumed by one branch update."""
+
+    if branch not in BRANCHES:
+        raise ValueError(f"unknown branch {branch!r}")
+    if (
+        isinstance(pool_size, bool)
+        or not isinstance(pool_size, int)
+        or pool_size < 1
+    ):
+        raise ValueError("pool_size must be a positive integer")
     if count < 1:
         raise ValueError("active branch draw count must be positive")
+    if (
+        isinstance(epoch, bool)
+        or not isinstance(epoch, int)
+        or epoch < 0
+    ):
+        raise ValueError("epoch must be a non-negative integer")
+    if (
+        isinstance(step, bool)
+        or not isinstance(step, int)
+        or step < 0
+    ):
+        raise ValueError("step must be a non-negative integer")
+    if isinstance(global_seed, bool) or not isinstance(global_seed, int):
+        raise TypeError("global_seed must be an integer")
     return tuple(
-        pool[stable_hash(branch, epoch, step, draw, global_seed) % len(pool)]
+        stable_hash(branch, epoch, step, draw, global_seed) % pool_size
         for draw in range(count)
     )
 
@@ -208,6 +252,7 @@ __all__ = [
     "BranchPools",
     "StateExample",
     "default_steps_per_epoch",
+    "fixed_branch_selection_indices",
     "iter_factual_exposure_matched_batches",
     "iter_fixed_branch_batches",
     "stack_state_examples",

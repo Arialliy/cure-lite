@@ -22,33 +22,50 @@ claim.
 
 ## Current status
 
-### Latest node: NLCC-v12 Development complete; gate failed
+### Latest node: PFCR-v2 Formal-800 complete; frozen performance failure
 
-The runner/evidence r2 closure passed its frozen R0 requirements and the sole
-320-update NLCC-v12 dataset-free Development attempt completed:
+PFCR-v2 replaced the failed NLCC-v12 input relation with a phase-resolved
+feature-coverage relation. Its input contract and analytic representational
+check passed, and both frozen 320-update Development runs passed. The subsequent
+real-data chain also completed: the bounded evidence-v3 correction, real
+`D_R` preflight, seed-42/43 Formal-800 training, one create-only formal `D_V`
+reveal, and strict post-reveal `D_R`-only attribution all produced sealed
+artifacts.
+
+The formal performance gate nevertheless failed:
+
+| seed | PFCR true targets | PFCR recovered fixed misses | strongest fixed comparator | result |
+|---:|---:|---:|---:|:---|
+| 42 | 151 / 170 | 4 / 23 | 154 / 170 and 7 / 23 | fail (`-3 / -3`) |
+| 43 | 150 / 170 | 3 / 23 | 152 / 170 and 5 / 23 | fail (`-2 / -2`) |
+
+Both seeds retained all `147 / 147` covered targets and satisfied every frozen
+false-alarm budget. The failure is therefore the predeclared performance gate,
+not an execution, integrity, retention, or false-alarm failure:
 
 ```text
-updates / training forwards / finite-state audits = 320 / 960 / 321
-structural gates                                  = 25 / 25 passed
-numeric gates                                     = 26 / 76 passed
-final groups                                      = 0 / 8 passed
-decision                                          = NLCC_V12_DEVELOPMENT_FAIL
+PFCR_D_V_GATE_FAIL
+  -> freeze the current PFCR instance as negative evidence
+  -> do not tune on the revealed D_V
+  -> do not authorize confirmation, Full CURE, or cross-backbone work
 ```
 
-The result was independently recomputed from reloaded raw fields and sealed as
-one terminal artifact. It is a valid model-gate failure, not an execution
-failure and not a real-dataset performance result. The stop rule forbids an
-automatic retry and does not authorize the independent exposure holdout, real
-`D_R`, the `800 x 40` replay, formal800, Full CURE, or cross-detector work.
+The strict failure attribution further found that the local occupancy relation
+lacks input support at most positive targets in the bound `D_R` population.
+`D_T` remains unread.
+
+Before PFCR-v2, GCDE-v13 R13-1 passed its hard gate but failed its role quotient
+gate (`R13_1_ROLE_QUOTIENT_FAIL`), so GCDE Development training was never
+authorized. That result is an input-identification failure, not a training
+failure. NLCC-v12 remains a separate frozen Development failure with 25/25
+structural gates, 26/76 numeric gates, and 0/8 final groups passed.
 
 See
-[the formal NLCC-v12 Development result](CURE_Lite_NLCC_v12_Development正式负结果.md)
+[the PFCR formal result](CURE_Lite_PFCR_真实训练正式结果.md),
+[the PFCR-v2 Development record](CURE_Lite_PFCR_v2_模型设计与Development正式结果.md),
+[the GCDE-v13 R13-1 result](CURE_Lite_GCDE_v13_R13-1输入识别正式结果.md),
 and
 [the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
-
-The CURE problem statement remains open, but any continuation must define a
-new frozen CURE-Lite model version and restart at Development. The failed v12
-state equation cannot be changed and rerun under the same version.
 
 ### Historical node: paired CURE-Lite core
 

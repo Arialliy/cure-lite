@@ -22,48 +22,60 @@ claim.
 
 ## Current status
 
-### Latest node: PFCR-v2 Formal-800 complete; frozen performance failure
+### Latest node: CSLF-v15B complete; PPCE-CSLF v16 is the next bounded candidate
 
-PFCR-v2 replaced the failed NLCC-v12 input relation with a phase-resolved
-feature-coverage relation. Its input contract and analytic representational
-check passed, and both frozen 320-update Development runs passed. The subsequent
-real-data chain also completed: the bounded evidence-v3 correction, real
-`D_R` preflight, seed-42/43 Formal-800 training, one create-only formal `D_V`
-reveal, and strict post-reveal `D_R`-only attribution all produced sealed
-artifacts.
-
-The formal performance gate nevertheless failed:
-
-| seed | PFCR true targets | PFCR recovered fixed misses | strongest fixed comparator | result |
-|---:|---:|---:|---:|:---|
-| 42 | 151 / 170 | 4 / 23 | 154 / 170 and 7 / 23 | fail (`-3 / -3`) |
-| 43 | 150 / 170 | 3 / 23 | 152 / 170 and 5 / 23 | fail (`-2 / -2`) |
-
-Both seeds retained all `147 / 147` covered targets and satisfied every frozen
-false-alarm budget. The failure is therefore the predeclared performance gate,
-not an execution, integrity, retention, or false-alarm failure:
+The current mainline is the coverage-state level-set field (CSLF), a single
+scalar completion field
 
 ```text
-PFCR_D_V_GATE_FAIL
-  -> freeze the current PFCR instance as negative evidence
-  -> do not tune on the revealed D_V
-  -> do not authorize confirmation, Full CURE, or cross-backbone work
+(frozen Base feature, occupancy) -> phi
+completion = (phi < 0) and not occupancy
 ```
 
-The strict failure attribution further found that the local occupancy relation
-lacks input support at most positive targets in the bound `D_R` population.
-`D_T` remains unread.
+CSLF-v15, v15A, and v15B each completed the frozen seed-42, `D_R`-only,
+bounded-400 protocol. They tested plus-root, completion-root, and
+support-oriented root coordinates while keeping the model, finite coverage
+response, signed-distance target, optimizer, schedule, controls, and fixed
+zero threshold unchanged.
 
-Before PFCR-v2, GCDE-v13 R13-1 passed its hard gate but failed its role quotient
-gate (`R13_1_ROLE_QUOTIENT_FAIL`), so GCDE Development training was never
-authorized. That result is an input-identification failure, not a training
-failure. NLCC-v12 remains a separate frozen Development failure with 25/25
-structural gates, 26/76 numeric gates, and 0/8 final groups passed.
+The latest completed candidate, v15B `support_oriented_response_joint`,
+substantially improved zero-level localization relative to v15A:
+
+| bounded item | v15A | v15B |
+|---|---:|---:|
+| factual-miss gates | 13 / 16 | 15 / 16 |
+| factual target-negative pixels | 289 / 335 | 324 / 335 |
+| clean added-target-negative pixels | 125 / 149 | 145 / 149 |
+| clean compact exact | 1 / 16 | 9 / 16 |
+| target-exterior completion pixels | 43 | 12 |
+| component-null / identity-null | 17 / 17, 16 / 16 | 17 / 17, 16 / 16 |
+
+The execution and artifact checks passed, but the predeclared candidate gate
+did not:
+
+```text
+BOUNDED_SUPPORT_ORIENTED_CSLF_GATE_FAIL
+  -> freeze v15B as a complete negative result
+  -> stop root-coordinate search
+  -> do not authorize Formal-800, Full CURE, or cross-backbone work
+```
+
+The remaining failures are localized: factual sample `XDU680` reaches only
+`64/75` target-negative pixels, eight clean pairs miss exact compactness, four
+added-target pixels do not cross zero, and 12 target-exterior completion pixels
+remain. `D_V` and `D_T` were not read for this bounded stage.
+
+The next candidate is PPCE-CSLF v16. It keeps the v15B objective and replaces
+the lossy one-channel coarse occupancy input with phase-preserving
+`PixelUnshuffle` encoding aligned to the `PixelShuffle` scalar-field output.
+The implementation, dataset-free checks, bounded runners, and tests are present
+in this repository; this does not itself constitute a passed bounded result or
+Formal-800 authorization.
 
 See
-[the PFCR formal result](CURE_Lite_PFCR_真实训练正式结果.md),
-[the PFCR-v2 Development record](CURE_Lite_PFCR_v2_模型设计与Development正式结果.md),
-[the GCDE-v13 R13-1 result](CURE_Lite_GCDE_v13_R13-1输入识别正式结果.md),
+[the v15B bounded result and v16 decision](CURE_Lite_CSLF_v15B_bounded400正式结果与v16结构模块决定.md),
+[the v15A bounded result](CURE_Lite_CSLF_v15A_bounded400正式结果与v15B模型决定.md),
+[the v15 bounded result](CURE_Lite_CSLF_v15_bounded400正式结果.md),
 and
 [the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
 

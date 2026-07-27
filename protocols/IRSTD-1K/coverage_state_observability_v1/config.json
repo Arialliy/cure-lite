@@ -1,0 +1,63 @@
+{
+  "schema_version": "cure-lite-coverage-state-observability-config-v1",
+  "protocol_id": "irstd1k-dr-cslf-observability-v1",
+  "dataset": "IRSTD-1K",
+  "split": "D_R",
+  "input_binding": {
+    "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+    "state_index_sha256": "075fc1ad217f365df85b1d29568ad215f06ce6e0b691ef78a5dd85f0affe6298",
+    "state_index_fingerprint": "d06e05151b2d7e9e4829d52fca0037e1c42c8a552c015312a03afd26c3fbf59d",
+    "base_fingerprint": "5f69986b95d11a89c5a5e91d6bdd63add865eda102be8ce486722fee8cd00dce",
+    "base_state_fingerprint": "1e17bc11465bf4fd63b5a697dd466cd2d78505d44ba83f9862ffbce3bd39f3c4",
+    "state_fingerprint": "eedfc898171e1e6ebd3ef29e17f52da93e89a9a4a33351ea14cddb838d651e72",
+    "gt_fingerprint": "5705d1ac381f9744d13222396d064a2bc034edea93e657c5f62705cf269823a8",
+    "geometry_protocol_config_file_sha256": "719e956b7c51b2b2c8294699fe26c2d36d5c8190b0d8bb5c1d5665a0f4344558",
+    "geometry_protocol_config_fingerprint": "26b35d549faf8e9a4ae151a418acbec888dded5372afa7b4c1e5d25d745cde60",
+    "geometry_catalog_receipt_file_sha256": "e2a9a986f8819433f3f5efd5c4f627504d10fb32d20f62769b2235b803209283",
+    "geometry_catalog_fingerprint": "16a0a587341d5403614fcc9de90581727f107f6566b195c1b10a857f7d185fa8"
+  },
+  "model_contract": {
+    "raw_catalog_schema": "cure-lite-coverage-state-raw-catalog-v2",
+    "observability_schema": "cure-lite-coverage-state-observability-v2",
+    "scene_target_policy": "single_scene_complete_completion_field_per_actual_input_v1",
+    "natural_focus_policy": "per_target_focus_changes_measure_not_absolute_field_v1",
+    "feature_policy": "samplewise_global_rms_normalized_relative_spatial_amplitude_v2",
+    "target_field_policy": "fixed_amplitude_truncated_signed_chessboard_distance_on_masked_grid_v3",
+    "normalization_epsilon_hex": "0x1.0c6f7a0b5ed8dp-20",
+    "field_valid_policy": "image_valid_domain_v1",
+    "natural_loss_valid_policy": "writable_background_plus_focus_target_v1",
+    "pair_valid_policy": "image_valid_domain_v1",
+    "feature_receptive_radius": 2,
+    "representations": [
+      "scalar_max",
+      "phase_preserving"
+    ],
+    "duplicate_conflict_domain": "actual_input_group_common_field_valid_domain_v1"
+  },
+  "gate": {
+    "identity_null_nonidentical_count": 0,
+    "phase_duplicate_input_target_conflicts": 0,
+    "target_response_outside_phase_rf_pixels": 0,
+    "pp_trigger": [
+      "scalar_duplicate_input_target_conflicts > 0",
+      "target_response_outside_scalar_rf_pixels > 0"
+    ],
+    "scalar_authorization": [
+      "scalar_duplicate_input_target_conflicts == 0",
+      "target_response_outside_scalar_rf_pixels == 0"
+    ],
+    "zero_response_scalar_hidden_pair_triggers_pp": false
+  },
+  "execution_policy": {
+    "allowed_runtime_splits": [
+      "D_R"
+    ],
+    "create_only_output": true,
+    "allow_training": false,
+    "allow_calibration": false,
+    "allow_inference": false,
+    "allow_d_v_evaluation": false,
+    "allow_d_t_evaluation": false,
+    "allow_backbone_integration": false
+  }
+}

@@ -48,6 +48,48 @@ def _positive_int(value: object, *, name: str) -> int:
     return value
 
 
+def normalize_cslf_feature(
+    feature: Tensor,
+    *,
+    epsilon: float = CSLF_NORMALIZATION_EPSILON,
+) -> Tensor:
+    """Return the exact frozen feature representation consumed by CSLF.
+
+    The helper is public so that model execution, cache construction, and
+    observability audits fingerprint the same actual input rather than three
+    independently reimplemented approximations.  Normalization is
+    sample-global, FP32, detached, and device preserving.
+    """
+
+    if (
+        not isinstance(feature, Tensor)
+        or feature.ndim != 4
+        or feature.shape[0] < 1
+        or feature.shape[1] < 1
+        or min(feature.shape[-2:]) < 1
+    ):
+        raise ValueError("feature must have shape [B,C,h,w] with nonempty dimensions")
+    if feature.dtype != torch.float32:
+        raise TypeError("CSLF feature normalization requires float32")
+    if not bool(torch.isfinite(feature).all()):
+        raise ValueError("feature must be finite")
+    if (
+        isinstance(epsilon, bool)
+        or not isinstance(epsilon, float)
+        or epsilon != CSLF_NORMALIZATION_EPSILON
+    ):
+        raise ValueError("CURE-Lite CSLF fixes normalization epsilon")
+    frozen_feature = feature.detach()
+    sample_rms = frozen_feature.square().mean(
+        dim=(1, 2, 3),
+        keepdim=True,
+    ).sqrt()
+    return (
+        frozen_feature
+        / sample_rms.clamp_min(CSLF_NORMALIZATION_EPSILON)
+    ).contiguous()
+
+
 @dataclass(frozen=True)
 class CoverageStateLevelSetConfig:
     """Structural contract for the detector-independent level-set field."""
@@ -395,13 +437,9 @@ class CURELiteCoverageStateLevelSet(nn.Module):
         """Return the complete level-set state equation."""
 
         output_size = self._validate_inputs(feature, occupancy)
-        frozen_feature = feature.detach()
-        sample_rms = frozen_feature.square().mean(
-            dim=(1, 2, 3),
-            keepdim=True,
-        ).sqrt()
-        encoded_feature = frozen_feature / sample_rms.clamp_min(
-            self.config.normalization_epsilon
+        encoded_feature = normalize_cslf_feature(
+            feature,
+            epsilon=self.config.normalization_epsilon,
         )
         projected_occupancy = project_occupancy_to_feature_grid(
             occupancy,
@@ -520,5 +558,6 @@ __all__ = [
     "CURELiteCoverageStateLevelSet",
     "CoverageStateLevelSetConfig",
     "CoverageStateLevelSetFields",
+    "normalize_cslf_feature",
     "truncated_signed_distance_field",
 ]

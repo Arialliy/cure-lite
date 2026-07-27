@@ -31,6 +31,13 @@ from .paired_types import PAIR_KINDS, PairExample
 CSLF_OBJECTIVE_POLICY = (
     "balanced_rooted_w1p4_spatial_coverage_graph_field_energy_v5"
 )
+CSLF_COMPLETION_ROOTED_RESPONSE_POLICY = (
+    "completion_endpoint_absolute_root_with_finite_coverage_response_v1"
+)
+CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY = (
+    "added_target_support_oriented_absolute_root_"
+    "with_finite_coverage_response_v1"
+)
 CSLF_MEASURE_POLICY = (
     "equal_mass_focus_support_exterior_band_far_background_measure_v2"
 )
@@ -443,43 +450,194 @@ class CoverageStateAbsoluteLossFields:
 
 
 @dataclass(frozen=True)
-class CoverageStateAbsoluteTargets:
-    """Precomputed, reusable natural-state geometry."""
+class CoverageStateSceneFieldTargets:
+    """One scene-complete absolute field, independent of loss focus."""
 
+    scene_target: Tensor
     target_field: Tensor
-    integration_measure: Tensor
-    valid_mask: Tensor
+    field_valid_mask: Tensor
 
     def validate(self) -> None:
         values = (
+            self.scene_target,
             self.target_field,
-            self.integration_measure,
-            self.valid_mask,
+            self.field_valid_mask,
         )
         if any(not isinstance(value, Tensor) for value in values):
-            raise TypeError("absolute target geometry must contain tensors")
+            raise TypeError("scene field geometry must contain tensors")
         if (
-            not self.target_field.is_floating_point()
-            or not self.integration_measure.is_floating_point()
-            or self.valid_mask.dtype != torch.bool
+            self.scene_target.dtype != torch.bool
+            or not self.target_field.is_floating_point()
+            or self.field_valid_mask.dtype != torch.bool
             or self.target_field.ndim != 4
             or self.target_field.shape[0] < 1
             or self.target_field.shape[1] != 1
             or len({tuple(value.shape) for value in values}) != 1
             or len({value.device for value in values}) != 1
             or self.target_field.dtype != torch.float32
-            or self.integration_measure.dtype != torch.float32
             or not bool(torch.isfinite(self.target_field).all())
-            or not bool(torch.isfinite(self.integration_measure).all())
+        ):
+            raise ValueError("invalid scene field geometry")
+        if (
+            not bool(self.field_valid_mask.flatten(1).any(dim=1).all())
+            or bool(torch.any(self.scene_target & ~self.field_valid_mask))
+        ):
+            raise ValueError("scene target extends outside its field domain")
+
+
+@dataclass(frozen=True)
+class CoverageStateAbsoluteTargets:
+    """Precomputed scene field plus a focus-specific loss geometry."""
+
+    target_field: Tensor
+    integration_measure: Tensor
+    field_valid_mask: Tensor
+    loss_valid_mask: Tensor
+    focus_support: Tensor
+    focus_support_field: Tensor
+
+    @property
+    def valid_mask(self) -> Tensor:
+        """Backward-compatible name for the Sobolev loss/edge domain."""
+
+        return self.loss_valid_mask
+
+    def validate(self) -> None:
+        floating = (
+            self.target_field,
+            self.integration_measure,
+            self.focus_support_field,
+        )
+        binary = (
+            self.field_valid_mask,
+            self.loss_valid_mask,
+            self.focus_support,
+        )
+        values = (*floating, *binary)
+        if (
+            any(not isinstance(value, Tensor) for value in values)
+            or any(not value.is_floating_point() for value in floating)
+            or any(value.dtype != torch.bool for value in binary)
+            or self.target_field.ndim != 4
+            or self.target_field.shape[0] < 1
+            or self.target_field.shape[1] != 1
+            or len({tuple(value.shape) for value in values}) != 1
+            or len({value.device for value in values}) != 1
+            or any(value.dtype != torch.float32 for value in floating)
+            or any(not bool(torch.isfinite(value).all()) for value in floating)
         ):
             raise ValueError("invalid absolute target geometry")
         mass = self.integration_measure.flatten(1).sum(dim=1)
         if (
             not bool(torch.allclose(mass, torch.ones_like(mass)))
             or bool(torch.any(self.integration_measure < 0.0))
-            or bool(torch.any(self.integration_measure[~self.valid_mask] != 0.0))
+            or bool(
+                torch.any(
+                    self.integration_measure[~self.loss_valid_mask] != 0.0
+                )
+            )
+            or not bool(
+                self.loss_valid_mask.flatten(1).any(dim=1).all()
+            )
+            or bool(
+                torch.any(
+                    self.loss_valid_mask & ~self.field_valid_mask
+                )
+            )
+            or bool(torch.any(self.focus_support & ~self.loss_valid_mask))
         ):
             raise ValueError("absolute integration measure is invalid")
+
+
+def prepare_coverage_state_scene_field_targets(
+    scene_target: Tensor,
+    field_valid_mask: Tensor,
+    *,
+    config: CoverageStateSobolevConfig,
+) -> CoverageStateSceneFieldTargets:
+    """Precompute the unique scene-complete field for one actual input."""
+
+    if not isinstance(config, CoverageStateSobolevConfig):
+        raise TypeError("config must be CoverageStateSobolevConfig")
+    if not isinstance(scene_target, Tensor):
+        raise TypeError("scene_target must be a tensor")
+    reference = torch.zeros(
+        scene_target.shape,
+        dtype=torch.float32,
+        device=scene_target.device,
+    )
+    _validate_field_inputs(
+        reference,
+        scene_target,
+        field_valid_mask,
+        name="scene",
+    )
+    result = CoverageStateSceneFieldTargets(
+        scene_target=scene_target.contiguous(),
+        target_field=truncated_signed_distance_field(
+            scene_target,
+            field_valid_mask,
+            radius=config.truncation_radius,
+            amplitude=config.field_amplitude,
+        ),
+        field_valid_mask=field_valid_mask.contiguous(),
+    )
+    result.validate()
+    return result
+
+
+def prepare_coverage_state_focused_absolute_targets_from_scene(
+    scene: CoverageStateSceneFieldTargets,
+    loss_valid_mask: Tensor,
+    *,
+    config: CoverageStateSobolevConfig,
+) -> CoverageStateAbsoluteTargets:
+    """Attach a focus-specific integration geometry to one frozen scene field."""
+
+    if not isinstance(config, CoverageStateSobolevConfig):
+        raise TypeError("config must be CoverageStateSobolevConfig")
+    if not isinstance(scene, CoverageStateSceneFieldTargets):
+        raise TypeError("scene must be CoverageStateSceneFieldTargets")
+    scene.validate()
+    if (
+        not isinstance(loss_valid_mask, Tensor)
+        or loss_valid_mask.dtype != torch.bool
+        or tuple(loss_valid_mask.shape) != tuple(scene.target_field.shape)
+        or loss_valid_mask.device != scene.target_field.device
+    ):
+        raise ValueError(
+            "loss_valid_mask must be an aligned bool tensor"
+        )
+    if (
+        not bool(loss_valid_mask.flatten(1).any(dim=1).all())
+        or bool(torch.any(loss_valid_mask & ~scene.field_valid_mask))
+    ):
+        raise ValueError(
+            "loss_valid_mask must be nonempty and inside field_valid_mask"
+        )
+    focus_support = scene.scene_target & loss_valid_mask
+    focus_support_field = truncated_signed_distance_field(
+        focus_support,
+        loss_valid_mask,
+        radius=config.truncation_radius,
+        amplitude=config.field_amplitude,
+    )
+    measure = _balanced_field_measure(
+        focus_support,
+        focus_support_field,
+        loss_valid_mask,
+        amplitude=config.field_amplitude,
+    )
+    result = CoverageStateAbsoluteTargets(
+        target_field=scene.target_field,
+        integration_measure=measure,
+        field_valid_mask=scene.field_valid_mask,
+        loss_valid_mask=loss_valid_mask.contiguous(),
+        focus_support=focus_support.contiguous(),
+        focus_support_field=focus_support_field,
+    )
+    result.validate()
+    return result
 
 
 def prepare_coverage_state_absolute_targets(
@@ -490,40 +648,49 @@ def prepare_coverage_state_absolute_targets(
 ) -> CoverageStateAbsoluteTargets:
     """Precompute a natural target field and its fixed integration measure."""
 
-    if not isinstance(config, CoverageStateSobolevConfig):
-        raise TypeError("config must be CoverageStateSobolevConfig")
-    if not isinstance(target, Tensor):
-        raise TypeError("target must be a tensor")
-    reference = torch.zeros(
-        target.shape,
-        dtype=torch.float32,
-        device=target.device,
-    )
-    _validate_field_inputs(
-        reference,
+    scene = prepare_coverage_state_scene_field_targets(
         target,
         valid_mask,
-        name="state",
+        config=config,
     )
-    target_field = truncated_signed_distance_field(
-        target,
+    return prepare_coverage_state_focused_absolute_targets_from_scene(
+        scene,
         valid_mask,
-        radius=config.truncation_radius,
-        amplitude=config.field_amplitude,
+        config=config,
     )
-    measure = _balanced_field_measure(
-        target,
-        target_field,
-        valid_mask,
-        amplitude=config.field_amplitude,
+
+
+def prepare_coverage_state_focused_absolute_targets(
+    scene_target: Tensor,
+    field_valid_mask: Tensor,
+    loss_valid_mask: Tensor,
+    *,
+    config: CoverageStateSobolevConfig,
+) -> CoverageStateAbsoluteTargets:
+    """Precompute one scene field under a focus-specific loss measure.
+
+    ``field_valid_mask`` defines the absolute scene-complete target field and
+    must therefore be identical for every record sharing the same actual
+    ``(F_b, O)`` input.  ``loss_valid_mask`` defines only the integration
+    measure and spatial edges.  It may vary with the selected factual target
+    without changing the absolute field.
+
+    The returned ``CoverageStateAbsoluteTargets.valid_mask`` is deliberately
+    the loss domain because that is the mask consumed by the Sobolev energy.
+    The caller/cache retains ``field_valid_mask`` separately for lineage and
+    target-field verification.
+    """
+
+    scene = prepare_coverage_state_scene_field_targets(
+        scene_target,
+        field_valid_mask,
+        config=config,
     )
-    result = CoverageStateAbsoluteTargets(
-        target_field=target_field,
-        integration_measure=measure,
-        valid_mask=valid_mask.contiguous(),
+    return prepare_coverage_state_focused_absolute_targets_from_scene(
+        scene,
+        loss_valid_mask,
+        config=config,
     )
-    result.validate()
-    return result
 
 
 def coverage_state_absolute_sobolev_loss_from_targets(
@@ -531,6 +698,7 @@ def coverage_state_absolute_sobolev_loss_from_targets(
     targets: CoverageStateAbsoluteTargets,
     *,
     config: CoverageStateSobolevConfig,
+    validate: bool = True,
 ) -> CoverageStateAbsoluteLossFields:
     """Measure a field against precomputed natural-state geometry."""
 
@@ -538,13 +706,16 @@ def coverage_state_absolute_sobolev_loss_from_targets(
         raise TypeError("config must be CoverageStateSobolevConfig")
     if not isinstance(targets, CoverageStateAbsoluteTargets):
         raise TypeError("targets must be CoverageStateAbsoluteTargets")
-    targets.validate()
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
     if (
         tuple(field.shape) != tuple(targets.target_field.shape)
         or field.device != targets.target_field.device
         or field.dtype != torch.float32
         or not field.is_floating_point()
-        or not bool(torch.isfinite(field).all())
+        or (validate and not bool(torch.isfinite(field).all()))
     ):
         raise ValueError("field and absolute target geometry must align")
     target_field = targets.target_field
@@ -759,6 +930,7 @@ def _pair_energy(
     targets: CoverageStatePairTargets,
     *,
     config: CoverageStateSobolevConfig,
+    audit_finite: bool = True,
 ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     per_value_power = _per_state_vector_p4_power(
         components,
@@ -774,7 +946,7 @@ def _pair_energy(
         + config.norm_epsilon**config.norm_order
     ).pow(1.0 / float(config.norm_order)) - config.norm_epsilon
     loss = per_loss.mean()
-    if not bool(
+    if audit_finite and not bool(
         torch.stack(
             (
                 torch.isfinite(loss),
@@ -794,6 +966,7 @@ def coverage_state_pair_sobolev_loss_from_targets(
     targets: CoverageStatePairTargets,
     *,
     config: CoverageStateSobolevConfig,
+    validate: bool = True,
 ) -> CoverageStatePairLossFields:
     """Evaluate the coupled finite-response coordinates without rebuilding targets."""
 
@@ -801,7 +974,10 @@ def coverage_state_pair_sobolev_loss_from_targets(
         raise TypeError("config must be CoverageStateSobolevConfig")
     if not isinstance(targets, CoverageStatePairTargets):
         raise TypeError("targets must be CoverageStatePairTargets")
-    targets.validate()
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
     if (
         tuple(field_plus.shape) != tuple(targets.target_field_plus.shape)
         or tuple(field_minus.shape) != tuple(field_plus.shape)
@@ -809,8 +985,8 @@ def coverage_state_pair_sobolev_loss_from_targets(
         or field_minus.device != field_plus.device
         or field_plus.dtype != torch.float32
         or field_minus.dtype != torch.float32
-        or not bool(torch.isfinite(field_plus).all())
-        or not bool(torch.isfinite(field_minus).all())
+        or (validate and not bool(torch.isfinite(field_plus).all()))
+        or (validate and not bool(torch.isfinite(field_minus).all()))
     ):
         raise ValueError("pair fields and precomputed geometry must align")
     anchor_error = field_plus - targets.target_field_plus
@@ -823,6 +999,197 @@ def coverage_state_pair_sobolev_loss_from_targets(
         (anchor_error, response_error),
         targets,
         config=config,
+        audit_finite=validate,
+    )
+    return CoverageStatePairLossFields(
+        loss=loss,
+        value_power=per_value_power.mean(),
+        spatial_power=per_spatial_power.mean(),
+        per_state_loss=per_loss,
+        per_state_value_power=per_value_power,
+        per_state_spatial_power=per_spatial_power,
+        target_field_plus=targets.target_field_plus,
+        target_field_minus=targets.target_field_minus,
+        predicted_coverage_response=predicted_response,
+        target_coverage_response=target_response,
+        anchor_error=anchor_error,
+        response_error=response_error,
+        focus_support=targets.focus_support,
+        focus_support_field=targets.focus_support_field,
+        integration_measure=targets.integration_measure,
+    )
+
+
+def coverage_state_completion_rooted_pair_sobolev_loss_from_targets(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    targets: CoverageStatePairTargets,
+    *,
+    config: CoverageStateSobolevConfig,
+    validate: bool = True,
+) -> CoverageStatePairLossFields:
+    """Root the finite-response coordinates at the completion endpoint.
+
+    The legacy response coordinate is ``[e_plus, e_minus - e_plus]``.  It
+    directly anchors the covered endpoint even though the minus endpoint is
+    the state whose zero level set must produce the new completion.  This
+    objective retains the same two-dimensional joint Sobolev energy and the
+    same finite response, but uses ``[e_minus, e_minus - e_plus]`` instead.
+
+    No endpoint term, margin, weight, model branch, or tunable value is added.
+    The transform remains invertible because
+    ``e_plus = e_minus - (e_minus - e_plus)``.
+    """
+
+    if not isinstance(config, CoverageStateSobolevConfig):
+        raise TypeError("config must be CoverageStateSobolevConfig")
+    if not isinstance(targets, CoverageStatePairTargets):
+        raise TypeError("targets must be CoverageStatePairTargets")
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
+    if (
+        tuple(field_plus.shape) != tuple(targets.target_field_plus.shape)
+        or tuple(field_minus.shape) != tuple(field_plus.shape)
+        or field_plus.device != targets.target_field_plus.device
+        or field_minus.device != field_plus.device
+        or field_plus.dtype != torch.float32
+        or field_minus.dtype != torch.float32
+        or (validate and not bool(torch.isfinite(field_plus).all()))
+        or (validate and not bool(torch.isfinite(field_minus).all()))
+    ):
+        raise ValueError(
+            "completion-rooted pair fields and geometry must align"
+        )
+    anchor_error = field_minus - targets.target_field_minus
+    predicted_response = field_minus - field_plus
+    target_response = (
+        targets.target_field_minus - targets.target_field_plus
+    )
+    response_error = predicted_response - target_response
+    loss, per_loss, per_value_power, per_spatial_power = _pair_energy(
+        (anchor_error, response_error),
+        targets,
+        config=config,
+        audit_finite=validate,
+    )
+    return CoverageStatePairLossFields(
+        loss=loss,
+        value_power=per_value_power.mean(),
+        spatial_power=per_spatial_power.mean(),
+        per_state_loss=per_loss,
+        per_state_value_power=per_value_power,
+        per_state_spatial_power=per_spatial_power,
+        target_field_plus=targets.target_field_plus,
+        target_field_minus=targets.target_field_minus,
+        predicted_coverage_response=predicted_response,
+        target_coverage_response=target_response,
+        anchor_error=anchor_error,
+        response_error=response_error,
+        focus_support=targets.focus_support,
+        focus_support_field=targets.focus_support_field,
+        integration_measure=targets.integration_measure,
+    )
+
+
+def coverage_state_added_target_support_from_targets(
+    targets: CoverageStatePairTargets,
+    *,
+    validate: bool = True,
+) -> Tensor:
+    """Return the exact support added by the controlled target transition.
+
+    The selector is derived only from the two frozen signed target fields.  It
+    is intentionally strict and parameter free: the minus endpoint must be
+    inside the target field while the plus endpoint is outside it.  No
+    dilation, component processing, distance band, learned mask, or cache
+    field participates in the definition.
+    """
+
+    if not isinstance(targets, CoverageStatePairTargets):
+        raise TypeError("targets must be CoverageStatePairTargets")
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
+    reverse_support = (
+        targets.valid_mask
+        & (targets.target_field_plus < 0.0)
+        & (targets.target_field_minus > 0.0)
+    )
+    if bool(torch.any(reverse_support)):
+        raise ValueError(
+            "support-oriented targets must not remove target support"
+        )
+    return (
+        targets.valid_mask
+        & (targets.target_field_minus < 0.0)
+        & (targets.target_field_plus > 0.0)
+    ).contiguous()
+
+
+def coverage_state_support_oriented_pair_sobolev_loss_from_targets(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    targets: CoverageStatePairTargets,
+    *,
+    config: CoverageStateSobolevConfig,
+    validate: bool = True,
+) -> CoverageStatePairLossFields:
+    """Use a support-dependent root with the unchanged finite response.
+
+    Let ``A`` be the exact target support introduced by the controlled
+    deletion.  The first coordinate is ``e_minus`` on ``A`` and ``e_plus``
+    elsewhere; the second coordinate remains ``e_minus - e_plus`` globally.
+    Thus one two-coordinate field energy is retained, the transform is
+    pointwise invertible, and null pairs reduce exactly to the legacy
+    response-joint coordinates.
+    """
+
+    if not isinstance(config, CoverageStateSobolevConfig):
+        raise TypeError("config must be CoverageStateSobolevConfig")
+    if not isinstance(targets, CoverageStatePairTargets):
+        raise TypeError("targets must be CoverageStatePairTargets")
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
+    if (
+        tuple(field_plus.shape) != tuple(targets.target_field_plus.shape)
+        or tuple(field_minus.shape) != tuple(field_plus.shape)
+        or field_plus.device != targets.target_field_plus.device
+        or field_minus.device != field_plus.device
+        or field_plus.dtype != torch.float32
+        or field_minus.dtype != torch.float32
+        or (validate and not bool(torch.isfinite(field_plus).all()))
+        or (validate and not bool(torch.isfinite(field_minus).all()))
+    ):
+        raise ValueError(
+            "support-oriented pair fields and geometry must align"
+        )
+
+    error_plus = field_plus - targets.target_field_plus
+    error_minus = field_minus - targets.target_field_minus
+    added_target_support = coverage_state_added_target_support_from_targets(
+        targets,
+        validate=False,
+    )
+    anchor_error = torch.where(
+        added_target_support,
+        error_minus,
+        error_plus,
+    )
+    predicted_response = field_minus - field_plus
+    target_response = (
+        targets.target_field_minus - targets.target_field_plus
+    )
+    response_error = predicted_response - target_response
+    loss, per_loss, per_value_power, per_spatial_power = _pair_energy(
+        (anchor_error, response_error),
+        targets,
+        config=config,
+        audit_finite=validate,
     )
     return CoverageStatePairLossFields(
         loss=loss,
@@ -867,6 +1234,7 @@ def coverage_state_independent_endpoint_loss_from_targets(
     targets: CoverageStatePairTargets,
     *,
     config: CoverageStateSobolevConfig,
+    validate: bool = True,
 ) -> CoverageStateIndependentLossFields:
     """Use ``[e_plus,e_minus]`` with the exact coupled-method geometry."""
 
@@ -874,7 +1242,10 @@ def coverage_state_independent_endpoint_loss_from_targets(
         raise TypeError("config must be CoverageStateSobolevConfig")
     if not isinstance(targets, CoverageStatePairTargets):
         raise TypeError("targets must be CoverageStatePairTargets")
-    targets.validate()
+    if not isinstance(validate, bool):
+        raise TypeError("validate must be bool")
+    if validate:
+        targets.validate()
     if (
         tuple(field_plus.shape) != tuple(targets.target_field_plus.shape)
         or tuple(field_minus.shape) != tuple(field_plus.shape)
@@ -882,8 +1253,8 @@ def coverage_state_independent_endpoint_loss_from_targets(
         or field_minus.device != field_plus.device
         or field_plus.dtype != torch.float32
         or field_minus.dtype != torch.float32
-        or not bool(torch.isfinite(field_plus).all())
-        or not bool(torch.isfinite(field_minus).all())
+        or (validate and not bool(torch.isfinite(field_plus).all()))
+        or (validate and not bool(torch.isfinite(field_minus).all()))
     ):
         raise ValueError("independent fields and target geometry must align")
     error_plus = field_plus - targets.target_field_plus
@@ -892,6 +1263,7 @@ def coverage_state_independent_endpoint_loss_from_targets(
         (error_plus, error_minus),
         targets,
         config=config,
+        audit_finite=validate,
     )
     return CoverageStateIndependentLossFields(
         loss=loss,
@@ -906,6 +1278,31 @@ def coverage_state_independent_endpoint_loss_from_targets(
         target_field_minus=targets.target_field_minus,
         focus_support=targets.focus_support,
         integration_measure=targets.integration_measure,
+    )
+
+
+def coverage_state_identity_joint_loss_from_targets(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    targets: CoverageStatePairTargets,
+    *,
+    config: CoverageStateSobolevConfig,
+    validate: bool = True,
+) -> CoverageStateIndependentLossFields:
+    """Name the existing ``[e_plus, e_minus]`` joint-coordinate control.
+
+    The historical function name suggested endpoint independence even though
+    it uses one joint vector norm and the pair-derived focus measure.  This
+    alias makes the scientific role explicit without changing the equation or
+    breaking existing callers.
+    """
+
+    return coverage_state_independent_endpoint_loss_from_targets(
+        field_plus,
+        field_minus,
+        targets,
+        config=config,
+        validate=validate,
     )
 
 
@@ -972,6 +1369,64 @@ def coverage_state_pair_sobolev_loss(
     )
 
 
+def coverage_state_completion_rooted_pair_sobolev_loss(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    occupancy_plus: Tensor,
+    occupancy_minus: Tensor,
+    target_plus: Tensor,
+    target_minus: Tensor,
+    valid_mask: Tensor,
+    *,
+    config: CoverageStateSobolevConfig,
+) -> CoverageStatePairLossFields:
+    """Measure a deletion edge in completion-rooted response coordinates."""
+
+    targets = prepare_coverage_state_pair_targets(
+        occupancy_plus,
+        occupancy_minus,
+        target_plus,
+        target_minus,
+        valid_mask,
+        config=config,
+    )
+    return coverage_state_completion_rooted_pair_sobolev_loss_from_targets(
+        field_plus,
+        field_minus,
+        targets,
+        config=config,
+    )
+
+
+def coverage_state_support_oriented_pair_sobolev_loss(
+    field_plus: Tensor,
+    field_minus: Tensor,
+    occupancy_plus: Tensor,
+    occupancy_minus: Tensor,
+    target_plus: Tensor,
+    target_minus: Tensor,
+    valid_mask: Tensor,
+    *,
+    config: CoverageStateSobolevConfig,
+) -> CoverageStatePairLossFields:
+    """Measure a deletion edge in support-oriented response coordinates."""
+
+    targets = prepare_coverage_state_pair_targets(
+        occupancy_plus,
+        occupancy_minus,
+        target_plus,
+        target_minus,
+        valid_mask,
+        config=config,
+    )
+    return coverage_state_support_oriented_pair_sobolev_loss_from_targets(
+        field_plus,
+        field_minus,
+        targets,
+        config=config,
+    )
+
+
 class CoverageStateSobolevLoss(nn.Module):
     """Module wrapper over natural-state and pair-edge CSLF risks."""
 
@@ -1028,6 +1483,36 @@ class CoverageStateSobolevLoss(nn.Module):
             config=self.config,
         )
 
+    def completion_rooted_from_targets(
+        self,
+        field_plus: Tensor,
+        field_minus: Tensor,
+        targets: CoverageStatePairTargets,
+    ) -> CoverageStatePairLossFields:
+        return (
+            coverage_state_completion_rooted_pair_sobolev_loss_from_targets(
+                field_plus,
+                field_minus,
+                targets,
+                config=self.config,
+            )
+        )
+
+    def support_oriented_from_targets(
+        self,
+        field_plus: Tensor,
+        field_minus: Tensor,
+        targets: CoverageStatePairTargets,
+    ) -> CoverageStatePairLossFields:
+        return (
+            coverage_state_support_oriented_pair_sobolev_loss_from_targets(
+                field_plus,
+                field_minus,
+                targets,
+                config=self.config,
+            )
+        )
+
     def natural_from_targets(
         self,
         field: Tensor,
@@ -1064,10 +1549,12 @@ class CoverageStateIndependentEndpointLoss(nn.Module):
 
 
 __all__ = [
+    "CSLF_COMPLETION_ROOTED_RESPONSE_POLICY",
     "CSLF_MEASURE_POLICY",
     "CSLF_NORM_EPSILON",
     "CSLF_NORM_ORDER",
     "CSLF_OBJECTIVE_POLICY",
+    "CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY",
     "CoverageStateAbsoluteLossFields",
     "CoverageStateAbsoluteTargets",
     "CoverageStateIndependentEndpointLoss",
@@ -1075,15 +1562,25 @@ __all__ = [
     "CoverageStatePairBatch",
     "CoverageStatePairLossFields",
     "CoverageStatePairTargets",
+    "CoverageStateSceneFieldTargets",
     "CoverageStateSobolevConfig",
     "CoverageStateSobolevLoss",
     "coverage_state_absolute_sobolev_loss",
     "coverage_state_absolute_sobolev_loss_from_targets",
+    "coverage_state_added_target_support_from_targets",
+    "coverage_state_completion_rooted_pair_sobolev_loss",
+    "coverage_state_completion_rooted_pair_sobolev_loss_from_targets",
     "coverage_state_independent_endpoint_loss",
     "coverage_state_independent_endpoint_loss_from_targets",
+    "coverage_state_identity_joint_loss_from_targets",
     "coverage_state_pair_sobolev_loss",
     "coverage_state_pair_sobolev_loss_from_targets",
+    "coverage_state_support_oriented_pair_sobolev_loss",
+    "coverage_state_support_oriented_pair_sobolev_loss_from_targets",
+    "prepare_coverage_state_focused_absolute_targets",
+    "prepare_coverage_state_focused_absolute_targets_from_scene",
     "prepare_coverage_state_absolute_targets",
     "prepare_coverage_state_pair_targets",
+    "prepare_coverage_state_scene_field_targets",
     "stack_coverage_state_pairs",
 ]

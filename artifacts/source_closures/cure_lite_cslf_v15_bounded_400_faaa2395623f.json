@@ -1,0 +1,14 @@
+{
+  "archive_bytes": 972800,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_cslf_v15_bounded_400_faaa2395623f.tar",
+  "archive_sha256": "5904c04a8ed2b4af28e46d159df25cf26bce956c4b80c27a2c488ad8a31491c7",
+  "complete_file_sha256": "bf443854ec3137fd1507efb03cd7fda9dc2dfebef2ba22cb47c1818f20759437",
+  "complete_fingerprint": "faaa2395623f5edfa0e56ab849d20305b73df1e7b3446b22b834279a2637d14b",
+  "config_receipt_sha256": "a7a5d78e14cdd0c9abdc507ac3bd6792388c6c759b481aed9079e1415083ec71",
+  "decision_receipt_sha256": "06a997b40d1c7c83eb19652213936110ac7ff38fc0315da836a16cf0cb61e9c4",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_cslf_v15_bounded_400_r1",
+  "schema_version": "cure-lite-cslf-source-closure-v1",
+  "source_file_count": 37,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "zero_level_receipt_sha256": "5f15dfb062afaca414974fbbd9f1bdd68a7cce6025d4d075be4dd993c7294c4b"
+}

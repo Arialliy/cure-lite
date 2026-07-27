@@ -1,0 +1,16 @@
+{
+  "archive_bytes": 4648960,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_cslf_v16_ppce_support_oriented_bounded_400_7eba70fc32f7.tar",
+  "archive_sha256": "ef0d38a487ee14ed48dc79817c7e61042d61ee7aaca30a7b95cb2fd165409c4c",
+  "bounded_result_receipt_sha256": "4d6777f4b196c928a40486f415493f9778c03572c4b0e01ecc7fe31ce1e9c0e5",
+  "complete_file_sha256": "c73bcd79848f1b57fbfdcf92ded572cde8dae08f81334b0b1eaded62952ba649",
+  "complete_fingerprint": "7eba70fc32f70411f915a1d63261c32ac814232613bc68868cd6bb441b5bf599",
+  "config_receipt_sha256": "b500f5d2842ffa45d45b1c988faf04ac3136a6aebc866324f566447a2d94ab87",
+  "decision_receipt_sha256": "837e068ef0d6b878772f85c066778b83246c653716730d119447515cb8986c0d",
+  "implementation_fingerprint": "0d6f55d7f47195dcd69b8c9f2c521f92d99bec330df479f04d3a78b26441104a",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_cslf_v16_ppce_support_oriented_bounded_400_r1",
+  "schema_version": "cure-lite-cslf-source-closure-v1",
+  "source_file_count": 181,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "zero_level_receipt_sha256": "802a0ab8e41e5eeb5ac4a4828b4594097f6fa0402907a0b5ea56bb1be78cedda"
+}

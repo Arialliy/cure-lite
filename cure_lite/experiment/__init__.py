@@ -56,6 +56,12 @@ from .efficiency_evidence import (
     replay_static_efficiency,
 )
 from .seed_registry import build_seed_registry_from_stage_a_run
+from .coverage_state_real_dr_inputs import (
+    CoverageStateRealDRInputs,
+    CoverageStateRealDRSourceBinding,
+    bind_coverage_state_real_dr_sources,
+    build_coverage_state_real_dr_inputs,
+)
 from .training_pipeline import TrainingSupportRequirements, TrainingSupportSummary
 
 __all__ = [
@@ -63,6 +69,8 @@ __all__ = [
     "BaseCachePairContract",
     "CalibratedCURELiteModel",
     "CalibratedDeploymentReceipt",
+    "CoverageStateRealDRInputs",
+    "CoverageStateRealDRSourceBinding",
     "EfficiencyBinding",
     "CompletedMissAlignedGate2Extension",
     "MissAlignedGate2TrainingConfig",
@@ -77,6 +85,8 @@ __all__ = [
     "build_loaded_d_v_method_run",
     "build_seed_registry_from_stage_a_run",
     "build_calibrated_cure_lite_model",
+    "bind_coverage_state_real_dr_sources",
+    "build_coverage_state_real_dr_inputs",
     "cache_d_r_states",
     "cache_manifest_split",
     "calibrate_paired_gate2",

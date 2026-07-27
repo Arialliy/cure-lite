@@ -10,10 +10,13 @@ from cure_lite.coverage_state_level_set import (
     truncated_signed_distance_field,
 )
 from cure_lite.coverage_state_sobolev import (
+    CSLF_COMPLETION_ROOTED_RESPONSE_POLICY,
     CoverageStatePairBatch,
     CoverageStateSobolevConfig,
     coverage_state_absolute_sobolev_loss,
     coverage_state_absolute_sobolev_loss_from_targets,
+    coverage_state_completion_rooted_pair_sobolev_loss,
+    coverage_state_completion_rooted_pair_sobolev_loss_from_targets,
     coverage_state_independent_endpoint_loss_from_targets,
     coverage_state_pair_sobolev_loss,
     coverage_state_pair_sobolev_loss_from_targets,
@@ -219,11 +222,118 @@ def test_exact_target_fields_zero_the_absolute_and_pair_objectives() -> None:
         valid,
         config=config,
     )
+    completion_rooted = (
+        coverage_state_completion_rooted_pair_sobolev_loss(
+            plus_field,
+            minus_field,
+            minus_target,
+            plus_target,
+            plus_target,
+            minus_target,
+            valid,
+            config=config,
+        )
+    )
     assert absolute.loss.item() == pytest.approx(0.0)
     assert pair.loss.item() == pytest.approx(0.0)
+    assert completion_rooted.loss.item() == pytest.approx(0.0)
     assert pair.value_power.item() == pytest.approx(0.0)
     assert pair.spatial_power.item() == pytest.approx(0.0)
     assert torch.count_nonzero(pair.response_error) == 0
+    assert torch.count_nonzero(completion_rooted.anchor_error) == 0
+    assert torch.count_nonzero(completion_rooted.response_error) == 0
+
+
+def test_completion_root_directly_moves_the_endpoint_that_must_cross_zero() -> None:
+    valid = torch.ones(1, 1, 7, 7, dtype=torch.bool)
+    target_plus = torch.zeros_like(valid)
+    target_minus = _single_pixel()
+    occupancy_plus = target_minus.clone()
+    occupancy_minus = torch.zeros_like(valid)
+    config = CoverageStateSobolevConfig(truncation_radius=2)
+    targets = prepare_coverage_state_pair_targets(
+        occupancy_plus,
+        occupancy_minus,
+        target_plus,
+        target_minus,
+        valid,
+        config=config,
+    )
+    common_offset = 0.451
+    legacy_plus = (
+        targets.target_field_plus + common_offset
+    ).detach().requires_grad_()
+    legacy_minus = (
+        targets.target_field_minus + common_offset
+    ).detach().requires_grad_()
+    rooted_plus = legacy_plus.detach().clone().requires_grad_()
+    rooted_minus = legacy_minus.detach().clone().requires_grad_()
+
+    legacy = coverage_state_pair_sobolev_loss_from_targets(
+        legacy_plus,
+        legacy_minus,
+        targets,
+        config=config,
+    )
+    rooted = (
+        coverage_state_completion_rooted_pair_sobolev_loss_from_targets(
+            rooted_plus,
+            rooted_minus,
+            targets,
+            config=config,
+        )
+    )
+    legacy.loss.backward()
+    rooted.loss.backward()
+
+    target = target_minus
+    assert torch.allclose(
+        legacy.response_error,
+        torch.zeros_like(legacy.response_error),
+        atol=1.0e-7,
+        rtol=0.0,
+    )
+    assert torch.allclose(
+        rooted.response_error,
+        torch.zeros_like(rooted.response_error),
+        atol=1.0e-7,
+        rtol=0.0,
+    )
+    assert torch.all(legacy_minus[target] > 0.0)
+    assert torch.all(rooted_minus[target] > 0.0)
+    assert legacy_minus.grad.abs().max().item() < 1.0e-6
+    assert torch.all(rooted_minus.grad[target] > 1.0e-4)
+    assert torch.count_nonzero(rooted_minus.grad) > 0
+    assert rooted_plus.grad.abs().max().item() < 1.0e-6
+    assert CSLF_COMPLETION_ROOTED_RESPONSE_POLICY.endswith("_v1")
+
+
+def test_completion_root_is_zero_on_component_null_fixed_point() -> None:
+    valid = torch.ones(1, 1, 7, 7, dtype=torch.bool)
+    target = torch.zeros_like(valid)
+    occupancy_plus = _single_pixel()
+    occupancy_minus = torch.zeros_like(valid)
+    config = CoverageStateSobolevConfig(truncation_radius=2)
+    targets = prepare_coverage_state_pair_targets(
+        occupancy_plus,
+        occupancy_minus,
+        target,
+        target,
+        valid,
+        config=config,
+    )
+    exact = targets.target_field_minus.detach().clone()
+    result = (
+        coverage_state_completion_rooted_pair_sobolev_loss_from_targets(
+            exact,
+            exact.clone(),
+            targets,
+            config=config,
+        )
+    )
+    assert result.loss.item() == pytest.approx(0.0)
+    assert torch.count_nonzero(result.anchor_error) == 0
+    assert torch.count_nonzero(result.response_error) == 0
 
 
 def test_precomputed_geometry_matches_direct_losses_and_control() -> None:

@@ -22,65 +22,59 @@ claim.
 
 ## Current status
 
-### Latest validated node: v21 PAET-BFA reached `D_V` but did not pass
+### Latest validated node: v23 PACRE-VC completed Formal800 and failed `D_V`
 
-The current mainline remains a single coverage-state level-set field:
+v23 adopts PACRE-VC, a verifier-corrected residual/value-centering formulation:
 
 ```text
-(frozen Base feature, phase-preserving occupancy) -> phi
-completion = (phi < 0) and not occupancy
+r = p - p_base
+field = r - stopgrad(r_target)
+completion = (field < 0) and not occupancy
 ```
 
-After the v18 PMOPE negative result, v19 USCOPE and v20 BFA-CMIF completed
-their frozen bounded-400 protocols without earning Formal800. v21 PAET-BFA
-then aligned feature evidence with output phase inside the binary-flip
-antisymmetric field. It passed its unique seed-42 bounded-400 gate and
-subsequently completed a fresh Formal800 run:
+Its dataset-free checks and unique real `D_R` gate passed `13 / 13`. The
+authorized seed-42 Formal800 run then completed from scratch with no resume,
+retry, or intermediate checkpoint:
 
 ```text
-seed 42
 800 epochs x 40 steps = 32,000 updates
-PAET structural preservation gate = PASS
+D_V/D_T training-time access = none
 ```
 
-That structural pass authorized one fixed `D_V` evaluation. The corrected,
-append-only evaluation-v3 run completed without retraining or threshold search:
+The single adaptive `D_V` evaluation used the frozen 51-point Base threshold
+grid and the fixed PACRE-VC field threshold `0.0`:
 
-| metric | Base@A | best Base@B | Base@A + CURE |
+| metric | Base@A | best Base@B (0.14) | Base@A + CURE |
 |---|---:|---:|---:|
-| true targets / 170 | 147 | 150 | 151 |
-| recovered fixed misses / 23 | 0 | 3 | 4 |
-| Pd | 0.864706 | 0.882353 | 0.888235 |
-| mIoU | 0.609559 | 0.607629 | 0.612346 |
-| nIoU | 0.565328 | 0.564014 | 0.565424 |
+| true targets / 170 | 147 | **150** | 149 |
+| recovered anchor misses / 23 | 0 | **3** | 2 |
+| Pd | 0.864706 | **0.882353** | 0.876471 |
+| mIoU | **0.609559** | 0.607629 | 0.602141 |
+| nIoU | **0.565328** | 0.564014 | 0.560866 |
 
-CURE preserved all previously covered targets and remained inside the frozen
-false-alarm budgets. It also improved Pd, mIoU, nIoU, pixel Fa, and
-raw-background Fa relative to Base@B. However, the predeclared gate required
-at least two additional true targets and two additional recovered misses over
-the strongest Base; v21 achieved only `+1 / +1`.
-
-The current formal decision is therefore:
+Retention was `1.0`, and all three frozen false-alarm constraints passed.
+However, the gate compared CURE against the endpoint-wise best valid Base.
+CURE was `-1` on both true targets and recovered misses, and its mIoU and nIoU
+were also lower. The terminal decision is therefore:
 
 ```text
-PAET_BFA_V21_FORMAL_D_V_GATE_FAIL
-  -> preserve the positive but insufficient D_V evidence
-  -> do not tune or retry on D_V
+PACRE_V23_FORMAL_D_V_ADAPTIVE_FAIL
+  -> preserve the completed D_R, Formal800, and D_V evidence
+  -> do not tune, retry, or reopen D_V
   -> do not access D_T
   -> do not authorize Full CURE or cross-backbone evaluation
 ```
 
-This is a valid performance-gate failure, not an execution failure and not a
-failure of the overall CURE research direction. The repository now also
-contains the v22 PACRE implementation and its dataset-free/bounded protocol
-machinery, but no v22 result is claimed here until a frozen run produces one.
+An append-only verifier corrigendum corrected an exact-key whitelist omission
+without changing the model, thresholds, performance gate, or four frozen D_V
+terminal files. Independent verification confirmed the same failing decision.
 
 See
-[the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md),
-[the v21 bounded result and Formal800 route](CURE_Lite_v21_PAET_BFA_bounded400正式结果与Formal800路线.md),
-[the v20 bounded result](CURE_Lite_v20_BFA_CMIF_bounded400正式结果与下一步结构判断.md),
+[the v23 formal result](CURE_Lite_v23_PACRE_VC_正式结果.md),
+[the v23 implementation plan](CURE_Lite_v22_PACRE_D_R失败修订分析与v23_PACRE_VC实施方案.md),
+[the verifier corrigendum](audits/pacre_v23_dv_verifier_corrigendum_v1/preregistration.md),
 and
-[the v19 bounded result](CURE_Lite_v19_USCOPE_bounded400正式负结果与v20结构决定.md).
+[the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
 
 ### Historical node: paired CURE-Lite core
 

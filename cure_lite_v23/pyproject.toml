@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cure-lite-v23"
+version = "0.23.0"
+description = "Append-only PACRE verifier-corrected candidate"
+requires-python = ">=3.10"
+dependencies = [
+    "cure-lite==0.2.0",
+    "cure-lite-v22==0.22.0",
+    "torch>=2.1",
+]
+
+[tool.setuptools]
+packages = ["cure_lite_v23"]
+package-dir = {cure_lite_v23 = "."}

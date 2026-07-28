@@ -1,0 +1,26 @@
+{
+  "D_T_authorized": false,
+  "D_T_payload_accessed": false,
+  "D_V_inference_reexecuted": false,
+  "D_V_payload_reopened": false,
+  "artifact_files": {
+    "preregistration.md": "6178bc36e18113c48db26c36396b919f1e27de90a997d54c531c6671cbcdc898",
+    "verification.json": "daad41055f0a39126b6d017be4e4c22eb3b23567fbd4692e1af2d1e3738d22b2",
+    "verify_corrigendum.py": "42ba5e9a0ea719edb85c3147f4636830c703ef648ed431c7875b0768d7b7591a"
+  },
+  "complete_fingerprint": "ca0e95b77d354a2f766338df604bd40f78b39a71e03f3d4b30d936406775f16d",
+  "correction_fingerprint": "50eef00abaa062ad045de5ca6ba12bdd78026e91acb1fe47faa55d747a0ce5c8",
+  "corrigendum_receipt_fingerprint": "926cc6642a60924ef73a8ebad6206df1eb3561ee551c5fc510aa6c53eabfe182",
+  "final_members": [
+    "preregistration.md",
+    "verification.json",
+    "verify_corrigendum.py"
+  ],
+  "gate_passed": false,
+  "original_verifier_sha256": "bb85c2746589ce60f5b9d59c834cba00a4ac39580084bfee7f6813b87d442ce6",
+  "schema_version": "cure-lite-v23-pacre-vc-d-v-verifier-corrigendum-audit-complete-v1",
+  "source_closure_fingerprint": "d08a1d84348d8caf8ecee3b0fef3d5efcd56e05e50f46e25b1cf17bd71dfe48c",
+  "status": "CORRIGENDUM_AUDIT_COMPLETE",
+  "terminal_verified": true,
+  "verification_status": "PACRE_V23_FORMAL_D_V_ADAPTIVE_FAIL"
+}

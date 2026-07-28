@@ -22,7 +22,7 @@ claim.
 
 ## Current status
 
-### Latest node: CMIF-v18 PMOPE is a complete bounded-400 negative result
+### Latest validated node: v21 PAET-BFA reached `D_V` but did not pass
 
 The current mainline remains a single coverage-state level-set field:
 
@@ -31,45 +31,56 @@ The current mainline remains a single coverage-state level-set field:
 completion = (phi < 0) and not occupancy
 ```
 
-The sequence after CSLF-v15B is now complete through v18:
-
-1. v16 PPCE replaced lossy coarse occupancy with exact
-   `PixelUnshuffle` phase encoding. Its bounded-400 run completed normally but
-   failed the factual, compact-support, and outside-completion gates.
-2. v17 CMIF constrained field updates to centered feature/coverage
-   interactions. All three frozen objectives completed, but none passed the
-   candidate gate.
-3. v18 kept the CMIF model fixed and replaced continuous target regression
-   with PMOPE, a fixed-margin orthant-violation objective aligned to the
-   zero-level inference rule. Its unique seed-42 bounded-400 run also completed
-   normally and failed the predeclared seven zero-level gates.
-
-The latest formal decision is:
+After the v18 PMOPE negative result, v19 USCOPE and v20 BFA-CMIF completed
+their frozen bounded-400 protocols without earning Formal800. v21 PAET-BFA
+then aligned feature evidence with output phase inside the binary-flip
+antisymmetric field. It passed its unique seed-42 bounded-400 gate and
+subsequently completed a fresh Formal800 run:
 
 ```text
-PMOPE_V18_BOUNDED_400_GATE_FAIL
-  -> freeze the v18 bounded result
-  -> review the structure before proposing another candidate
-  -> do not authorize Formal-800, Full CURE, or cross-backbone work
+seed 42
+800 epochs x 40 steps = 32,000 updates
+PAET structural preservation gate = PASS
 ```
 
-The v18 candidate recovered 15/16 factual misses, with 11/16 passing the strict
-factual gate and 296/335 target pixels below zero. For clean pairs it placed
-123/149 added-target pixels below zero, but no pair achieved exact compact
-support; 47 completion pixels lay outside added targets. Component-null passed
-16/17, while factual-no-miss, identity-null, and diagnostic-null gates passed.
+That structural pass authorized one fixed `D_V` evaluation. The corrected,
+append-only evaluation-v3 run completed without retraining or threshold search:
 
-This is a valid structural negative result, not an execution failure. The run
-used only frozen `D_R`; `D_V` and `D_T` were not read, no threshold search or
-performance evaluation was performed, and automatic retry is forbidden.
-No v19 candidate is currently authorized by the evidence recorded here.
+| metric | Base@A | best Base@B | Base@A + CURE |
+|---|---:|---:|---:|
+| true targets / 170 | 147 | 150 | 151 |
+| recovered fixed misses / 23 | 0 | 3 | 4 |
+| Pd | 0.864706 | 0.882353 | 0.888235 |
+| mIoU | 0.609559 | 0.607629 | 0.612346 |
+| nIoU | 0.565328 | 0.564014 | 0.565424 |
+
+CURE preserved all previously covered targets and remained inside the frozen
+false-alarm budgets. It also improved Pd, mIoU, nIoU, pixel Fa, and
+raw-background Fa relative to Base@B. However, the predeclared gate required
+at least two additional true targets and two additional recovered misses over
+the strongest Base; v21 achieved only `+1 / +1`.
+
+The current formal decision is therefore:
+
+```text
+PAET_BFA_V21_FORMAL_D_V_GATE_FAIL
+  -> preserve the positive but insufficient D_V evidence
+  -> do not tune or retry on D_V
+  -> do not access D_T
+  -> do not authorize Full CURE or cross-backbone evaluation
+```
+
+This is a valid performance-gate failure, not an execution failure and not a
+failure of the overall CURE research direction. The repository now also
+contains the v22 PACRE implementation and its dataset-free/bounded protocol
+machinery, but no v22 result is claimed here until a frozen run produces one.
 
 See
-[the v18 design rationale](CURE_Lite_v17_CMIF正式负结果与v18_PMOPE修改方案.md),
-[the v16 formal result](CURE_Lite_CSLF_v16_PPCE_bounded400正式负结果与下一结构约束.md),
-[the v15B bounded result](CURE_Lite_CSLF_v15B_bounded400正式结果与v16结构模块决定.md),
+[the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md),
+[the v21 bounded result and Formal800 route](CURE_Lite_v21_PAET_BFA_bounded400正式结果与Formal800路线.md),
+[the v20 bounded result](CURE_Lite_v20_BFA_CMIF_bounded400正式结果与下一步结构判断.md),
 and
-[the consolidated result ledger](CURE_Lite_全部结果与当前研究结论.md).
+[the v19 bounded result](CURE_Lite_v19_USCOPE_bounded400正式负结果与v20结构决定.md).
 
 ### Historical node: paired CURE-Lite core
 

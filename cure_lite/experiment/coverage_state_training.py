@@ -10,6 +10,12 @@ from typing import Any, Callable, Mapping
 import torch
 
 from ..cache.schema import stable_fingerprint
+from ..coverage_state_binary_flip_antisymmetric import (
+    CoverageStateBinaryFlipAntisymmetricConfig,
+)
+from ..coverage_state_phase_aligned_evidence_transport import (
+    CoverageStatePhaseAlignedEvidenceTransportConfig,
+)
 from ..coverage_state_device_cache import (
     CoverageStateDeviceCache,
     prepare_coverage_state_device_cache,
@@ -34,6 +40,7 @@ from ..train.coverage_state_fused_step import (
     COVERAGE_STATE_LEGACY_MATCHED_OBJECTIVES,
     COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
     COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES,
+    COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES,
     CoverageStatePairObjective,
     audit_coverage_state_training_state,
     coverage_state_fused_train_step,
@@ -54,6 +61,7 @@ COVERAGE_STATE_REGISTERED_MATCHED_OBJECTIVE_SUITES = (
     COVERAGE_STATE_COMPLETION_ROOTED_MATCHED_OBJECTIVES,
     COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES,
     COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
+    COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES,
 )
 
 _COVERAGE_STATE_LEGACY_GRADIENT_LATENCY = {
@@ -99,7 +107,11 @@ def _validate_coverage_state_gradient_latency(
     latency = dict(first_nonzero)
     if isinstance(
         model.config,
-        CoverageStateCenteredMixedInteractionConfig,
+        (
+            CoverageStateCenteredMixedInteractionConfig,
+            CoverageStateBinaryFlipAntisymmetricConfig,
+            CoverageStatePhaseAlignedEvidenceTransportConfig,
+        ),
     ):
         contract = _COVERAGE_STATE_CMIF_GRADIENT_LATENCY
     else:
@@ -447,7 +459,60 @@ class CoverageStateMatchedTrainingResult:
             value.value
             for value in COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES
         )
-        if is_pmope_single_candidate:
+        is_uscope_single_candidate = objective_suite == tuple(
+            value.value
+            for value in COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES
+        )
+        is_bfa_model = all(
+            isinstance(
+                model.config,
+                CoverageStateBinaryFlipAntisymmetricConfig,
+            )
+            for _, model in self.models
+        )
+        is_paet_bfa_model = all(
+            isinstance(
+                model.config,
+                CoverageStatePhaseAlignedEvidenceTransportConfig,
+            )
+            for _, model in self.models
+        )
+        if is_pmope_single_candidate and is_paet_bfa_model:
+            fairness: dict[str, object] = {
+                "candidate_model": "PAET-BFA",
+                "single_candidate_only": True,
+                "same_initial_state": True,
+                "same_schedule": True,
+                "same_endpoints": True,
+                "same_model": True,
+                "same_optimizer": True,
+                "same_device_cache": True,
+                "same_compute_budget": True,
+                "same_natural_branches": True,
+                "historical_controls_retrained": False,
+                "historical_v20_objective_reused": True,
+                "allowed_difference_from_sealed_v20": (
+                    "predeclared_field_equation_only"
+                ),
+            }
+        elif is_pmope_single_candidate and is_bfa_model:
+            fairness: dict[str, object] = {
+                "single_candidate_only": True,
+                "same_initial_state": True,
+                "same_schedule": True,
+                "same_endpoints": True,
+                "same_model": True,
+                "same_optimizer": True,
+                "same_device_cache": True,
+                "same_compute_budget": True,
+                "same_natural_branches": True,
+                "historical_controls_retrained": False,
+                "historical_v18_objective_reused": True,
+                "allowed_difference_from_sealed_v18": (
+                    "predeclared_field_equation_only"
+                ),
+            }
+        elif is_pmope_single_candidate:
             fairness: dict[str, object] = {
                 "single_candidate_only": True,
                 "same_initial_state": True,
@@ -460,6 +525,22 @@ class CoverageStateMatchedTrainingResult:
                 "same_natural_branches": True,
                 "historical_controls_retrained": False,
                 "allowed_difference_from_sealed_v17": (
+                    "predeclared_pair_objective_only"
+                ),
+            }
+        elif is_uscope_single_candidate:
+            fairness = {
+                "single_candidate_only": True,
+                "same_initial_state": True,
+                "same_schedule": True,
+                "same_endpoints": True,
+                "same_model": True,
+                "same_optimizer": True,
+                "same_device_cache": True,
+                "same_compute_budget": True,
+                "same_natural_branches": True,
+                "historical_controls_retrained": False,
+                "allowed_difference_from_sealed_v18": (
                     "predeclared_pair_objective_only"
                 ),
             }
@@ -501,6 +582,8 @@ class CoverageStateMatchedTrainingResult:
                 (
                     CoverageStatePhasePreservingConfig,
                     CoverageStateCenteredMixedInteractionConfig,
+                    CoverageStateBinaryFlipAntisymmetricConfig,
+                    CoverageStatePhaseAlignedEvidenceTransportConfig,
                 ),
             )
             for _, model in self.models
@@ -1187,6 +1270,108 @@ def train_matched_coverage_state_cmif_pmope_objectives(
     )
 
 
+def train_matched_coverage_state_bfa_pmope_objectives(
+    model_config: CoverageStateBinaryFlipAntisymmetricConfig,
+    cache: CoverageStateScalarCache,
+    schedule: CoverageStateTrainingSchedule,
+    *,
+    config: CoverageStateMatchedTrainingConfig,
+    device: torch.device | str,
+    authorization: object | None = None,
+    epoch_callback: (
+        Callable[[str, Mapping[str, object]], None] | None
+    ) = None,
+) -> CoverageStateMatchedTrainingResult:
+    """Train the fixed PMOPE objective with the v20 BFA-CMIF field."""
+
+    if not isinstance(
+        model_config,
+        CoverageStateBinaryFlipAntisymmetricConfig,
+    ):
+        raise TypeError(
+            "model_config must be "
+            "CoverageStateBinaryFlipAntisymmetricConfig"
+        )
+    return _train_matched_coverage_state_objective_suite(
+        model_config,
+        cache,
+        schedule,
+        config=config,
+        device=device,
+        objectives=COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
+        authorization=authorization,
+        epoch_callback=epoch_callback,
+    )
+
+
+def train_matched_coverage_state_paet_bfa_pmope_objectives(
+    model_config: CoverageStatePhaseAlignedEvidenceTransportConfig,
+    cache: CoverageStateScalarCache,
+    schedule: CoverageStateTrainingSchedule,
+    *,
+    config: CoverageStateMatchedTrainingConfig,
+    device: torch.device | str,
+    authorization: object | None = None,
+    epoch_callback: (
+        Callable[[str, Mapping[str, object]], None] | None
+    ) = None,
+) -> CoverageStateMatchedTrainingResult:
+    """Train PMOPE with the single PAET-BFA completion-field candidate."""
+
+    if not isinstance(
+        model_config,
+        CoverageStatePhaseAlignedEvidenceTransportConfig,
+    ):
+        raise TypeError(
+            "model_config must be "
+            "CoverageStatePhaseAlignedEvidenceTransportConfig"
+        )
+    return _train_matched_coverage_state_objective_suite(
+        model_config,
+        cache,
+        schedule,
+        config=config,
+        device=device,
+        objectives=COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES,
+        authorization=authorization,
+        epoch_callback=epoch_callback,
+    )
+
+
+def train_matched_coverage_state_cmif_uscope_objectives(
+    model_config: CoverageStateCenteredMixedInteractionConfig,
+    cache: CoverageStateScalarCache,
+    schedule: CoverageStateTrainingSchedule,
+    *,
+    config: CoverageStateMatchedTrainingConfig,
+    device: torch.device | str,
+    authorization: object | None = None,
+    epoch_callback: (
+        Callable[[str, Mapping[str, object]], None] | None
+    ) = None,
+) -> CoverageStateMatchedTrainingResult:
+    """Train only the fixed USCOPE candidate with the CMIF architecture."""
+
+    if not isinstance(
+        model_config,
+        CoverageStateCenteredMixedInteractionConfig,
+    ):
+        raise TypeError(
+            "model_config must be "
+            "CoverageStateCenteredMixedInteractionConfig"
+        )
+    return _train_matched_coverage_state_objective_suite(
+        model_config,
+        cache,
+        schedule,
+        config=config,
+        device=device,
+        objectives=COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES,
+        authorization=authorization,
+        epoch_callback=epoch_callback,
+    )
+
+
 __all__ = [
     "COVERAGE_STATE_TRAINING_RESULT_SCHEMA",
     "COVERAGE_STATE_MATCHED_RESULT_SCHEMA",
@@ -1194,6 +1379,7 @@ __all__ = [
     "COVERAGE_STATE_FORMAL_SCOPE",
     "COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_REGISTERED_MATCHED_OBJECTIVE_SUITES",
+    "COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES",
     "CoverageStateMatchedTrainingConfig",
     "CoverageStateMatchedTrainingResult",
     "CoverageStateRunAuthorization",
@@ -1201,10 +1387,13 @@ __all__ = [
     "coverage_state_model_fingerprint",
     "coverage_state_model_contract_payload",
     "coverage_state_optimizer_config_fingerprint",
+    "train_matched_coverage_state_bfa_pmope_objectives",
+    "train_matched_coverage_state_paet_bfa_pmope_objectives",
     "train_matched_coverage_state_objectives",
     "train_matched_coverage_state_completion_rooted_objectives",
     "train_matched_coverage_state_cmif_pmope_objectives",
     "train_matched_coverage_state_cmif_support_oriented_objectives",
+    "train_matched_coverage_state_cmif_uscope_objectives",
     (
         "train_matched_coverage_state_"
         "phase_preserving_support_oriented_objectives"

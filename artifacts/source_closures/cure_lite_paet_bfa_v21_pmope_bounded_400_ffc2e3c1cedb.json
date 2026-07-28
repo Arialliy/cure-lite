@@ -1,0 +1,23 @@
+{
+  "archive_bytes": 1576960,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_paet_bfa_v21_pmope_bounded_400_ffc2e3c1cedb.tar",
+  "archive_sha256": "2acbf01c363467c2b7a94c0ee3ec1123c0a1dc3e380a7c8cc19b04ec6edb8776",
+  "bounded_result_receipt_sha256": "2bf9a425714d8a544f94dcf80fae70ddded8469f139e6fa9c54959456ea9168e",
+  "bounded_result_fingerprint": "3b918ec82399ebf4235e2e5732ebd1613c996acb447c7c5ca0cad3a528a49aa6",
+  "complete_file_sha256": "8636e66096799be3766e13d7b135495127d4eeeb07c40daa4ae6a53b544eedb3",
+  "complete_fingerprint": "ffc2e3c1cedb63931657f98323f16eee09d34735664da53b52ff40343b5290ef",
+  "config_receipt_sha256": "291db054ac938772e21a1189174958f2e78b2221bb0ff00e4ea1ff852aab2837",
+  "decision_receipt_sha256": "c25921fde7979b5161a7905c20f7553212bfc318f3302a1c43918beb5aca2c94",
+  "dr_gate_evidence_fingerprint": "156292da062f7dc45829dcbcf358cfe196a2d6e605c0d8628a02f07f574caeeb",
+  "dr_gate_receipt_sha256": "bb0f4d05a4546fa77e42b3f5826c6ab8baffd8f1afe1e3fc0352bd9bebff2520",
+  "implementation_fingerprint": "bde5581b9dfe2d9159831a1bdef2a050a531a3461e4792168720694b6d432f94",
+  "post_training_certificate_receipt_sha256": "8cfa8378e0ca7a328d9bd1bc5b37176b4c23455964e7a74326654c4a1a133545",
+  "resource_measurement_receipt_sha256": "0c87aaf980198d9cdfaf4db82618af8389e6bae249ad05ccf8bc4cb984f72ebf",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_pmope_bounded_400_r1",
+  "schema_version": "cure-lite-paet-bfa-v21-source-closure-v1",
+  "source_file_count": 44,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "terminal_decision": "PAET_BFA_V21_BOUNDED_400_GATE_PASS",
+  "training_receipt_sha256": "eae9c17f2487901e32f0d89f28f7a7f5f30a93bcc23d62eecad4d611bbe6ae87",
+  "zero_level_receipt_sha256": "4b517abf12bde6329d7795984f2b91846c6cc6aaefaee884da607e191f5f0b53"
+}

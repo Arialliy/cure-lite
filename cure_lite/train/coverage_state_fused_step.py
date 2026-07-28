@@ -17,6 +17,10 @@ from ..coverage_state_batches import (
 from ..coverage_state_level_set import (
     CURELiteCoverageStateLevelSet,
 )
+from ..coverage_state_supremal_projection import (
+    CSLF_USCOPE_POLICY,
+    coverage_state_uscope_pair_loss_from_targets,
+)
 from ..coverage_state_sobolev import (
     CSLF_COMPLETION_ROOTED_RESPONSE_POLICY,
     CSLF_PMOPE_POLICY,
@@ -40,6 +44,7 @@ class CoverageStatePairObjective(str, Enum):
         "support_oriented_response_joint"
     )
     PMOPE_JOINT = "pmope_joint"
+    USCOPE_JOINT = "uscope_joint"
     IDENTITY_JOINT = "identity_joint"
     SEPARABLE_ENDPOINT = "separable_endpoint"
 
@@ -61,6 +66,9 @@ COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES = (
 )
 COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES = (
     CoverageStatePairObjective.PMOPE_JOINT,
+)
+COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES = (
+    CoverageStatePairObjective.USCOPE_JOINT,
 )
 
 
@@ -95,6 +103,8 @@ def coverage_state_pair_objective_policy(
         return CSLF_SUPPORT_ORIENTED_RESPONSE_POLICY
     if objective is CoverageStatePairObjective.PMOPE_JOINT:
         return CSLF_PMOPE_POLICY
+    if objective is CoverageStatePairObjective.USCOPE_JOINT:
+        return CSLF_USCOPE_POLICY
     return objective.value
 
 
@@ -260,6 +270,14 @@ def _pair_loss(
             config=config,
             validate=False,
         ).loss
+    if objective is CoverageStatePairObjective.USCOPE_JOINT:
+        return coverage_state_uscope_pair_loss_from_targets(
+            field_plus,
+            field_minus,
+            batch.pairs.joint_targets,
+            config=config,
+            validate=False,
+        ).loss
     if objective is CoverageStatePairObjective.IDENTITY_JOINT:
         return coverage_state_identity_joint_loss_from_targets(
             field_plus,
@@ -296,8 +314,8 @@ def coverage_state_fused_train_step(
     """Run the fixed three branches through CSLF once and make one update.
 
     Branches are averaged internally and then combined as
-    ``miss + no_miss + pair``.  The three matched objectives differ only in
-    the pair criterion; model input, endpoint order, forward count, and
+    ``miss + no_miss + pair``.  Registered matched objectives differ only
+    in the pair criterion; model input, endpoint order, forward count, and
     optimizer update are identical.
     """
 
@@ -482,6 +500,7 @@ __all__ = [
     "COVERAGE_STATE_LEGACY_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_PMOPE_MATCHED_OBJECTIVES",
     "COVERAGE_STATE_SUPPORT_ORIENTED_MATCHED_OBJECTIVES",
+    "COVERAGE_STATE_USCOPE_MATCHED_OBJECTIVES",
     "CoverageStatePairObjective",
     "audit_coverage_state_training_state",
     "coverage_state_pair_objective_policy",

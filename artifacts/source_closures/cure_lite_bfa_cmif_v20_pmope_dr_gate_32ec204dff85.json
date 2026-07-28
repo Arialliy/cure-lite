@@ -1,0 +1,17 @@
+{
+  "archive_bytes": 1556480,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_bfa_cmif_v20_pmope_dr_gate_32ec204dff85.tar",
+  "archive_sha256": "2d93ca3db835d993ae7007697c144bbab0b5cfe841eab9ef3c524aff4a1d7963",
+  "complete_file_sha256": "535173b02bf527944d1ee5c17131076ec8b599ba4a3ac25983a2d889f856ea89",
+  "complete_fingerprint": "32ec204dff8563aa7aa301e773d0110da72534f7e8492a5a94f9254a7942297c",
+  "config_receipt_sha256": "b0484b6f235a3f49b458634f6a9f285f47189b40ec560981700164122abe2b46",
+  "decision_receipt_sha256": "507348c710c5fa8cbee42bc89aec337c4da20bad3c2d843f3b8f8e36b5fd8606",
+  "dr_gate_evidence_fingerprint": "271657974e05a0a6889d75a2eb268e1e3f4d3ac32976edff967da06850ce2335",
+  "dr_gate_receipt_sha256": "ee094a328d6994036f2d7fa960322af8b425c76c17d4f617cc2c5cc288e8f4aa",
+  "implementation_fingerprint": "2be3fe96c4e163ed081f701d516526488454c5a9a4a80107f56c02da348930f9",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_bfa_cmif_v20_pmope_bounded_400_r1",
+  "schema_version": "cure-lite-bfa-cmif-v20-source-closure-v1",
+  "source_file_count": 44,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "terminal_decision": "BFA_CMIF_V20_DR_GATE_FAIL"
+}

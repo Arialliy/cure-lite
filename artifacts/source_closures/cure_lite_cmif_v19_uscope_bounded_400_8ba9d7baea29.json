@@ -1,0 +1,18 @@
+{
+  "archive_bytes": 1464320,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_cmif_v19_uscope_bounded_400_8ba9d7baea29.tar",
+  "archive_sha256": "480a80455f19cba4bb6aa1ed0e61a84d0c91ccd968cb9fedde077075172d65d3",
+  "bounded_result_receipt_sha256": "d605f9d03ce47002c35c926f1a54b11305bd847aa4fba3eb1ea6c88f0d9a9ff7",
+  "complete_file_sha256": "5abb8ac39614210cef51a6ee0823339a6540bcaefbadc6b5cf7a8e9d4fd1024f",
+  "complete_fingerprint": "8ba9d7baea2980d4e24fc66d810d25b7208e518112332dc7f91e231b6ecd7130",
+  "config_receipt_sha256": "d851b3d1c03de5c4fa80139824878aca0492c2f4f30cf376db430e16e86dded5",
+  "decision_receipt_sha256": "fe475dc495b7fa9f1763c37cff721cd02d1ed3fa66061dff2247bf5edc9e8e93",
+  "implementation_fingerprint": "8ddfc2af79a33c83e479277937efa8dee7f4116242bbcddd4501443cb0a27fe9",
+  "post_training_certificate_receipt_sha256": "c0577a7531e4dbc54279daa65b5e1f4375fb72b29a9dc0a163d598275d87a3ec",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_cmif_v19_uscope_bounded_400_r1",
+  "schema_version": "cure-lite-cmif-source-closure-v1",
+  "source_file_count": 44,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "training_receipt_sha256": "3fa1f6d70fce770f5f853d6d26d00d6e178a3e9c8a6e300f184cb99f8d94ef79",
+  "zero_level_receipt_sha256": "e975a9b9d36ac3b2b1daafb8f857d079adfbf11e2edcc088f376629510a69378"
+}

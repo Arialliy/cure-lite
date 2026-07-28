@@ -1,0 +1,20 @@
+{
+  "archive_bytes": 1566720,
+  "archive_repo_path": "artifacts/source_closures/cure_lite_bfa_cmif_v20_pmope_bounded_400_8908a8c18969.tar",
+  "archive_sha256": "f4e004a5cb2f74036008e4ea0567b6cdf9132104f5c14669b086c155ac6f35b5",
+  "bounded_result_receipt_sha256": "1cb07c53fdb0ca671eaa25e34f8ed90de0f6cc5050da450bfb2e742b085c7a5e",
+  "complete_file_sha256": "a1307929615ef877726387df024c90de33b54924ea2c22de2c7f7f5a51e7f334",
+  "complete_fingerprint": "8908a8c1896951e46fd737aa6f7fef2c9935e6524632b3576b8069faa026e2eb",
+  "config_receipt_sha256": "efb987ddcb41033d1978cd40893cf96e0220b091296de4a237eb9106dafa1683",
+  "decision_receipt_sha256": "fe6c84c3ddb1340e65bcb1eb8ac9a4a90a56236e75ff971c020131af5bbdd4e5",
+  "dr_gate_evidence_fingerprint": "fed3667f08dab8ae678abd194877fbdb60237121c2dc84c51e879db92ecac623",
+  "implementation_fingerprint": "aa8bf8b55f93c6ca76516be96d9dfcd230f352e0592c0a58c174478be6382652",
+  "post_training_certificate_receipt_sha256": "24deeb1fcfd16bc91d66f250c52c77b927294130f274aff870b72542f8cfdda4",
+  "run_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_bfa_cmif_v20_pmope_bounded_400_r2",
+  "schema_version": "cure-lite-bfa-cmif-v20-source-closure-v1",
+  "source_file_count": 44,
+  "source_manifest": "receipts/config.json:implementation.files",
+  "terminal_decision": "BFA_CMIF_V20_BOUNDED_400_GATE_FAIL",
+  "training_receipt_sha256": "45addc01f258f496284100b4c8844b27083decd27846f11560a222a62e06c8f7",
+  "zero_level_receipt_sha256": "fe9820d72fc796aa0e70045c48d3b40eb05e0aba2bb5a3447bff3830e9cfadc4"
+}

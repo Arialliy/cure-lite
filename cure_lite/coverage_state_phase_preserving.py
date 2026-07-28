@@ -285,11 +285,26 @@ def build_coverage_state_level_set(
 ) -> CURELiteCoverageStateLevelSet:
     """Build the exact model family named by one structural config."""
 
+    from .coverage_state_phase_aligned_evidence_transport import (
+        CURELitePhaseAlignedEvidenceTransportLevelSet,
+        CoverageStatePhaseAlignedEvidenceTransportConfig,
+    )
+    from .coverage_state_binary_flip_antisymmetric import (
+        CURELiteBinaryFlipAntisymmetricLevelSet,
+        CoverageStateBinaryFlipAntisymmetricConfig,
+    )
     from .coverage_state_centered_mixed_interaction import (
         CURELiteCenteredMixedInteractionLevelSet,
         CoverageStateCenteredMixedInteractionConfig,
     )
 
+    if isinstance(
+        config,
+        CoverageStatePhaseAlignedEvidenceTransportConfig,
+    ):
+        return CURELitePhaseAlignedEvidenceTransportLevelSet(config)
+    if isinstance(config, CoverageStateBinaryFlipAntisymmetricConfig):
+        return CURELiteBinaryFlipAntisymmetricLevelSet(config)
     if isinstance(config, CoverageStateCenteredMixedInteractionConfig):
         return CURELiteCenteredMixedInteractionLevelSet(config)
     if isinstance(config, CoverageStatePhasePreservingConfig):

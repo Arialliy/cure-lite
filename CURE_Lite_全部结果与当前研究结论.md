@@ -1,23 +1,211 @@
 # CURE-Lite 全部结果与当前研究结论
 
-> 更新日期：2026-07-27
+> 更新日期：2026-07-28
 > 仓库：`/home/md0/ly/cure_lite`
-> 当前源码基线：`538660aa7e200bd7acad8964af25121ea56142cf`；NLCC-v12 runner/evidence r2 与正式结果位于当前工作树
-> 最新软件验证收据：PFCR 归因、真实 pipeline、artifact、decoder 与 training
-> 联合回归 `40 passed`。更早阶段的软件收据保留在历史章节中。
-> 最新结果范围：PFCR-v2 + bounded evidence-v3 已完成真实 \(D_R\) 的
-> seed 42/43 Formal-800、一次冻结的正式 \(D_V\) 揭示，以及严格
-> \(D_R\)-only 失败归因。
-> 两个 seed 均通过 Base 保留与误报预算，但均未超过最强固定比较器，正式状态为
-> `PFCR_D_V_GATE_FAIL`。\(D_T\) 未读取；Full CURE、三数据集和其他 detector
+> 当前权威源码边界：PAET-BFA v21 Formal800 原训练 closure（223 files）、
+> append-only evaluation closure v2（7 files）与 evaluation closure v3
+> （8 files）。
+> 最新软件验证：v2/v3/原始固定评估相关 32 passed；三层 closure、schema
+> 勘误、失败证据、Formal800 的 14 个产物与模型权重均已重新严格核验。
+> 更早阶段的软件收据保留在历史章节中。
+> 最新结果范围：PAET-BFA v21 已完成 seed 42、800 epochs、32,000 updates
+> 的 Formal800 并通过冻结结构门禁；修复唯一对象访问错误后的独立
+> evaluation-v3 r2 已在 GPU0 完整执行固定 \(D_V\)。
+> v21 相对 Base@B 的 Pd、mIoU、nIoU、pixel Fa 和 raw-background Fa 均更好，
+> 但真目标与固定漏检找回都只多 1 个，未达到预声明的至少 \(+2\) 门槛。
+> 因此 \(D_V\) gate 为 FAIL，\(D_T\)、Full CURE、三数据集和其他 detector
 > 均未获授权。
 
-> **2026-07-27 PFCR 正式 \(D_V\) 状态（优先于下方全部历史阶段）：**
+> **2026-07-27 PFCR 正式 \(D_V\) 历史状态：**
 > seed 42 为 151/170、找回 4/23，相对最强比较器为 \(-3/-3\)；seed 43
 > 为 150/170、找回 3/23，相对最强比较器为 \(-2/-2\)。两个 seed 的
 > retention 均为 1，三项误报约束均通过，选择阈值均为 0.08。完整训练、评估、
 > 指纹与判定见
 > [CURE-Lite PFCR 真实训练正式结果](CURE_Lite_PFCR_真实训练正式结果.md)。
+
+## 最新状态：v21 PAET-BFA 完成固定 \(D_V\)，获得正向信号但未通过晋级门禁
+
+该状态优先于本文下方所有历史阶段。
+
+### 固定 \(D_V\) evaluation-v3 r2
+
+新的 r2 使用全新 run ID 与输出路径，没有恢复、复用、删除或覆盖失败的 r1。
+唯一计算逻辑修复为：
+
+```text
+sources.artifact.model
+-> sources.attempt.artifact.model
+```
+
+逆向替换后的函数源码逐字节等价且 AST 等价；模型、权重、数据、预处理、
+Base@B 网格、PAET 解码、阈值、指标和门禁均未改变。r2 于
+`2026-07-28T05:13:59.549160Z` 在 GPU0 启动，于
+`2026-07-28T05:18:58.512437Z` 完整结束，返回码为 0，未触发温控暂停。
+
+| 指标 | Base@A（0.72） | Base@B（\(D_V\) 51 点选择，0.14） | Base@A+CURE |
+| --- | ---: | ---: | ---: |
+| 真目标数 / 170 | 147 | 150 | 151 |
+| Pd | 0.8647058824 | 0.8823529412 | 0.8882352941 |
+| 找回固定漏检 / 23 | 0 | 3 | 4 |
+| mIoU | 0.6095592800 | 0.6076294278 | 0.6123456790 |
+| nIoU | 0.5653280527 | 0.5640138505 | 0.5654243090 |
+| retention | 1.0 | 1.0 | 1.0 |
+| FP components / MP | 3.0517578125 | 3.4332275391 | 3.5603841146 |
+| pixel Fa | 0.0000211080 | 0.0000242869 | 0.0000226339 |
+| raw-background Fa | 0.0000717163 | 0.0000820160 | 0.0000740051 |
+| budget violation | false | false | false |
+
+CURE 相对 Base@A 找回 4 个目标，Pd 提升 2.35294 个百分点；相对更强的
+Base@B 仍多检出 1 个目标，Pd 提升 0.588235 个百分点，同时 mIoU、nIoU、
+pixel Fa 与 raw-background Fa 均更好。120 张图像上共产生 38 个 completion
+pixels，所有原覆盖目标均保留。
+
+正式 gate 只失败于同一个目标计数缺口的两种记录：
+
+```text
+true-target margin over best Base = +1，要求 >= +2
+recovered-miss margin over best Base = +1，要求 >= +2
+```
+
+retention、mIoU、nIoU、三项 Fa/budget 与 `D_T_not_accessed` 全部通过。
+因此正式决定是：
+
+```text
+status             = PAET_BFA_V21_FORMAL_D_V_GATE_FAIL
+gate_passed        = false
+authorizes_D_T     = false
+next_action        = STOP_AND_PRESERVE_D_V_EVIDENCE
+```
+
+这是“v21 有真实正向性能信号但增益不足”的完整结果，不是运行失败，也不能
+解释为 CURE 总方向失败。当前不得在 \(D_V\) 上调阈值或重复尝试；下一版必须
+回到 \(D_R\) 和模型结构，提升跨样本补全覆盖。
+
+权威产物：
+
+- [D_V decision](runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_formal_d_v_seed42_r2/decision.json)
+- [D_V receipt](runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_formal_d_v_seed42_r2/receipt.json)
+- [D_V COMPLETE](runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_formal_d_v_seed42_r2/COMPLETE.json)
+- [evaluation-v3 external binding](runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_formal_d_v_seed42_r2.evaluation_v3_evidence_binding.json)
+- COMPLETE SHA256：
+  `46910e9e8c100ad74a4a8c079641141860779a8d4f3d02e53f14a472a36ff99b`
+- decision SHA256：
+  `21837b18d83d74e9fb0223aba114ae92c91528c62dd7ea929f03810b985da26d`
+- receipt SHA256：
+  `c6f0b2a0832d856dce509aaab54147098001cb405ee390d6e1ace09eb9c5b89f`
+- external binding SHA256：
+  `10e0cddc45484f842b2ef583af3634cdd22abb0e2d653a1fafc56a58578c2204`
+- evaluation-v3 source closure：8 files；
+  manifest `34ca59e3c0bf577c8b59d7b34e807dac41545a511d21a6d059fe049902cf2525`；
+  archive `882414097473f711b14b5c0265ede2fad0ff8198cdb334c12d91f9774069ea31`
+
+### Formal800
+
+| 项目 | 正式结果 |
+| --- | --- |
+| 模型 | CURE-Lite v21 PAET-BFA，通用输入 \((F_b,O)\)，单一 completion field |
+| 参数量 | 64,064 |
+| 训练 | seed 42，800 epochs × 40 steps = 32,000 updates |
+| 训练完整性 | 单次从头训练；无 resume/retry；800 行 epoch ledger；无 OOM |
+| 训练时间 | 3519.999 秒（58.667 分钟） |
+| 峰值显存 | allocated 2.717 GiB；reserved 2.838 GiB |
+| loss | epoch 0 为 1.097301；epoch 799 为 0.089715；最低 0.076920（epoch 771） |
+| PAET 结构保持门禁 | PASS |
+| 通用逐对人口门禁 | FAIL：`clean_compact_support`、`clean_positive` |
+| 性能评估 | 未在 Formal800 中执行 |
+
+结构保持门禁的关键观测为：factual miss 16/16、factual strict 16/16、
+factual target-negative 335/335、factual no-miss 16/16、component-null
+16/16、diagnostic-null 1/1、identity-null 16/16、invalid completion 0。
+因此 Formal800 的正式决定为
+`PAET_BFA_V21_FORMAL800_STRUCTURAL_PASS_AUTHORIZE_D_V`。这只证明冻结的
+PAET 结构行为在完整训练后仍成立，不等价于 Pd、IoU、nIoU 或 Fa 性能成功。
+
+Formal800 完整封存：
+
+- COMPLETE fingerprint：
+  `116fbe67c5f9ec74cc2317ee9dc283845b4da9f5699cd07537b72917338bb74c`
+- model weights SHA256：
+  `7c44d23ceba88c8e8deaf7fd929cf2465e65371ebf08e9cbea17ba41626cf74f`
+- 原训练源码 closure：223 files；
+  manifest `1afb838456525f136cfe73a5b52debdd93dc939ed421c743530da69621f190f5`；
+  archive `6b82972662bae12fb4d6892a92e7a6417fc96d94cdad6363ad92514c16f72218`
+
+### 训练后 schema 勘误
+
+原 Formal800 producer 在 `attempt.json` 与 `STARTED.json` 中写入带
+`pmope` 的 schema，而冻结 consumer 的两个常量遗漏了该段。除这两个名称外，
+严格加载器的全部字段、receipt、哈希、800 行账本、14 个科学文件与结构重放
+均通过。训练产物和原 closure 未修改；新增的 append-only 勘误只允许这两个
+精确名称在内存中映射，并在调用结束后恢复原常量。
+
+- [schema erratum](protocols/IRSTD-1K/paet_bfa_v21_formal800_schema_name_erratum_v2.json)
+- erratum fingerprint：
+  `ceeeedf381d0ddaa4d85f85cebe0fee82d713c03d51ca9ad562f255073306916`
+- 独立 evaluation closure v2：7 files；
+  manifest `b1195acc8b6fcf69b95684c69507c2d9bddc551ca4532052cd360919f4821329`；
+  archive `b6fd310027b4229bb76c5a1b45f2a1cc4d703dd365bf481a7405328675e7db23`
+- 相关回归：29 passed
+
+### 历史固定 \(D_V\) r1 失败尝试
+
+唯一一次固定 \(D_V\) 于
+`2026-07-28T04:27:36.991346Z` 启动，并于
+`2026-07-28T04:27:53.699624Z` 以返回码 1 终止。错误位于
+`coverage_state_paet_formal_evaluation.py:944`：
+
+```text
+model = sources.artifact.model
+AttributeError:
+'_PAETFormalArtifactBindingSeal' object has no attribute 'artifact'
+```
+
+`_sealed_inputs()` 返回的 seal 保存的是 `sources.attempt`，不是
+`sources.artifact`。这是评估连接代码错误，不是模型或性能门禁失败。
+
+精确执行边界：
+
+| 状态 | 结果 |
+| --- | --- |
+| \(D_V\) manifest/cache/image/GT | 已加载并核验，共 120 rows |
+| Formal model | 仅在失败进程内移动到 GPU0 |
+| artifact binding | 已构造 |
+| PAET forward | 0 |
+| completion / final prediction | 未生成 |
+| Base@B 选择 | 未执行 |
+| Pd / IoU / nIoU / Fa | 未计算 |
+| \(D_V\) decision | 未生成 |
+| \(D_T\) | 未访问 |
+| 模型训练、反传、优化器或权重更新 | 均未发生 |
+| 正式 \(D_V\) 输出 | 不存在 |
+| staging | 原样保留且不可复用 |
+
+失败证据见
+[evaluation_v2_failure.json](runs/irstd1k_stage_a_seed42/cure_lite_paet_bfa_v21_formal_d_v_seed42_r1.evaluation_v2_failure.json)：
+
+- file SHA256：
+  `44248fcfe7f5ccbf6f8eebecdcc69bd90c257f066723f571ab16150624397407`
+- failure fingerprint：
+  `dd0b3f77d9cd36dc484e2c4582914cc65f5221fa02ae6276c80578ff396d1c1f`
+
+该历史尝试当时的执行边界为：
+
+```text
+Formal800 structural gate = PASS
+D_V accessed              = true
+PAET forward on D_V       = 0
+D_V performance gate      = NOT_EVALUATED
+CURE-Lite performance     = NOT_ESTABLISHED
+method failure            = NOT_ESTABLISHED
+D_T                       = NOT_AUTHORIZED
+Full CURE                 = NOT_AUTHORIZED
+cross-backbone            = NOT_AUTHORIZED
+same-run resume/retry     = FORBIDDEN
+```
+
+该 r1 证据已冻结并由 evaluation-v3 绑定；其后续 r2 是独立的新运行身份，
+不是对 r1 的恢复或覆盖。本文顶部 r2 结果取代 r1 的
+`D_V performance gate = NOT_EVALUATED`，但不改变 r1 自身的历史状态。
 
 ## 最新追加：PFCR Formal-800、正式 \(D_V\) 揭示与 \(D_R\) 归因
 
@@ -66,7 +254,7 @@
 
 > **2026-07-27 历史补充：** 本文主体保留历史阶段完整记录；NLCC-v12 的
 > dataset-free Development 已完整执行并正式 FAIL。该结论只覆盖更早的
-> CCFR-v11 阶段，当前最新结论仍以本文顶部 PFCR 正式 \(D_V\) 揭示为准。完整明细见
+> CCFR-v11 阶段，当前最新结论以本文顶部 PAET-BFA v21 状态为准。完整明细见
 > [CURE-Lite NLCC-v12 Development 正式负结果](CURE_Lite_NLCC_v12_Development正式负结果.md)。
 
 ## 历史追加：NLCC-v12 dataset-free Development

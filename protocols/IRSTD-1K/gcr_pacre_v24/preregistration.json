@@ -1,0 +1,273 @@
+{
+  "schema_version": "cure-lite-v24-gcr-pacre-evidence-preregistration-v1",
+  "protocol_id": "irstd1k-gcr-pacre-v24-evidence-v1",
+  "status": "FROZEN_DESIGN_EXECUTION_NOT_AUTHORIZED",
+  "candidate": "GCR-PACRE-v24",
+  "control": "PACRE-VC-v23-separately-trained",
+  "data_policy": {
+    "D_R": "protocol_stages_only_after_stage_specific_authorization",
+    "D_V_payload_access_authorized": false,
+    "D_V_attempt_limit_after_all_prerequisites": 1,
+    "D_V_role": "adaptive_development_evidence",
+    "D_T_payload_access_authorized": false,
+    "D_T_role": "future_one_shot_confirmation_only",
+    "forbidden_before_authorization": [
+      "image",
+      "mask",
+      "feature_tensor",
+      "probability_tensor",
+      "state_cache_tensor",
+      "derived_prediction"
+    ]
+  },
+  "frozen_D_R_sources": {
+    "manifest": {
+      "repo_path": "protocols/IRSTD-1K/stage_a_seed42/manifest.json",
+      "file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02"
+    },
+    "state_index": {
+      "repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3/d_r/state_cache/index.json",
+      "file_sha256": "075fc1ad217f365df85b1d29568ad215f06ce6e0b691ef78a5dd85f0affe6298"
+    },
+    "root_source_policy": {
+      "algorithm": "transitive_connected_components_over_same-field_grouping_keys_v1",
+      "grouping_fields": [
+        "group_id",
+        "scene_id",
+        "sequence_id",
+        "crop_source_id",
+        "near_duplicate_group"
+      ],
+      "all_derived_records_must_carry_root_source_id": true,
+      "multiple_roots_per_derived_record": "fail_closed",
+      "missing_root": "fail_closed",
+      "cross_fold_parent_edge": "fail_closed"
+    }
+  },
+  "OOF4": {
+    "fold_count": 4,
+    "seed": 42,
+    "namespace": "cure-lite-v24-gcr-pacre-root-oof4-v1",
+    "assignment": "sha256_ranked_root_source_round_robin_no_python_hash_v1",
+    "balance_contract": "root_counts_differ_by_at_most_one",
+    "training_budget_per_trainable_arm_per_fold": {
+      "epochs": 10,
+      "steps_per_epoch": 40,
+      "updates": 400,
+      "training_invocations": 1,
+      "from_scratch": true,
+      "resume_allowed": false,
+      "automatic_retry_allowed": false,
+      "checkpoint_policy": "final_only"
+    },
+    "arms": [
+      "BaseA",
+      "BaseB_train_fold_selected",
+      "PACRE_VC_v23_control",
+      "GCR_PACRE_v24",
+      "GCR_PACRE_v24_forced_G1"
+    ],
+    "BaseA": {
+      "threshold": 0.72,
+      "trained": false
+    },
+    "BaseB_train_fold_selected": {
+      "threshold_grid_source_repo_path": "protocols/IRSTD-1K/stage_a_seed42_fx_v3/stage_a_config.json",
+      "threshold_grid_source_file_sha256": "6eecdc10f87a043cafb945db40d0b767b5f0a2ccb64963c1043160f165ce9d6c",
+      "threshold_grid": "0.00_to_1.00_inclusive_step_0.02",
+      "selection_population": "train_roots_only",
+      "holdout_label_in_selection": false,
+      "D_V_threshold_0_14_reuse_forbidden": true,
+      "selection_key": [
+        "maximize_pd",
+        "maximize_retention",
+        "minimize_pixel_fa",
+        "minimize_raw_background_fa",
+        "minimize_fp_components_per_mp",
+        "maximize_threshold"
+      ]
+    },
+    "cache_isolation": {
+      "train_root_allowlist_exact": true,
+      "holdout_opened_only_after_training_terminal_sealed": true,
+      "separate_candidate_control_and_base_eval_storage": true,
+      "symlink_hardlink_reflink_shared_tensor_mmap_process_cache_forbidden": true,
+      "required_storage_identity": [
+        "realpath",
+        "device",
+        "inode",
+        "file_sha256",
+        "root_source_ids",
+        "creation_phase",
+        "reader_allowlist"
+      ]
+    },
+    "held_out_evidence": {
+      "prediction_population": "factual_only",
+      "synthetic_clean_null_target_context_roles_in_metrics": false,
+      "aggregation": "additive_sufficient_statistics_reconstructing_one_pooled_Formal_equivalent_evaluation",
+      "fold_metric_arithmetic_mean_is_primary": false,
+      "each_root_held_out_exactly_once": true,
+      "required_sufficient_statistics": [
+        "images",
+        "matched_gt",
+        "total_gt",
+        "recovered_anchor_misses",
+        "overlap_supported_recovered_anchor_misses",
+        "total_anchor_misses",
+        "retained_anchor_covered",
+        "total_anchor_covered",
+        "recovered_reachable_anchor_misses",
+        "total_reachable_anchor_misses",
+        "unmatched_pred_pixels",
+        "unmatched_pred_components",
+        "raw_background_fp",
+        "total_pixels",
+        "intersection",
+        "union",
+        "sum_image_iou"
+      ]
+    },
+    "pooled_gate": {
+      "Base_rows_must_be_valid": true,
+      "candidate_true_targets": "strictly_greater_than_endpoint_wise_valid_Base_max",
+      "candidate_recovered_anchor_misses": "strictly_greater_than_endpoint_wise_valid_Base_max",
+      "candidate_mIoU": "not_below_endpoint_wise_valid_Base_max",
+      "candidate_nIoU": "not_below_endpoint_wise_valid_Base_max",
+      "versus_v23_true_targets": "strictly_greater",
+      "versus_v23_recovered_anchor_misses": "strictly_greater",
+      "versus_v23_mIoU": "not_below",
+      "versus_v23_nIoU": "not_below",
+      "versus_forced_G1_primary_vector": "all_four_not_below_and_at_least_one_strictly_improved",
+      "forced_G1_same_terminal_weights": true,
+      "forced_G1_retrained": false,
+      "gate_path_field_nonidentical_required": true,
+      "gate_path_prediction_nonidentical_required": true,
+      "minimum_fixed_uplift_margin": null,
+      "per_fold_performance_vote": null,
+      "per_fold_required": [
+        "finite",
+        "source_closure",
+        "cache_isolation",
+        "retention_equal_1",
+        "false_alarm_budgets_pass"
+      ]
+    }
+  },
+  "paired_bounded400": {
+    "required_after_OOF4_PASS": true,
+    "budget": {
+      "epochs": 10,
+      "steps_per_epoch": 40,
+      "updates": 400
+    },
+    "arms": [
+      "PACRE_VC_v23_control",
+      "GCR_PACRE_v24"
+    ],
+    "full_D_R_materialization_contract": {
+      "same_semantic_cache_fingerprint_across_arms": true,
+      "neutral_payload_fingerprint_recomputed_from_canonical_metadata_and_tensors": true,
+      "verifier_issued_materialization_token_required": true
+    },
+    "paired_equalities": [
+      "initial_parameter_names_shapes_bytes",
+      "seed",
+      "full_D_R_population_manifest",
+      "ordered_batches_per_update",
+      "PMOPE",
+      "Adam",
+      "dtype_device_policy",
+      "schedule"
+    ],
+    "independence": [
+      "different_module_instances",
+      "non_shared_parameter_storage",
+      "independent_empty_optimizer_states"
+    ],
+    "pass_vector": [
+      "candidate_updates_eq_control_updates_eq_400",
+      "candidate_terminal_count_eq_control_terminal_count_eq_1",
+      "all_losses_gradients_parameters_finite",
+      "source_cache_RNG_optimizer_independence",
+      "candidate_terminal_PMOPE_le_candidate_initial_PMOPE",
+      "control_terminal_PMOPE_le_control_initial_PMOPE",
+      "candidate_and_control_parameter_states_changed",
+      "candidate_retention_and_fixed_safety_pass",
+      "gate_endpoint_interior_and_role_distributions_present",
+      "paired_PMOPE_role_violation_zero_crossed_false_completion_and_forced_G1_diagnostics_persisted_but_not_gates",
+      "D_V_and_D_T_unread"
+    ],
+    "evidence_role": "full_D_R_optimization_and_execution_smoke_not_unseen_generalization"
+  },
+  "Formal800": {
+    "prerequisites": [
+      "dataset_free_PASS",
+      "D_R_structural_PASS",
+      "D_R_OOF4_PASS",
+      "paired_bounded400_PASS"
+    ],
+    "common_budget": {
+      "epochs": 800,
+      "steps_per_epoch": 40,
+      "updates": 32000,
+      "training_invocations": 1,
+      "from_scratch": true,
+      "resume_allowed": false,
+      "automatic_retry_allowed": false,
+      "checkpoint_policy": "final_only"
+    },
+    "cache_contract": {
+      "same_full_D_R_semantic_cache_fingerprint": true,
+      "same_neutral_payload_fingerprint_as_verified_bounded_materialization": true,
+      "different_canonical_paths_and_device_inode_pairs": true,
+      "hardlink_count_each": 1,
+      "FIEMAP_shared_unknown_delalloc_encoded_extents_forbidden": true,
+      "fixed_loader_weights_only": true,
+      "fixed_loader_mmap": false,
+      "actual_concurrent_tensor_storage_intersection_empty": true
+    },
+    "schedule_contract": {
+      "same_policy_and_config_except_seed": true,
+      "different_schedule_fingerprints": true,
+      "seed42": 42,
+      "seed43": 43
+    },
+    "seed42": {
+      "role": "primary",
+      "eligible_for_D_V_after_terminal_verification": true,
+      "eligible_for_D_T_after_all_future_authorization_checks": true
+    },
+    "seed43": {
+      "role": "training_integrity_only",
+      "eligible_for_D_V": false,
+      "eligible_for_D_T": false,
+      "selection_effect": "none",
+      "ensemble_effect": "none",
+      "may_replace_seed42": false
+    }
+  },
+  "relative_performance": {
+    "integer_endpoints": "strictly_greater_than_exact_endpoint_wise_valid_Base_maxima",
+    "mIoU_nIoU": "not_below_exact_endpoint_wise_valid_Base_maxima",
+    "minimum_fixed_uplift_margin": null,
+    "integer_plus_one_is_sufficient": true,
+    "rounding_before_comparison_forbidden": true
+  },
+  "safety": {
+    "retention": 1.0,
+    "pixel_fa_max": 0.0001,
+    "raw_background_fa_max": 0.0001,
+    "fp_components_per_megapixel_max": 100.0,
+    "budget_violation": false
+  },
+  "authorization": {
+    "OOF4_authorized": false,
+    "bounded400_authorized": false,
+    "Formal_seed42_authorized": false,
+    "Formal_seed43_authorized": false,
+    "D_V_authorized": false,
+    "D_T_authorized": false
+  },
+  "preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48"
+}

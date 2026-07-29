@@ -25,4 +25,4 @@ include = ["cure_lite", "cure_lite.*"]
 namespaces = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tests_v24"]

@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Literal, Mapping
+from typing import Any, Iterable, Literal, Mapping
 
 import torch
 from torch import Tensor
@@ -1649,8 +1649,16 @@ def load_d_r_cache_bundle(
     dataset: ManifestImageDataset,
     *,
     expected_base_fingerprint: str,
+    allowed_sample_ids: Iterable[str] | None = None,
 ) -> LoadedDRCacheBundle:
-    """Strictly reload and semantically verify one formal D_R cache bundle."""
+    """Strictly reload and semantically verify D_R cache rows.
+
+    ``allowed_sample_ids=None`` preserves the complete-bundle behavior.
+    A nonempty allowlist validates the complete signed index/manifest
+    structure, but opens, hashes, and deserializes payload files only for
+    those rows.  This is the protected primitive used by v24 OOF folds to
+    keep held-out payloads unopened until the terminal-model seal exists.
+    """
 
     if not isinstance(dataset, ManifestImageDataset):
         raise TypeError("dataset must be a ManifestImageDataset")
@@ -1825,6 +1833,24 @@ def load_d_r_cache_bundle(
         ordered_records
     ):
         raise ValueError("cache indexes are not the exact D_R membership")
+    all_sample_ids = tuple(record.sample_id for _, record in ordered_records)
+    if allowed_sample_ids is None:
+        allowed = frozenset(all_sample_ids)
+    else:
+        supplied = tuple(allowed_sample_ids)
+        if (
+            not supplied
+            or any(
+                not isinstance(sample_id, str) or not sample_id
+                for sample_id in supplied
+            )
+            or len(supplied) != len(set(supplied))
+            or not set(supplied) <= set(all_sample_ids)
+        ):
+            raise ValueError(
+                "D_R restricted loader requires a unique nonempty subset"
+            )
+        allowed = frozenset(supplied)
 
     verified_sources: list[dict[str, Any]] = []
     gt_rows: list[dict[str, str]] = []
@@ -1848,7 +1874,16 @@ def load_d_r_cache_bundle(
         ):
             raise ValueError("cache indexes are not the exact D_R membership")
         image_path = _record_image_path(record.image, manifest_path)
-        image_sha256 = file_sha256(image_path)
+        image_sha256 = _canonical_sha256(
+            base_row["image_sha256"],
+            name=f"image SHA256 for {record.sample_id!r}",
+        )
+        if state_row["image_sha256"] != image_sha256:
+            raise ValueError("state/base index image SHA256 binding mismatch")
+        if record.sample_id in allowed and file_sha256(image_path) != (
+            image_sha256
+        ):
+            raise ValueError("cache index image binding mismatch")
         if any(
             row["image_path"] != str(image_path)
             or row["image_sha256"] != image_sha256
@@ -1856,7 +1891,14 @@ def load_d_r_cache_bundle(
         ):
             raise ValueError("cache index image binding mismatch")
         mask_path = _record_mask_path(record.mask, manifest_path)
-        mask_sha256 = file_sha256(mask_path)
+        mask_sha256 = _canonical_sha256(
+            state_row["mask_sha256"],
+            name=f"mask SHA256 for {record.sample_id!r}",
+        )
+        if record.sample_id in allowed and file_sha256(mask_path) != (
+            mask_sha256
+        ):
+            raise ValueError("state cache index mask binding mismatch")
         if (
             state_row["mask_path"] != str(mask_path)
             or state_row["mask_sha256"] != mask_sha256
@@ -1873,7 +1915,14 @@ def load_d_r_cache_bundle(
         ):
             raise ValueError("state/base index cache-path binding mismatch")
         seen_base_paths.add(base_cache_path)
-        base_cache_sha256 = file_sha256(base_cache_path)
+        base_cache_sha256 = _canonical_sha256(
+            base_row["cache_sha256"],
+            name=f"base cache SHA256 for {record.sample_id!r}",
+        )
+        if record.sample_id in allowed and file_sha256(base_cache_path) != (
+            base_cache_sha256
+        ):
+            raise ValueError("base cache SHA256 binding mismatch")
         if (
             base_row["cache_sha256"] != base_cache_sha256
             or state_row["base_cache_sha256"] != base_cache_sha256
@@ -1887,7 +1936,14 @@ def load_d_r_cache_bundle(
         if state_cache_path in seen_state_paths:
             raise ValueError("state cache index reuses one state file")
         seen_state_paths.add(state_cache_path)
-        state_cache_sha256 = file_sha256(state_cache_path)
+        state_cache_sha256 = _canonical_sha256(
+            state_row["state_cache_sha256"],
+            name=f"state cache SHA256 for {record.sample_id!r}",
+        )
+        if record.sample_id in allowed and file_sha256(
+            state_cache_path
+        ) != state_cache_sha256:
+            raise ValueError("state cache SHA256 binding mismatch")
         if state_row["state_cache_sha256"] != state_cache_sha256:
             raise ValueError("state cache SHA256 binding mismatch")
         probability_shape = _validated_shape(
@@ -1913,23 +1969,24 @@ def load_d_r_cache_bundle(
         gt_rows.append(
             {"sample_id": record.sample_id, "mask_sha256": mask_sha256}
         )
-        verified_sources.append(
-            {
-                "dataset_index": dataset_index,
-                "record": record,
-                "image_path": image_path,
-                "image_sha256": image_sha256,
-                "mask_path": mask_path,
-                "mask_sha256": mask_sha256,
-                "base_cache_path": base_cache_path,
-                "base_cache_sha256": base_cache_sha256,
-                "state_cache_path": state_cache_path,
-                "state_cache_sha256": state_cache_sha256,
-                "probability_shape": probability_shape,
-                "feature_shape": feature_shape,
-                "catalog_counts": counts,
-            }
-        )
+        if record.sample_id in allowed:
+            verified_sources.append(
+                {
+                    "dataset_index": dataset_index,
+                    "record": record,
+                    "image_path": image_path,
+                    "image_sha256": image_sha256,
+                    "mask_path": mask_path,
+                    "mask_sha256": mask_sha256,
+                    "base_cache_path": base_cache_path,
+                    "base_cache_sha256": base_cache_sha256,
+                    "state_cache_path": state_cache_path,
+                    "state_cache_sha256": state_cache_sha256,
+                    "probability_shape": probability_shape,
+                    "feature_shape": feature_shape,
+                    "catalog_counts": counts,
+                }
+            )
 
     gt_fingerprint = _gt_catalog_fingerprint(manifest_fingerprint, gt_rows)
     if state_index["gt_fingerprint"] != gt_fingerprint:

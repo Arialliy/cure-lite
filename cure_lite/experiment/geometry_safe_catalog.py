@@ -622,9 +622,11 @@ def fingerprint_prepared_analysis_population(
 
     if catalog.source_ids != tuple(row.sample_id for row in bundle.rows):
         raise ValueError("catalog and D_R bundle source identities differ")
+    allowed_samples = set(catalog.source_ids)
     group_by_sample = {
         record.sample_id: record.group_id
         for record in manifest.records_for("D_R")
+        if record.sample_id in allowed_samples
     }
     if set(group_by_sample) != set(catalog.source_ids):
         raise ValueError("manifest D_R groups differ from the catalog")
@@ -844,9 +846,11 @@ def build_geometry_safe_catalog(
         raise ValueError("catalog and D_R bundle source identities differ")
 
     bundle.verify_unchanged()
+    allowed_samples = set(catalog.source_ids)
     group_by_sample = {
         record.sample_id: record.group_id
         for record in manifest.records_for("D_R")
+        if record.sample_id in allowed_samples
     }
     if set(group_by_sample) != set(catalog.source_ids):
         raise ValueError("manifest D_R groups differ from the catalog")

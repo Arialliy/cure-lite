@@ -1,0 +1,41 @@
+{
+  "schema_version": "cure-lite-v24-gcr-pacre-protocol-artifact-manifest-v1",
+  "protocol_preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48",
+  "status": "FROZEN_METADATA_ONLY_EXECUTION_NOT_AUTHORIZED",
+  "artifacts": {
+    "preregistration.json": {
+      "file_sha256": "595c4fb11913c8f695ee003cdb30079ddd63870b4bf095d34bba46a644c36e13",
+      "self_fingerprint_field": "preregistration_fingerprint",
+      "self_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48"
+    },
+    "D_R_OOF4_split_preregistration.json": {
+      "file_sha256": "1fc972bbe7ffe6918ab45f3da68d28791dedfd28dbfa5c4ce71ca6b28a54927c",
+      "self_fingerprint_field": "receipt_fingerprint",
+      "self_fingerprint": "89ab70c0462c83f3e40f95fb7e33c3b39f4ea3a370e6cd877c07080c2f56bd20"
+    },
+    "D_T_preregistration.json": {
+      "file_sha256": "b9ef73fed5e5467326ab3dd7d3678ff74fa8efecc9e91e2761982f2d8bb21baf",
+      "self_fingerprint_field": "preregistration_fingerprint",
+      "self_fingerprint": "62ea5fe778d0d3cef94a005f63b1f2ac8813483bf49770cbc3f153755f56412e"
+    },
+    "exact_baseline_ledger_binding.json": {
+      "file_sha256": "a9c5a8956bab2e25b36cc75596f9f9beace3fbf4236a83d96923ebd60edb2dc4",
+      "self_fingerprint_field": "binding_fingerprint",
+      "self_fingerprint": "af6deef13bacd4e2ab79efeebe528fc8975ba9fba1f379197f3ef5f41251c554"
+    },
+    "protocol.schema.json": {
+      "file_sha256": "bddad90d1826f3ff9e9f371c9c51b392f20ff6b34573b6b7a9fbcfc254aa47f2",
+      "self_fingerprint_field": null,
+      "self_fingerprint": null
+    },
+    "D_T_seed42_model_binding.template.json": {
+      "file_sha256": "65e87264fae5573e433177a25b72e7b742420691f076aef9379dc17a01a95aa8",
+      "self_fingerprint_field": null,
+      "self_fingerprint": null
+    }
+  },
+  "OOF4_authorized": false,
+  "D_V_payload_accessed": false,
+  "D_T_payload_accessed": false,
+  "manifest_fingerprint": "da6100f622ad36200d0d54685389163d99d8a13f2ca7f7ce979d562cb8c7f64a"
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "cure-lite-v24-exact-baseline-ledger-binding-v1",
+  "protocol_preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48",
+  "source_kind": "sealed_aggregate_metadata_only",
+  "source_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_pacre_v23_vc_formal_d_v_seed42_r1/receipt.json",
+  "source_file_sha256": "89527eb76eeded00a9fcf8a8cc96fc69fd8970f30ea53b13d7f11f43101fb1ad",
+  "source_schema_version": "cure-lite-v23-pacre-vc-formal-d-v-receipt-v1",
+  "selector": [
+    "evaluation_result",
+    "operating_points"
+  ],
+  "valid_base_names_selector": [
+    "evaluation_result",
+    "development_gate",
+    "valid_base_names"
+  ],
+  "required_fields": [
+    "true_targets",
+    "recovered_anchor_misses",
+    "mIoU",
+    "nIoU"
+  ],
+  "comparison_policy": {
+    "integer_endpoints": "strictly_greater",
+    "mIoU_nIoU": "not_below",
+    "rounding_before_comparison": false,
+    "minimum_fixed_uplift_margin": null
+  },
+  "existing_sealed_aggregate_metadata_read": true,
+  "new_D_V_inference_performed": false,
+  "D_V_payload_accessed": false,
+  "D_T_payload_accessed": false,
+  "binding_fingerprint": "af6deef13bacd4e2ab79efeebe528fc8975ba9fba1f379197f3ef5f41251c554"
+}

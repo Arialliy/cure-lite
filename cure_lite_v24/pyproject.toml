@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cure-lite-v24"
+version = "0.24.0"
+description = "GCR-PACRE candidate package for CURE-Lite v24"
+requires-python = ">=3.10"
+dependencies = [
+    "cure-lite==0.2.0",
+    "torch>=2.1",
+]
+
+[tool.setuptools]
+packages = ["cure_lite_v24"]
+package-dir = {cure_lite_v24 = "."}

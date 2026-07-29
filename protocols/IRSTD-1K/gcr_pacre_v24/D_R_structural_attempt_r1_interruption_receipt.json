@@ -1,0 +1,155 @@
+{
+  "schema_version": "cure-lite-v24-D_R-structural-interruption-receipt-v1",
+  "candidate": "GCR-PACRE-v24",
+  "stage_id": "gcr_pacre_v24_D_R_structural",
+  "run_id": "gcr_pacre_v24_D_R_zero_update_structural_r1",
+  "attempt": {
+    "command": "/home/md0/ly/MSHNet/.venv/bin/python tools/run_cure_lite_v24_gcr_pacre_dr_gate.py real --execute-real-dr --device cuda:0",
+    "device": "cuda:0",
+    "pid": 2077593,
+    "tool_session_id": 35488,
+    "start_call_timestamp_utc": "2026-07-28T21:52:06.824Z",
+    "marker_created_at_local": "2026-07-29T05:52:09.929794039+08:00",
+    "last_confirmed_alive_timestamp_utc": "2026-07-28T22:35:36.448Z",
+    "last_confirmed_alive_observation": {
+      "process_state": "Rsl",
+      "elapsed": "00:43:29",
+      "cumulative_cpu_time": "01:40:20",
+      "average_cpu_percent": 230,
+      "rss_kib": 3135312,
+      "gpu_index": 0,
+      "gpu_memory_used_mib": 1193,
+      "gpu_utilization_percent": 17,
+      "gpu_temperature_celsius": 57,
+      "official_receipt_state": "PENDING"
+    },
+    "unreturned_poll_timestamp_utc": "2026-07-28T22:35:41.185Z",
+    "next_task_event_timestamp_utc": "2026-07-29T08:03:48.860Z"
+  },
+  "frozen_bindings": {
+    "access_audit_path": "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_access_audit.json",
+    "access_audit_file_sha256": "ac9621ce9d555586d92c1159268cf4026d9dab9af30fd47f46bd4555744a0cb4",
+    "access_audit_receipt_fingerprint": "797870df807b0df6579dc9f973d9f9e85a0b887d0c315a380dd21ec49c220187",
+    "authorization_path": "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_authorization.json",
+    "authorization_file_sha256": "18ba1c9ed928ccafe7a412de5cf6ebbfc5b33f15affcad46430e87806157ad5b",
+    "authorization_fingerprint": "3500d1fe352d0b7fc4622bab128f37f3fa6232769ee489fa49c4f9cd40e3063f",
+    "dataset_free_receipt_file_sha256": "845132fa2930b16ad18f220c5496524cf65cb2d41874a85944c61fd3b0872883",
+    "dataset_free_receipt_fingerprint": "efd55afcb8709ed20fb67aad8696c348bda166323a548018c7a7f282f1adad0a",
+    "source_closure_fingerprint": "28d26759a68785e9c99917fcfa8b36430c7f6e5463282d66eeab5c711e425e9f",
+    "run_start_marker_path": "runs/irstd1k_stage_a_seed42/gcr_pacre_v24_D_R_structural_run_start_3500d1fe352d0b7fc4622bab128f37f3fa6232769ee489fa49c4f9cd40e3063f.json",
+    "run_start_marker_file_sha256": "70aa9e7fd70d942e33d52d4bff9d5da79c7500ec37ff7c56e448ba423079b246",
+    "run_start_marker_fingerprint": "d7dfbafa9e6e299e8444c1947213b12a5922d0cd42dbdc88079f90f92bcbc948"
+  },
+  "session_evidence": {
+    "source_path": "/home/md0/ly/.codex/sessions/2026/07/28/rollout-2026-07-28T17-15-33-019fa802-0a9c-7ac3-bdd7-14aad146788f.jsonl",
+    "line_hash_contract": "sha256-over-exact-jsonl-line-including-trailing-LF",
+    "records": [
+      {
+        "line_number": 10443,
+        "purpose": "official command invocation",
+        "timestamp_utc": "2026-07-28T21:52:06.824Z",
+        "line_sha256": "0c3fb9f012a596fd3da641f55ef189c03f9521903630f487279b00d3cf28fcd8"
+      },
+      {
+        "line_number": 10444,
+        "purpose": "tool session created",
+        "timestamp_utc": "2026-07-28T21:52:08.194Z",
+        "line_sha256": "1e056f58cfec7c5e41be46ef3e59d8ad9dc09f3f99cb773410891d367d438bd5"
+      },
+      {
+        "line_number": 11066,
+        "purpose": "last health-check invocation",
+        "timestamp_utc": "2026-07-28T22:35:36.143Z",
+        "line_sha256": "8d71fba3ae2b208a7ff70faf7a0ba05b9db4059369523eda8a49407393a558e5"
+      },
+      {
+        "line_number": 11067,
+        "purpose": "last confirmed healthy process and pending receipt",
+        "timestamp_utc": "2026-07-28T22:35:36.448Z",
+        "line_sha256": "1ad8851430c68829d409ab01e3f1eded169cf5897616094ae772e3272ad902c5"
+      },
+      {
+        "line_number": 11072,
+        "purpose": "poll invocation with no recorded output",
+        "timestamp_utc": "2026-07-28T22:35:41.185Z",
+        "line_sha256": "83e7f7cddfcf91ba2adf1435f2213047ce1f8840d90749a05c1337dcde2c98a9"
+      },
+      {
+        "line_number": 11073,
+        "purpose": "next recorded task event after the unreturned poll",
+        "timestamp_utc": "2026-07-29T08:03:48.860Z",
+        "line_sha256": "4a16d03200bdd9ffbb1e0508c3985ccd67b22bbac28e6e7cead0407ea14431cc"
+      },
+      {
+        "line_number": 11085,
+        "purpose": "tool session no longer exists",
+        "timestamp_utc": "2026-07-29T08:04:19.828Z",
+        "line_sha256": "fcfe85c0bcfca376f97ffafddb600fc22eae832aa5caf206f94cd89267ef8409"
+      },
+      {
+        "line_number": 11095,
+        "purpose": "PID and official receipt absent while marker remains",
+        "timestamp_utc": "2026-07-29T08:04:49.345Z",
+        "line_sha256": "fa4c1b95ad1c5e3a5e3e467d272f85e71a876c973a485d1543242e4597ea60a5"
+      },
+      {
+        "line_number": 11106,
+        "purpose": "no reparented or matching D_R process found",
+        "timestamp_utc": "2026-07-29T08:06:15.563Z",
+        "line_sha256": "77ff8d2a1bed6190e5c146a47e403c3d22f6de7c667bcef585e7b9db50ef549b"
+      }
+    ]
+  },
+  "post_interruption_observations": {
+    "observed_at_local": "2026-07-29T16:15:32.985158675+08:00",
+    "tool_session_exists": false,
+    "pid_exists": false,
+    "matching_dr_process_exists": false,
+    "official_receipt_path": "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_receipt.json",
+    "official_receipt_exists": false,
+    "temporary_or_partial_receipt_found": false,
+    "persistent_marker_exists": true,
+    "persistent_marker_mode": "0444",
+    "persistent_marker_link_count": 1,
+    "persistent_marker_internal_fingerprint_valid": true,
+    "authorization_internal_fingerprint_valid": true,
+    "access_audit_internal_fingerprint_valid": true
+  },
+  "execution_scope": {
+    "D_R_materialization_intended": true,
+    "D_R_execution_started": true,
+    "D_R_materialization_completion": "UNKNOWN",
+    "D_R_structural_probe_completion": "UNKNOWN",
+    "D_R_gate_decision": "NOT_PRODUCED",
+    "D_V_payload_accessed": false,
+    "D_T_payload_accessed": false,
+    "optimizer_steps_authorized": 0,
+    "parameter_updates_authorized": 0,
+    "training_performed": false
+  },
+  "cause_attribution": {
+    "classification": "EXECUTION_SESSION_INTERRUPTION",
+    "exact_os_termination_cause": "UNKNOWN_NOT_OBSERVABLE",
+    "python_traceback_observed": false,
+    "oom_evidence_observed": false,
+    "scientific_model_failure_established": false,
+    "structural_gate_failure_established": false,
+    "note": "The evidence proves that the managed execution stopped after the irreversible marker and before an official receipt was written. It does not prove why the OS process ended."
+  },
+  "protocol_disposition": {
+    "attempt_status": "GCR_PACRE_V24_D_R_STRUCTURAL_ATTEMPT_INTERRUPTED_NO_DECISION",
+    "official_D_R_receipt_valid": false,
+    "D_R_structural_gate_passed": null,
+    "OOF_authorized": false,
+    "bounded_400_authorized": false,
+    "formal_800_authorized": false,
+    "D_V_authorized": false,
+    "D_T_authorized": false,
+    "same_run_resume_allowed": false,
+    "automatic_retry_allowed": false,
+    "marker_may_be_removed_or_overwritten": false,
+    "next_action": "STOP_AND_PRESERVE_INTERRUPTED_ATTEMPT_EVIDENCE",
+    "fresh_attempt_requirement": "EXPLICIT_NEW_PROTOCOL_VERSION_AND_USER_AUTHORIZATION; MUST_NOT_BE_REPRESENTED_AS_R1_RESUME_OR_RETRY"
+  },
+  "receipt_fingerprint": "f5859ea86515eefaaadec5757b087f8e76bf2f379815d0809dbb33dafa30f0c5"
+}

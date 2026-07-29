@@ -1,0 +1,78 @@
+{
+  "schema_version": "cure-lite-v24-gcr-pacre-D_T-preregistration-v1",
+  "protocol_id": "irstd1k-gcr-pacre-v24-evidence-v1",
+  "protocol_preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48",
+  "status": "RULES_FROZEN_RUN_NOT_AUTHORIZED",
+  "must_predate": "v24_D_V_authorization",
+  "candidate_model_role": "Formal800_seed42_primary_final_only",
+  "candidate_model_binding": {
+    "status": "PENDING_FORMAL800_SEED42_VERIFIED_TERMINAL",
+    "final_model_fingerprint": null,
+    "binding_artifact": "D_T_seed42_model_binding.json",
+    "binding_artifact_must_be_sealed_before": "v24_D_V_authorization",
+    "binding_may_not_change_these_preregistered_rules": true
+  },
+  "candidate_attempts": 1,
+  "automatic_retry_allowed": false,
+  "resume_allowed": false,
+  "checkpoint_selection_allowed": false,
+  "threshold_search_allowed": false,
+  "seed43_evaluation_allowed": false,
+  "Base_validity_and_envelope": {
+    "procedure": "same_schema_and_validity_policy_as_frozen_D_V_comparison",
+    "operating_points": {
+      "Base@A": {
+        "threshold": 0.72,
+        "source": "preexisting_fixed_anchor"
+      },
+      "Base@B": {
+        "threshold": 0.14,
+        "threshold_source_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_pacre_v23_vc_formal_d_v_seed42_r1/receipt.json",
+        "threshold_source_file_sha256": "89527eb76eeded00a9fcf8a8cc96fc69fd8970f30ea53b13d7f11f43101fb1ad",
+        "threshold_selector": [
+          "evaluation_result",
+          "Base@B_selection",
+          "selected_threshold"
+        ],
+        "selected_on": "frozen_D_V",
+        "D_T_selection_effect": "none"
+      }
+    },
+    "D_T_threshold_grid_evaluation_allowed": false,
+    "D_T_threshold_selection_allowed": false,
+    "D_T_evaluated_Base_operating_point_count": 2,
+    "values": "one_shot_D_T_metrics_at_only_the_two_fixed_operating_points_then_endpoint_wise_valid_envelope",
+    "rounding_before_comparison": false,
+    "integer_endpoints": "strictly_greater_than_each_endpoint_wise_valid_Base_maximum",
+    "mIoU_nIoU": "not_below_each_endpoint_wise_valid_Base_maximum",
+    "minimum_fixed_uplift_margin": null
+  },
+  "safety": {
+    "retention": 1.0,
+    "pixel_fa_max": 0.0001,
+    "raw_background_fa_max": 0.0001,
+    "fp_components_per_megapixel_max": 100.0,
+    "budget_violation": false
+  },
+  "decision_table": {
+    "PASS": "all_identity_source_metric_relative_and_safety_checks_pass",
+    "FAIL": "valid_execution_completes_and_any_performance_or_safety_check_fails",
+    "STOP": "identity_source_schema_integrity_or_one_shot_contract_is_invalid"
+  },
+  "activation_prerequisites": [
+    "v24_dataset_free_PASS",
+    "v24_D_R_structural_PASS",
+    "v24_D_R_OOF4_PASS",
+    "v24_paired_bounded400_PASS",
+    "v24_Formal800_seed42_terminal_PASS",
+    "v24_Formal800_seed43_training_integrity_complete",
+    "seed43_D_V_and_D_T_unread",
+    "this_preregistration_predates_D_V_authorization",
+    "v24_D_V_adaptive_PASS",
+    "all_source_verifier_artifact_checks_PASS"
+  ],
+  "authorization_created": false,
+  "D_T_payload_accessed": false,
+  "D_V_payload_accessed_by_this_preregistration": false,
+  "preregistration_fingerprint": "62ea5fe778d0d3cef94a005f63b1f2ac8813483bf49770cbc3f153755f56412e"
+}

@@ -1,0 +1,2409 @@
+#!/usr/bin/env python3
+"""Data-blind, create-once process supervisor for a v24 D_R attempt.
+
+This module is deliberately standard-library-only.  It does not import the
+v24 gate, any dataset package, torch, or a model implementation.  Scientific
+authorization and scientific gate decisions remain the child's responsibility;
+the supervisor only establishes process-lifecycle evidence.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ctypes
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import stat
+import subprocess
+import sys
+import time
+from typing import Mapping, Sequence
+
+
+RUNTIME_SPEC_SCHEMA = "cure-lite-v24-dr-runtime-supervisor-spec-v1"
+ATTEMPT_COMMIT_SCHEMA = "cure-lite-v24-dr-attempt-commit-v1"
+MATERIALIZATION_CLAIM_SCHEMA = (
+    "cure-lite-v24-dr-materialization-claim-v1"
+)
+RUNTIME_HEARTBEAT_SCHEMA = "cure-lite-v24-dr-runtime-heartbeat-v1"
+RUNTIME_TERMINAL_SCHEMA = "cure-lite-v24-dr-runtime-terminal-v1"
+SYSTEMD_TERMINAL_SCHEMA = "cure-lite-v24-dr-systemd-terminal-v1"
+
+ACTUAL_EXECUTION_KIND = "actual_D_R"
+DUMMY_EXECUTION_KIND = "generated_dummy"
+
+_SPEC_KEYS = {
+    "schema_version",
+    "execution_kind",
+    "candidate",
+    "stage_id",
+    "attempt_id",
+    "attempt_ordinal",
+    "prior_attempt_count",
+    "authorization",
+    "child",
+    "artifacts",
+    "runtime",
+    "source_bindings",
+    "runtime_spec_fingerprint",
+}
+_CHILD_KEYS = {
+    "argv",
+    "argv_fingerprint",
+    "cwd",
+    "environment",
+    "inherit_environment",
+    "entrypoint_path",
+}
+_ARTIFACT_KEYS = {
+    "root",
+    "attempt_commit",
+    "materialization_claim",
+    "stdout_log",
+    "stderr_log",
+    "heartbeat_dir",
+    "runtime_terminal",
+    "systemd_invocation_dir",
+}
+_RUNTIME_KEYS = {
+    "shell",
+    "start_new_session",
+    "launch_limit",
+    "automatic_retry_allowed",
+    "resume_allowed",
+    "restart",
+    "heartbeat_interval_seconds",
+    "poll_interval_seconds",
+    "termination_grace_seconds",
+    "systemd",
+}
+_SYSTEMD_KEYS = {
+    "unit_name",
+    "service_type",
+    "kill_mode",
+    "send_sigkill",
+    "timeout_stop_seconds",
+    "unit_fragment_file_sha256",
+    "shadow_properties",
+    "shadow_fingerprint",
+}
+_SYSTEMD_SHADOW_KEYS = {
+    "Type",
+    "Restart",
+    "NRestarts",
+    "KillMode",
+    "SendSIGKILL",
+    "TimeoutStopUSec",
+    "FragmentPath",
+    "DropInPaths",
+    "Transient",
+    "NeedDaemonReload",
+    "Environment",
+    "UnsetEnvironment",
+    "WorkingDirectory",
+    "UMask",
+    "ExitType",
+    "RuntimeMaxUSec",
+    "WatchdogUSec",
+    "OOMPolicy",
+    "RemainAfterExit",
+    "StandardInput",
+    "StandardOutput",
+    "StandardError",
+    "StartLimitIntervalUSec",
+    "StartLimitBurst",
+    "KillSignal",
+    "ExecCondition",
+    "ExecStartPre",
+    "ExecStart",
+    "ExecStopPost",
+}
+_SYSTEMD_EXEC_KEYS = frozenset(
+    {"ExecCondition", "ExecStartPre", "ExecStart", "ExecStopPost"}
+)
+_SYSTEMD_EXEC_RUNTIME_FIELD = re.compile(
+    r" ; (?:start_time|stop_time|pid|code|status)="
+    r"(?:\[[^\]]*\]|[^;}]*)(?= ;| })"
+)
+_SYSTEMCTL_PATH = "/usr/bin/systemctl"
+_CGROUP_FILESYSTEM_ROOT = Path("/sys/fs/cgroup")
+_PR_SET_CHILD_SUBREAPER = 36
+_SOURCE_BINDING_KEYS = {
+    "supervisor_file_sha256",
+    "child_entry_file_sha256",
+    "prior_attempt_receipt_file_sha256",
+}
+_AUTH_REFERENCE_KEYS = {"path", "required_schema"}
+
+
+def canonical_json(value: object) -> str:
+    """Return deterministic JSON without importing repository helpers."""
+
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def stable_fingerprint(value: object) -> str:
+    return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _normalize_systemd_shadow_value(name: str, value: str) -> str:
+    """Remove only systemd's mutable execution-status fields."""
+
+    if name not in _SYSTEMD_EXEC_KEYS:
+        return value
+    return _SYSTEMD_EXEC_RUNTIME_FIELD.sub("", value)
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _boot_id() -> str:
+    value = Path("/proc/sys/kernel/random/boot_id").read_text(
+        encoding="ascii"
+    ).strip()
+    compact = value.replace("-", "")
+    if (
+        len(compact) != 32
+        or any(character not in "0123456789abcdef" for character in compact)
+    ):
+        raise RuntimeError("Linux boot_id is unavailable or malformed")
+    return value
+
+
+def _proc_starttime_ticks(pid: int) -> int:
+    if not isinstance(pid, int) or pid <= 0:
+        raise ValueError("pid must be positive")
+    raw = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
+    closing = raw.rfind(") ")
+    if closing < 0:
+        raise RuntimeError("proc stat has no command boundary")
+    fields_from_state = raw[closing + 2 :].split()
+    if len(fields_from_state) <= 19:
+        raise RuntimeError("proc stat is truncated")
+    value = int(fields_from_state[19])
+    if value <= 0:
+        raise RuntimeError("proc starttime is invalid")
+    return value
+
+
+def _is_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def _require_exact_keys(
+    value: object,
+    expected: set[str],
+    *,
+    name: str,
+) -> dict[str, object]:
+    if not isinstance(value, dict) or set(value) != expected:
+        raise ValueError(f"{name} does not have the closed schema")
+    return value
+
+
+def _canonical_regular_file(path: str | Path, *, name: str) -> Path:
+    supplied = Path(path)
+    if not supplied.is_absolute():
+        supplied = Path(os.path.abspath(supplied))
+    if (
+        not supplied.is_file()
+        or supplied.is_symlink()
+        or supplied.resolve(strict=True) != supplied
+        or supplied.stat().st_nlink != 1
+    ):
+        raise ValueError(f"{name} is not a unique canonical regular file")
+    return supplied
+
+
+def _read_canonical_json(path: str | Path, *, name: str) -> dict[str, object]:
+    source = _canonical_regular_file(path, name=name)
+    raw = source.read_bytes()
+    if not raw.endswith(b"\n"):
+        raise ValueError(f"{name} must end in exactly one canonical newline")
+    text = raw[:-1].decode("utf-8", errors="strict")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"{name} contains invalid JSON") from error
+    if not isinstance(payload, dict) or canonical_json(payload) != text:
+        raise ValueError(f"{name} is not one canonical JSON object")
+    return payload
+
+
+def _fsync_parent(path: Path) -> None:
+    descriptor = os.open(
+        path.parent,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+    )
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _open_flags() -> int:
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    return flags
+
+
+def _write_new_json(path: Path, payload: Mapping[str, object]) -> str:
+    """Write one evidence object with O_EXCL and never roll it back."""
+
+    encoded = (canonical_json(dict(payload)) + "\n").encode("utf-8")
+    descriptor = os.open(path, _open_flags(), 0o444)
+    try:
+        with os.fdopen(descriptor, "wb", closefd=True) as handle:
+            descriptor = -1
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_parent(path)
+    except BaseException:
+        if descriptor >= 0:
+            os.close(descriptor)
+        # A partially written create-once evidence file is itself evidence that
+        # the identity was consumed.  It must never be unlinked or retried.
+        try:
+            _fsync_parent(path)
+        finally:
+            raise
+    stat_result = path.stat()
+    if (
+        not path.is_file()
+        or path.is_symlink()
+        or path.resolve(strict=True) != path
+        or stat_result.st_nlink != 1
+        or stat_result.st_mode & 0o222
+        or path.read_bytes() != encoded
+    ):
+        raise RuntimeError("create-once JSON failed self-verification")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _seal(
+    body: Mapping[str, object],
+    *,
+    fingerprint_field: str,
+) -> dict[str, object]:
+    materialized = dict(body)
+    return {
+        **materialized,
+        fingerprint_field: stable_fingerprint(materialized),
+    }
+
+
+def _absolute_path(value: object, *, name: str) -> Path:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be a nonempty absolute path")
+    path = Path(value)
+    if not path.is_absolute():
+        raise ValueError(f"{name} must be an absolute path")
+    return path
+
+
+def _positive_number(value: object, *, name: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not float(value) > 0.0
+    ):
+        raise ValueError(f"{name} must be positive")
+    return float(value)
+
+
+def _validate_spec_structure(payload: dict[str, object]) -> None:
+    _require_exact_keys(payload, _SPEC_KEYS, name="runtime spec")
+    body = dict(payload)
+    fingerprint = body.pop("runtime_spec_fingerprint")
+    if (
+        payload.get("schema_version") != RUNTIME_SPEC_SCHEMA
+        or not _is_sha256(fingerprint)
+        or fingerprint != stable_fingerprint(body)
+    ):
+        raise ValueError("runtime spec identity or fingerprint changed")
+
+    execution_kind = payload["execution_kind"]
+    if execution_kind not in {
+        ACTUAL_EXECUTION_KIND,
+        DUMMY_EXECUTION_KIND,
+    }:
+        raise ValueError("runtime spec execution_kind is invalid")
+    for field in ("candidate", "stage_id", "attempt_id"):
+        if not isinstance(payload[field], str) or not payload[field]:
+            raise ValueError(f"runtime spec {field} must be nonempty text")
+    for field in ("attempt_ordinal", "prior_attempt_count"):
+        value = payload[field]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"runtime spec {field} must be nonnegative")
+
+    authorization = payload["authorization"]
+    if execution_kind == ACTUAL_EXECUTION_KIND:
+        reference = _require_exact_keys(
+            authorization,
+            _AUTH_REFERENCE_KEYS,
+            name="actual authorization reference",
+        )
+        _absolute_path(reference["path"], name="authorization.path")
+        if (
+            not isinstance(reference["required_schema"], str)
+            or not reference["required_schema"]
+            or payload["candidate"] != "GCR-PACRE-v24"
+            or payload["attempt_ordinal"] != 2
+            or payload["prior_attempt_count"] != 1
+        ):
+            raise ValueError("actual r2 identity is not exact")
+    elif authorization is not None:
+        raise ValueError("dummy execution cannot carry authorization")
+
+    child = _require_exact_keys(
+        payload["child"],
+        _CHILD_KEYS,
+        name="child contract",
+    )
+    argv = child["argv"]
+    if (
+        not isinstance(argv, list)
+        or not argv
+        or any(
+            not isinstance(argument, str)
+            or not argument
+            or "\x00" in argument
+            for argument in argv
+        )
+        or not Path(argv[0]).is_absolute()
+        or child["argv_fingerprint"] != stable_fingerprint(argv)
+    ):
+        raise ValueError("child argv is not an exact absolute argv vector")
+    _absolute_path(child["cwd"], name="child.cwd")
+    environment = child["environment"]
+    inherited = child["inherit_environment"]
+    if (
+        not isinstance(environment, dict)
+        or any(
+            not isinstance(key, str)
+            or not key
+            or not isinstance(value, str)
+            or "\x00" in key
+            or "\x00" in value
+            for key, value in environment.items()
+        )
+        or not isinstance(inherited, list)
+        or len(inherited) != len(set(inherited))
+        or any(
+            not isinstance(name, str)
+            or not name
+            or "\x00" in name
+            for name in inherited
+        )
+    ):
+        raise ValueError("child environment contract is malformed")
+    entrypoint = child["entrypoint_path"]
+    if entrypoint is not None:
+        _absolute_path(entrypoint, name="child.entrypoint_path")
+
+    artifacts = _require_exact_keys(
+        payload["artifacts"],
+        _ARTIFACT_KEYS,
+        name="artifact contract",
+    )
+    artifact_paths = {
+        key: _absolute_path(value, name=f"artifacts.{key}")
+        for key, value in artifacts.items()
+    }
+    if len(set(artifact_paths.values())) != len(artifact_paths):
+        raise ValueError("artifact paths must be distinct")
+    root = artifact_paths["root"]
+    for key, path in artifact_paths.items():
+        if key == "root":
+            continue
+        try:
+            path.relative_to(root)
+        except ValueError as error:
+            raise ValueError("all artifacts must remain under root") from error
+
+    runtime = _require_exact_keys(
+        payload["runtime"],
+        _RUNTIME_KEYS,
+        name="runtime contract",
+    )
+    if (
+        runtime["shell"] is not False
+        or runtime["start_new_session"] is not True
+        or runtime["launch_limit"] != 1
+        or runtime["automatic_retry_allowed"] is not False
+        or runtime["resume_allowed"] is not False
+        or runtime["restart"] != "no"
+    ):
+        raise ValueError("runtime is not a shell-free one-launch contract")
+    heartbeat_interval = _positive_number(
+        runtime["heartbeat_interval_seconds"],
+        name="runtime.heartbeat_interval_seconds",
+    )
+    poll_interval = _positive_number(
+        runtime["poll_interval_seconds"],
+        name="runtime.poll_interval_seconds",
+    )
+    _positive_number(
+        runtime["termination_grace_seconds"],
+        name="runtime.termination_grace_seconds",
+    )
+    if poll_interval > heartbeat_interval:
+        raise ValueError("poll interval cannot exceed heartbeat interval")
+    systemd = _require_exact_keys(
+        runtime["systemd"],
+        _SYSTEMD_KEYS,
+        name="systemd contract",
+    )
+    if (
+        not isinstance(systemd["unit_name"], str)
+        or not systemd["unit_name"].endswith(".service")
+        or systemd["service_type"] != "exec"
+        or systemd["kill_mode"] != "mixed"
+        or systemd["send_sigkill"] is not True
+    ):
+        raise ValueError("systemd supervision contract is not exact")
+    _positive_number(
+        systemd["timeout_stop_seconds"],
+        name="systemd.timeout_stop_seconds",
+    )
+    shadow = _require_exact_keys(
+        systemd["shadow_properties"],
+        _SYSTEMD_SHADOW_KEYS,
+        name="systemd shadow properties",
+    )
+    if (
+        any(not isinstance(value, str) for value in shadow.values())
+        or shadow["Type"] != "exec"
+        or shadow["Restart"] != "no"
+        or shadow["NRestarts"] != "0"
+        or shadow["KillMode"] != "mixed"
+        or shadow["SendSIGKILL"] != "yes"
+        or shadow["DropInPaths"] != ""
+        or shadow["Transient"] != "no"
+        or shadow["NeedDaemonReload"] != "no"
+        or shadow["ExitType"] != "main"
+        or shadow["RuntimeMaxUSec"] != "infinity"
+        or shadow["WatchdogUSec"] != "0"
+        or shadow["OOMPolicy"] != "kill"
+        or shadow["RemainAfterExit"] != "no"
+        or shadow["StandardInput"] != "null"
+        or shadow["StartLimitBurst"] != "1"
+        or shadow["KillSignal"] not in {"15", "SIGTERM"}
+        or not shadow["WorkingDirectory"]
+        or not shadow["UMask"]
+        or not shadow["StandardOutput"]
+        or not shadow["StandardError"]
+        or not shadow["StartLimitIntervalUSec"]
+        or not shadow["TimeoutStopUSec"]
+        or not shadow["FragmentPath"]
+        or any(
+            shadow[name] != _normalize_systemd_shadow_value(name, shadow[name])
+            for name in _SYSTEMD_EXEC_KEYS
+        )
+        or "claim-materialization" not in shadow["ExecCondition"]
+        or "verify-runtime-spec" not in shadow["ExecStartPre"]
+        or "run-once" not in shadow["ExecStart"]
+        or "record-systemd-exit" not in shadow["ExecStopPost"]
+        or systemd["shadow_fingerprint"] != stable_fingerprint(shadow)
+    ):
+        raise ValueError("systemd shadow properties are not exact")
+    fragment_sha256 = systemd["unit_fragment_file_sha256"]
+    if fragment_sha256 is not None and not _is_sha256(fragment_sha256):
+        raise ValueError("systemd unit fragment binding is malformed")
+    if execution_kind == ACTUAL_EXECUTION_KIND and not _is_sha256(
+        fragment_sha256
+    ):
+        raise ValueError("actual systemd unit fragment binding is absent")
+
+    bindings = _require_exact_keys(
+        payload["source_bindings"],
+        _SOURCE_BINDING_KEYS,
+        name="source bindings",
+    )
+    if not _is_sha256(bindings["supervisor_file_sha256"]):
+        raise ValueError("supervisor source binding is malformed")
+    for field in (
+        "child_entry_file_sha256",
+        "prior_attempt_receipt_file_sha256",
+    ):
+        if bindings[field] is not None and not _is_sha256(bindings[field]):
+            raise ValueError(f"{field} is malformed")
+    if execution_kind == ACTUAL_EXECUTION_KIND and (
+        entrypoint is None
+        or not _is_sha256(bindings["child_entry_file_sha256"])
+        or not _is_sha256(bindings["prior_attempt_receipt_file_sha256"])
+    ):
+        raise ValueError("actual source lineage bindings are incomplete")
+    if execution_kind == ACTUAL_EXECUTION_KIND:
+        if child["inherit_environment"] != []:
+            raise ValueError(
+                "actual runtime cannot inherit unbound environment values"
+            )
+        if (
+            not isinstance(entrypoint, str)
+            or len(argv) < 3
+            or argv[1] != "-I"
+            or argv[2] != entrypoint
+            or argv.count(entrypoint) != 1
+        ):
+            raise ValueError(
+                "actual child entrypoint must be argv[2] after Python -I"
+            )
+        forbidden_environment = {
+            "PYTHONPATH",
+            "PYTHONSTARTUP",
+            "PYTHONINSPECT",
+        }
+        if forbidden_environment & set(environment):
+            raise ValueError("actual child environment enables Python injection")
+
+
+def load_runtime_spec(path: str | Path) -> dict[str, object]:
+    payload = _read_canonical_json(path, name="runtime supervisor spec")
+    _validate_spec_structure(payload)
+    return payload
+
+
+def _verify_actual_authorization(
+    spec: Mapping[str, object],
+    *,
+    spec_path: Path,
+) -> dict[str, object]:
+    reference = spec["authorization"]
+    if not isinstance(reference, Mapping):
+        raise PermissionError("fresh r2 authorization is absent")
+    authorization_path = Path(str(reference["path"]))
+    if not authorization_path.exists() or authorization_path.is_symlink():
+        raise PermissionError("fresh r2 authorization is absent")
+    try:
+        source = _canonical_regular_file(
+            authorization_path,
+            name="fresh r2 authorization",
+        )
+        if source.stat().st_mode & 0o222:
+            raise PermissionError("fresh r2 authorization is writable")
+        authorization = _read_canonical_json(
+            source,
+            name="fresh r2 authorization",
+        )
+    except (OSError, ValueError) as error:
+        raise PermissionError("fresh r2 authorization is invalid") from error
+
+    body = dict(authorization)
+    fingerprint = body.pop("authorization_fingerprint", None)
+    required = {
+        "schema_version": reference["required_schema"],
+        "candidate": spec["candidate"],
+        "stage_id": spec["stage_id"],
+        "attempt_id": spec["attempt_id"],
+        "attempt_ordinal": 2,
+        "prior_attempt_count": 1,
+        "fresh_attempt_authorized": True,
+        "D_R_payload_authorized": True,
+        "D_V_payload_authorized": False,
+        "D_T_payload_authorized": False,
+        "training_authorized": False,
+        "resume_allowed": False,
+        "automatic_retry_allowed": False,
+        "runtime_spec_fingerprint": spec["runtime_spec_fingerprint"],
+        "runtime_spec_file_sha256": file_sha256(spec_path),
+    }
+    if (
+        not _is_sha256(fingerprint)
+        or fingerprint != stable_fingerprint(body)
+        or any(authorization.get(key) != value for key, value in required.items())
+    ):
+        raise PermissionError("fresh r2 authorization is invalid")
+    return {
+        "path": str(source),
+        "authorization_fingerprint": fingerprint,
+        "authorization_file_sha256": file_sha256(source),
+    }
+
+
+def _canonical_directory(path: Path, *, name: str) -> Path:
+    if (
+        not path.is_dir()
+        or path.is_symlink()
+        or path.resolve(strict=True) != path
+    ):
+        raise ValueError(f"{name} is not a canonical directory")
+    return path
+
+
+def _validate_runtime_filesystem(spec: Mapping[str, object]) -> None:
+    child = spec["child"]
+    artifacts = spec["artifacts"]
+    bindings = spec["source_bindings"]
+    if (
+        not isinstance(child, Mapping)
+        or not isinstance(artifacts, Mapping)
+        or not isinstance(bindings, Mapping)
+    ):
+        raise AssertionError("validated runtime spec changed")
+    root = _canonical_directory(
+        Path(str(artifacts["root"])),
+        name="artifact root",
+    )
+    heartbeat_dir = _canonical_directory(
+        Path(str(artifacts["heartbeat_dir"])),
+        name="heartbeat directory",
+    )
+    systemd_invocation_dir = _canonical_directory(
+        Path(str(artifacts["systemd_invocation_dir"])),
+        name="systemd invocation directory",
+    )
+    _canonical_directory(Path(str(child["cwd"])), name="child cwd")
+    if heartbeat_dir.parent != root:
+        raise ValueError("heartbeat directory must be directly under root")
+    if systemd_invocation_dir.parent != root:
+        raise ValueError(
+            "systemd invocation directory must be directly under root"
+        )
+    for key in (
+        "attempt_commit",
+        "materialization_claim",
+        "stdout_log",
+        "stderr_log",
+        "runtime_terminal",
+    ):
+        if Path(str(artifacts[key])).parent != root:
+            raise ValueError(f"{key} must be directly under artifact root")
+    argv = child["argv"]
+    if not isinstance(argv, list):
+        raise AssertionError("validated child argv changed")
+    executable = Path(argv[0])
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise ValueError("child executable is unavailable")
+    if file_sha256(__file__) != bindings["supervisor_file_sha256"]:
+        raise PermissionError("runtime supervisor source binding changed")
+    entrypoint = child["entrypoint_path"]
+    if entrypoint is not None:
+        entrypoint_path = _canonical_regular_file(
+            str(entrypoint),
+            name="child entrypoint",
+        )
+        if (
+            bindings["child_entry_file_sha256"] is not None
+            and file_sha256(entrypoint_path)
+            != bindings["child_entry_file_sha256"]
+        ):
+            raise PermissionError("child entrypoint source binding changed")
+    systemd = spec["runtime"]["systemd"]
+    if not isinstance(systemd, Mapping):
+        raise AssertionError("validated systemd contract changed")
+    if spec["execution_kind"] == ACTUAL_EXECUTION_KIND:
+        shadow = systemd["shadow_properties"]
+        if not isinstance(shadow, Mapping):
+            raise AssertionError("validated systemd shadow changed")
+        fragment = _canonical_regular_file(
+            str(shadow["FragmentPath"]),
+            name="systemd unit fragment",
+        )
+        if file_sha256(fragment) != systemd["unit_fragment_file_sha256"]:
+            raise PermissionError("systemd unit fragment binding changed")
+
+
+def _validate_precommit_artifacts(spec: Mapping[str, object]) -> None:
+    artifacts = spec["artifacts"]
+    if not isinstance(artifacts, Mapping):
+        raise AssertionError("validated artifact contract changed")
+    root = Path(str(artifacts["root"]))
+    heartbeat_dir = Path(str(artifacts["heartbeat_dir"]))
+    systemd_invocation_dir = Path(
+        str(artifacts["systemd_invocation_dir"])
+    )
+    expected_entries = {
+        heartbeat_dir.name,
+        systemd_invocation_dir.name,
+    }
+    if {entry.name for entry in root.iterdir()} != expected_entries:
+        raise PermissionError("precommit artifact root is not exact-empty")
+    if any(heartbeat_dir.iterdir()) or any(systemd_invocation_dir.iterdir()):
+        raise PermissionError("precommit runtime evidence directories are not empty")
+    for key in (
+        "attempt_commit",
+        "materialization_claim",
+        "stdout_log",
+        "stderr_log",
+        "runtime_terminal",
+    ):
+        path = Path(str(artifacts[key]))
+        if path.exists() or path.is_symlink():
+            raise PermissionError(f"precommit leaf already exists: {key}")
+
+
+def _open_new_log(path: Path) -> object:
+    descriptor = os.open(path, _open_flags(), 0o600)
+    return os.fdopen(descriptor, "wb", buffering=0, closefd=True)
+
+
+def _log_identity(value: os.stat_result) -> tuple[int, int]:
+    return value.st_dev, value.st_ino
+
+
+def _verify_log_fd_and_path(
+    descriptor_stat: os.stat_result,
+    path_stat: os.stat_result,
+    *,
+    expected_identity: tuple[int, int] | None = None,
+    required_mode: int | None = None,
+) -> tuple[int, int]:
+    identity = _log_identity(descriptor_stat)
+    if (
+        not stat.S_ISREG(descriptor_stat.st_mode)
+        or not stat.S_ISREG(path_stat.st_mode)
+        or descriptor_stat.st_nlink != 1
+        or path_stat.st_nlink != 1
+        or identity != _log_identity(path_stat)
+        or (
+            expected_identity is not None
+            and identity != expected_identity
+        )
+        or (
+            required_mode is not None
+            and (
+                stat.S_IMODE(descriptor_stat.st_mode) != required_mode
+                or stat.S_IMODE(path_stat.st_mode) != required_mode
+            )
+        )
+    ):
+        raise RuntimeError("log fd/path identity is unsafe")
+    return identity
+
+
+def _sha256_descriptor(descriptor: int) -> str:
+    digest = hashlib.sha256()
+    while True:
+        block = os.read(descriptor, 1024 * 1024)
+        if not block:
+            return digest.hexdigest()
+        digest.update(block)
+
+
+def _finalize_log(handle: object, path: Path) -> dict[str, object]:
+    if not hasattr(handle, "fileno") or not hasattr(handle, "close"):
+        raise TypeError("log handle is invalid")
+    descriptor = handle.fileno()
+    read_descriptor = -1
+    expected_identity: tuple[int, int] | None = None
+    hashed_stat: os.stat_result | None = None
+    digest: str | None = None
+    try:
+        descriptor_stat = os.fstat(descriptor)
+        path_stat = os.lstat(path)
+        expected_identity = _verify_log_fd_and_path(
+            descriptor_stat,
+            path_stat,
+        )
+        os.fsync(descriptor)
+        os.fchmod(descriptor, 0o444)
+        os.fsync(descriptor)
+
+        descriptor_stat = os.fstat(descriptor)
+        path_stat = os.lstat(path)
+        _verify_log_fd_and_path(
+            descriptor_stat,
+            path_stat,
+            expected_identity=expected_identity,
+            required_mode=0o444,
+        )
+        read_flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+        if hasattr(os, "O_NOFOLLOW"):
+            read_flags |= os.O_NOFOLLOW
+        read_descriptor = os.open(path, read_flags)
+        hash_stat_before = os.fstat(read_descriptor)
+        path_stat_before = os.lstat(path)
+        _verify_log_fd_and_path(
+            hash_stat_before,
+            path_stat_before,
+            expected_identity=expected_identity,
+            required_mode=0o444,
+        )
+        digest = _sha256_descriptor(read_descriptor)
+        hash_stat_after = os.fstat(read_descriptor)
+        path_stat_after = os.lstat(path)
+        _verify_log_fd_and_path(
+            hash_stat_after,
+            path_stat_after,
+            expected_identity=expected_identity,
+            required_mode=0o444,
+        )
+        before_version = (
+            hash_stat_before.st_size,
+            hash_stat_before.st_mtime_ns,
+            hash_stat_before.st_ctime_ns,
+        )
+        after_version = (
+            hash_stat_after.st_size,
+            hash_stat_after.st_mtime_ns,
+            hash_stat_after.st_ctime_ns,
+        )
+        if before_version != after_version:
+            raise RuntimeError("log changed while it was hashed")
+        hashed_stat = hash_stat_after
+    finally:
+        if read_descriptor >= 0:
+            os.close(read_descriptor)
+        handle.close()
+
+    if (
+        expected_identity is None
+        or hashed_stat is None
+        or digest is None
+    ):
+        raise RuntimeError("log finalization did not produce a receipt")
+    _fsync_parent(path)
+    final_path_stat = os.lstat(path)
+    if (
+        not stat.S_ISREG(final_path_stat.st_mode)
+        or final_path_stat.st_nlink != 1
+        or _log_identity(final_path_stat) != expected_identity
+        or stat.S_IMODE(final_path_stat.st_mode) != 0o444
+        or final_path_stat.st_size != hashed_stat.st_size
+        or final_path_stat.st_mtime_ns != hashed_stat.st_mtime_ns
+        or final_path_stat.st_ctime_ns != hashed_stat.st_ctime_ns
+    ):
+        raise RuntimeError("log identity changed after hashing")
+    return {
+        "path": str(path),
+        "file_sha256": digest,
+        "size_bytes": hashed_stat.st_size,
+        "mode": stat.S_IMODE(hashed_stat.st_mode),
+        "hardlink_count": hashed_stat.st_nlink,
+    }
+
+
+class _HeartbeatChain:
+    def __init__(
+        self,
+        *,
+        directory: Path,
+        materialization_claim_sha256: str,
+        attempt_id: str,
+        systemd_invocation_id: str,
+        child_pid: int,
+    ) -> None:
+        self._directory = directory
+        self._previous_sha256 = materialization_claim_sha256
+        self._attempt_id = attempt_id
+        self._systemd_invocation_id = systemd_invocation_id
+        self._boot_id = _boot_id()
+        self._supervisor_starttime_ticks = _proc_starttime_ticks(os.getpid())
+        self._child_pid = child_pid
+        self._child_starttime_ticks = _proc_starttime_ticks(child_pid)
+        self.sequence = 0
+        self.last_file_sha256: str | None = None
+        self.last_path: str | None = None
+
+    def emit(
+        self,
+        event: str,
+        *,
+        child_pid: int | None,
+        details: Mapping[str, object] | None = None,
+    ) -> None:
+        path = self._directory / f"{self.sequence:012d}.json"
+        body = {
+            "schema_version": RUNTIME_HEARTBEAT_SCHEMA,
+            "attempt_id": self._attempt_id,
+            "sequence": self.sequence,
+            "event": event,
+            "time_utc": _utc_now(),
+            "monotonic_ns": time.monotonic_ns(),
+            "supervisor_pid": os.getpid(),
+            "supervisor_proc_starttime_ticks": (
+                self._supervisor_starttime_ticks
+            ),
+            "child_pid": child_pid,
+            "child_proc_starttime_ticks": self._child_starttime_ticks,
+            "boot_id": self._boot_id,
+            "systemd_invocation_id": self._systemd_invocation_id,
+            "previous_event_file_sha256": self._previous_sha256,
+            "details": dict(details or {}),
+        }
+        payload = _seal(body, fingerprint_field="event_fingerprint")
+        current_sha256 = _write_new_json(path, payload)
+        self._previous_sha256 = current_sha256
+        self.last_file_sha256 = current_sha256
+        self.last_path = str(path)
+        self.sequence += 1
+
+
+def classify_child_exit(
+    return_code: int | None,
+    *,
+    spawn_error: BaseException | None = None,
+    forwarded_signals: Sequence[int] = (),
+    forced_kill: bool = False,
+) -> dict[str, object]:
+    if spawn_error is not None:
+        return {
+            "category": "SPAWN_FAILED",
+            "raw_return_code": None,
+            "exit_status": None,
+            "signal_number": None,
+            "signal_name": None,
+            "spawn_error_type": type(spawn_error).__name__,
+            "spawn_errno": getattr(spawn_error, "errno", None),
+            "forwarded_signals": list(forwarded_signals),
+            "forced_kill": forced_kill,
+        }
+    if not isinstance(return_code, int):
+        raise TypeError("return_code must be an integer after spawn")
+    if return_code < 0:
+        signal_number = -return_code
+        try:
+            signal_name = signal.Signals(signal_number).name
+        except ValueError:
+            signal_name = "UNKNOWN"
+        category = "SIGNALED"
+        exit_status = None
+    else:
+        signal_number = None
+        signal_name = None
+        exit_status = return_code
+        category = "EXITED_0" if return_code == 0 else "EXITED_NONZERO"
+    if forwarded_signals:
+        category = f"FORWARDED_SIGNAL_THEN_{category}"
+    return {
+        "category": category,
+        "raw_return_code": return_code,
+        "exit_status": exit_status,
+        "signal_number": signal_number,
+        "signal_name": signal_name,
+        "spawn_error_type": None,
+        "spawn_errno": None,
+        "forwarded_signals": list(forwarded_signals),
+        "forced_kill": forced_kill,
+    }
+
+
+def _normalized_process_exit(return_code: int) -> int:
+    if return_code < 0:
+        return min(255, 128 + (-return_code))
+    return min(255, return_code)
+
+
+def _signal_process_group(process: subprocess.Popen[bytes], signum: int) -> bool:
+    try:
+        os.killpg(process.pid, signum)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _process_group_exists(process_group_id: int) -> bool:
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _enable_child_subreaper() -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    prctl = libc.prctl
+    prctl.argtypes = [
+        ctypes.c_int,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+    ]
+    prctl.restype = ctypes.c_int
+    if prctl(_PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(error_number, "PR_SET_CHILD_SUBREAPER failed")
+
+
+def _reap_adopted_children() -> None:
+    while True:
+        try:
+            pid, _status = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return
+        if pid <= 0:
+            return
+
+
+def _adopted_child_pids() -> set[int]:
+    source = Path(f"/proc/{os.getpid()}/task/{os.getpid()}/children")
+    raw = source.read_text(encoding="ascii").strip()
+    if not raw:
+        return set()
+    values = {int(value) for value in raw.split()}
+    if any(value <= 0 for value in values):
+        raise RuntimeError("adopted child PID list is malformed")
+    return values
+
+
+def _cgroup_other_pids(control_group: str) -> set[int]:
+    root = _CGROUP_FILESYSTEM_ROOT.resolve(strict=True)
+    candidate = (
+        root / control_group.removeprefix("/")
+    ).resolve(strict=True)
+    try:
+        candidate.relative_to(root)
+    except ValueError as error:
+        raise PermissionError("unit cgroup escapes cgroup filesystem") from error
+    sources = {candidate / "cgroup.procs"}
+    sources.update(candidate.glob("**/cgroup.procs"))
+    values: set[int] = set()
+    for source in sorted(sources):
+        resolved_source = source.resolve(strict=True)
+        try:
+            resolved_source.relative_to(candidate)
+        except ValueError as error:
+            raise PermissionError(
+                "nested unit cgroup escapes frozen control group"
+            ) from error
+        raw = resolved_source.read_text(encoding="ascii").strip()
+        if raw:
+            values.update(int(value) for value in raw.split())
+    if any(value <= 0 for value in values):
+        raise RuntimeError("unit cgroup PID list is malformed")
+    values.discard(os.getpid())
+    return values
+
+
+def _runtime_descendant_state(
+    process_group_id: int,
+    control_group: str | None,
+) -> tuple[bool, set[int]]:
+    _reap_adopted_children()
+    pids = _adopted_child_pids()
+    if control_group is not None:
+        pids.update(_cgroup_other_pids(control_group))
+    pids.discard(os.getpid())
+    return _process_group_exists(process_group_id), pids
+
+
+def _signal_runtime_descendants(
+    process_group_id: int,
+    pids: set[int],
+    signum: int,
+) -> None:
+    try:
+        os.killpg(process_group_id, signum)
+    except ProcessLookupError:
+        pass
+    for pid in sorted(pids):
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, signum)
+        except ProcessLookupError:
+            pass
+
+
+def _wait_runtime_quiescence(
+    process_group_id: int,
+    control_group: str | None,
+    *,
+    deadline: float,
+    poll_interval: float,
+) -> bool:
+    while True:
+        group_exists, pids = _runtime_descendant_state(
+            process_group_id,
+            control_group,
+        )
+        if not group_exists and not pids:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval)
+
+
+def _quiesce_runtime_descendants(
+    process_group_id: int,
+    control_group: str | None,
+    *,
+    grace_seconds: float,
+    poll_interval: float,
+) -> list[int]:
+    group_exists, pids = _runtime_descendant_state(
+        process_group_id,
+        control_group,
+    )
+    if not group_exists and not pids:
+        return []
+    applied: list[int] = []
+    for signum in (int(signal.SIGTERM), int(signal.SIGKILL)):
+        _signal_runtime_descendants(process_group_id, pids, signum)
+        applied.append(signum)
+        if _wait_runtime_quiescence(
+            process_group_id,
+            control_group,
+            deadline=time.monotonic() + grace_seconds,
+            poll_interval=poll_interval,
+        ):
+            return applied
+        group_exists, pids = _runtime_descendant_state(
+            process_group_id,
+            control_group,
+        )
+    raise RuntimeError(
+        "runtime descendants did not quiesce before log sealing"
+    )
+
+
+def _child_environment(child: Mapping[str, object]) -> dict[str, str]:
+    inherited = child["inherit_environment"]
+    explicit = child["environment"]
+    if not isinstance(inherited, list) or not isinstance(explicit, Mapping):
+        raise AssertionError("validated child environment changed")
+    environment = {
+        name: os.environ[name]
+        for name in inherited
+        if name in os.environ
+    }
+    environment.update(
+        {str(key): str(value) for key, value in explicit.items()}
+    )
+    return environment
+
+
+def _attempt_commit_payload(
+    spec: Mapping[str, object],
+    authorization: Mapping[str, object],
+    systemd_shadow: Mapping[str, str],
+) -> dict[str, object]:
+    return _seal(
+        {
+            "schema_version": ATTEMPT_COMMIT_SCHEMA,
+            "execution_kind": spec["execution_kind"],
+            "candidate": spec["candidate"],
+            "stage_id": spec["stage_id"],
+            "attempt_id": spec["attempt_id"],
+            "attempt_ordinal": spec["attempt_ordinal"],
+            "prior_attempt_count": spec["prior_attempt_count"],
+            "runtime_spec_fingerprint": spec[
+                "runtime_spec_fingerprint"
+            ],
+            "authorization_fingerprint": authorization[
+                "authorization_fingerprint"
+            ],
+            "authorization_file_sha256": authorization[
+                "authorization_file_sha256"
+            ],
+            "time_utc": _utc_now(),
+            "monotonic_ns": time.monotonic_ns(),
+            "committer_pid": os.getpid(),
+            "committer_proc_starttime_ticks": _proc_starttime_ticks(
+                os.getpid()
+            ),
+            "boot_id": _boot_id(),
+            "systemd_unit_name": spec["runtime"]["systemd"][
+                "unit_name"
+            ],
+            "systemd_shadow_properties": dict(systemd_shadow),
+            "systemd_shadow_fingerprint": stable_fingerprint(
+                dict(systemd_shadow)
+            ),
+            "launch_limit": 1,
+            "automatic_retry_allowed": False,
+            "resume_allowed": False,
+            "scientific_gate_passed": None,
+        },
+        fingerprint_field="attempt_commit_fingerprint",
+    )
+
+
+def _materialization_claim(
+    spec: Mapping[str, object],
+    authorization: Mapping[str, object] | None,
+    attempt_commit: Mapping[str, object] | None,
+    systemd_invocation_id: str,
+    systemd_control_group: str | None,
+) -> dict[str, object]:
+    return _seal(
+        {
+            "schema_version": MATERIALIZATION_CLAIM_SCHEMA,
+            "execution_kind": spec["execution_kind"],
+            "candidate": spec["candidate"],
+            "stage_id": spec["stage_id"],
+            "attempt_id": spec["attempt_id"],
+            "runtime_spec_fingerprint": spec[
+                "runtime_spec_fingerprint"
+            ],
+            "authorization_fingerprint": (
+                authorization["authorization_fingerprint"]
+                if authorization is not None
+                else None
+            ),
+            "attempt_commit_fingerprint": (
+                attempt_commit["attempt_commit_fingerprint"]
+                if attempt_commit is not None
+                else None
+            ),
+            "attempt_commit_file_sha256": (
+                attempt_commit["attempt_commit_file_sha256"]
+                if attempt_commit is not None
+                else None
+            ),
+            "time_utc": _utc_now(),
+            "monotonic_ns": time.monotonic_ns(),
+            "claimer_pid": os.getpid(),
+            "claimer_proc_starttime_ticks": _proc_starttime_ticks(
+                os.getpid()
+            ),
+            "boot_id": _boot_id(),
+            "systemd_invocation_id": systemd_invocation_id,
+            "systemd_control_group": systemd_control_group,
+            "launch_limit": 1,
+            "shell": False,
+            "automatic_retry_allowed": False,
+            "resume_allowed": False,
+            "child_argv_fingerprint": spec["child"][
+                "argv_fingerprint"
+            ],
+            "scientific_gate_passed": None,
+        },
+        fingerprint_field="materialization_claim_fingerprint",
+    )
+
+
+def _terminal_payload(
+    spec: Mapping[str, object],
+    *,
+    materialization_claim: Mapping[str, object],
+    materialization_claim_sha256: str,
+    child_outcome: Mapping[str, object],
+    heartbeat: _HeartbeatChain | None,
+    stdout_receipt: Mapping[str, object] | None,
+    stderr_receipt: Mapping[str, object] | None,
+    supervisor_error: BaseException | None,
+    process_group_cleanup_signals: Sequence[int],
+) -> dict[str, object]:
+    return _seal(
+        {
+            "schema_version": RUNTIME_TERMINAL_SCHEMA,
+            "execution_kind": spec["execution_kind"],
+            "candidate": spec["candidate"],
+            "stage_id": spec["stage_id"],
+            "attempt_id": spec["attempt_id"],
+            "runtime_spec_fingerprint": spec[
+                "runtime_spec_fingerprint"
+            ],
+            "materialization_claim_file_sha256": (
+                materialization_claim_sha256
+            ),
+            "boot_id": materialization_claim["boot_id"],
+            "systemd_invocation_id": materialization_claim[
+                "systemd_invocation_id"
+            ],
+            "time_utc": _utc_now(),
+            "monotonic_ns": time.monotonic_ns(),
+            "child_outcome": dict(child_outcome),
+            "heartbeat_event_count": (
+                heartbeat.sequence if heartbeat is not None else 0
+            ),
+            "last_heartbeat_path": (
+                heartbeat.last_path if heartbeat is not None else None
+            ),
+            "last_heartbeat_file_sha256": (
+                heartbeat.last_file_sha256
+                if heartbeat is not None
+                else None
+            ),
+            "stdout_log": (
+                dict(stdout_receipt)
+                if stdout_receipt is not None
+                else None
+            ),
+            "stderr_log": (
+                dict(stderr_receipt)
+                if stderr_receipt is not None
+                else None
+            ),
+            "supervisor_error_type": (
+                type(supervisor_error).__name__
+                if supervisor_error is not None
+                else None
+            ),
+            "process_group_cleanup_signals": list(
+                process_group_cleanup_signals
+            ),
+            "scientific_decision": (
+                "NOT_EVALUATED_BY_RUNTIME_SUPERVISOR"
+            ),
+            "scientific_gate_passed": None,
+        },
+        fingerprint_field="runtime_terminal_fingerprint",
+    )
+
+
+def _run_child_once(
+    spec: Mapping[str, object],
+    *,
+    authorization: Mapping[str, object] | None,
+    attempt_commit: Mapping[str, object] | None,
+    materialization_claim: Mapping[str, object],
+) -> int:
+    child = spec["child"]
+    artifacts = spec["artifacts"]
+    runtime = spec["runtime"]
+    if (
+        not isinstance(child, Mapping)
+        or not isinstance(artifacts, Mapping)
+        or not isinstance(runtime, Mapping)
+    ):
+        raise AssertionError("validated runtime spec changed")
+
+    materialization_sha256 = str(
+        materialization_claim["materialization_claim_file_sha256"]
+    )
+
+    stdout_path = Path(str(artifacts["stdout_log"]))
+    stderr_path = Path(str(artifacts["stderr_log"]))
+    terminal_path = Path(str(artifacts["runtime_terminal"]))
+    heartbeat_dir = Path(str(artifacts["heartbeat_dir"]))
+    stdout_handle: object | None = None
+    stderr_handle: object | None = None
+    stdout_receipt: dict[str, object] | None = None
+    stderr_receipt: dict[str, object] | None = None
+    heartbeat: _HeartbeatChain | None = None
+    process: subprocess.Popen[bytes] | None = None
+    spawn_error: BaseException | None = None
+    supervisor_error: BaseException | None = None
+    forwarded_signals: list[int] = []
+    process_group_cleanup_signals: list[int] = []
+    forced_kill = False
+    logs_safe_to_finalize = False
+    runtime_control_group = materialization_claim.get(
+        "systemd_control_group"
+    )
+    if runtime_control_group is not None and not isinstance(
+        runtime_control_group, str
+    ):
+        raise AssertionError("validated control group changed")
+
+    pending_signals: list[int] = []
+
+    def request_stop(signum: int, _frame: object) -> None:
+        pending_signals.append(signum)
+
+    handled_signals = tuple(
+        value
+        for value in (
+            signal.SIGINT,
+            signal.SIGTERM,
+            getattr(signal, "SIGHUP", None),
+        )
+        if isinstance(value, signal.Signals)
+    )
+    previous_handlers: dict[signal.Signals, object] = {}
+
+    try:
+        stdout_handle = _open_new_log(stdout_path)
+        stderr_handle = _open_new_log(stderr_path)
+        previous_handlers = {
+            value: signal.getsignal(value) for value in handled_signals
+        }
+        for value in handled_signals:
+            signal.signal(value, request_stop)
+
+        argv = child["argv"]
+        if not isinstance(argv, list):
+            raise AssertionError("validated child argv changed")
+        _enable_child_subreaper()
+        if (
+            runtime_control_group is not None
+            and _cgroup_other_pids(runtime_control_group)
+        ):
+            raise PermissionError("unit cgroup is not empty before Popen")
+        # This is intentionally the only Popen call in the implementation.
+        process = subprocess.Popen(
+            list(argv),
+            shell=False,
+            start_new_session=True,
+            cwd=str(child["cwd"]),
+            env=_child_environment(child),
+            stdin=subprocess.DEVNULL,
+            stdout=stdout_handle,
+            stderr=stderr_handle,
+            close_fds=True,
+        )
+        heartbeat = _HeartbeatChain(
+            directory=heartbeat_dir,
+            materialization_claim_sha256=materialization_sha256,
+            attempt_id=str(spec["attempt_id"]),
+            systemd_invocation_id=str(
+                materialization_claim["systemd_invocation_id"]
+            ),
+            child_pid=process.pid,
+        )
+        heartbeat.emit(
+            "child_started",
+            child_pid=process.pid,
+            details={"child_argv_fingerprint": child["argv_fingerprint"]},
+        )
+
+        heartbeat_interval = float(
+            runtime["heartbeat_interval_seconds"]
+        )
+        poll_interval = float(runtime["poll_interval_seconds"])
+        grace_seconds = float(runtime["termination_grace_seconds"])
+        next_heartbeat = time.monotonic() + heartbeat_interval
+        termination_deadline: float | None = None
+
+        while process.poll() is None:
+            while pending_signals:
+                signum = pending_signals.pop(0)
+                if forwarded_signals:
+                    forwarded = int(signal.SIGKILL)
+                    forced_kill = True
+                else:
+                    forwarded = signum
+                    termination_deadline = time.monotonic() + grace_seconds
+                if _signal_process_group(process, forwarded):
+                    forwarded_signals.append(forwarded)
+                    heartbeat.emit(
+                        "signal_forwarded",
+                        child_pid=process.pid,
+                        details={
+                            "signal_number": forwarded,
+                            "signal_name": signal.Signals(forwarded).name,
+                        },
+                    )
+
+            if (
+                termination_deadline is not None
+                and time.monotonic() >= termination_deadline
+                and process.poll() is None
+                and not forced_kill
+            ):
+                if _signal_process_group(process, int(signal.SIGKILL)):
+                    forwarded_signals.append(int(signal.SIGKILL))
+                    forced_kill = True
+                    heartbeat.emit(
+                        "termination_grace_expired",
+                        child_pid=process.pid,
+                        details={
+                            "signal_number": int(signal.SIGKILL),
+                            "signal_name": signal.SIGKILL.name,
+                        },
+                    )
+            if time.monotonic() >= next_heartbeat:
+                heartbeat.emit(
+                    "child_running",
+                    child_pid=process.pid,
+                    details={
+                        "termination_requested": bool(
+                            forwarded_signals
+                        )
+                    },
+                )
+                next_heartbeat = time.monotonic() + heartbeat_interval
+            time.sleep(poll_interval)
+        return_code = process.wait()
+        heartbeat.emit(
+            "child_reaped",
+            child_pid=process.pid,
+            details={"raw_return_code": return_code},
+        )
+        cleanup_signals = _quiesce_runtime_descendants(
+            process.pid,
+            runtime_control_group,
+            grace_seconds=grace_seconds,
+            poll_interval=poll_interval,
+        )
+        process_group_cleanup_signals.extend(cleanup_signals)
+        if cleanup_signals:
+            heartbeat.emit(
+                "runtime_descendants_quiesced",
+                child_pid=process.pid,
+                details={
+                    "cleanup_signals": process_group_cleanup_signals
+                },
+            )
+        logs_safe_to_finalize = True
+    except BaseException as error:
+        if process is None:
+            spawn_error = error
+        else:
+            supervisor_error = error
+            try:
+                if process.poll() is None:
+                    _signal_process_group(process, int(signal.SIGTERM))
+                    forwarded_signals.append(int(signal.SIGTERM))
+                    deadline = time.monotonic() + float(
+                        runtime["termination_grace_seconds"]
+                    )
+                    while (
+                        process.poll() is None
+                        and time.monotonic() < deadline
+                    ):
+                        time.sleep(float(runtime["poll_interval_seconds"]))
+                    if process.poll() is None:
+                        _signal_process_group(process, int(signal.SIGKILL))
+                        forwarded_signals.append(int(signal.SIGKILL))
+                        forced_kill = True
+                process.wait()
+            except BaseException as termination_error:
+                supervisor_error = supervisor_error or termination_error
+            try:
+                cleanup_signals = _quiesce_runtime_descendants(
+                    process.pid,
+                    runtime_control_group,
+                    grace_seconds=float(
+                        runtime["termination_grace_seconds"]
+                    ),
+                    poll_interval=float(runtime["poll_interval_seconds"]),
+                )
+                process_group_cleanup_signals.extend(cleanup_signals)
+                logs_safe_to_finalize = True
+            except BaseException as cleanup_error:
+                supervisor_error = supervisor_error or cleanup_error
+    finally:
+        for value, previous in previous_handlers.items():
+            signal.signal(value, previous)
+        if stdout_handle is not None and logs_safe_to_finalize:
+            try:
+                stdout_receipt = _finalize_log(
+                    stdout_handle,
+                    stdout_path,
+                )
+            except BaseException as error:
+                supervisor_error = supervisor_error or error
+        elif stdout_handle is not None:
+            try:
+                stdout_handle.close()
+            except BaseException as error:
+                supervisor_error = supervisor_error or error
+        if stderr_handle is not None and logs_safe_to_finalize:
+            try:
+                stderr_receipt = _finalize_log(
+                    stderr_handle,
+                    stderr_path,
+                )
+            except BaseException as error:
+                supervisor_error = supervisor_error or error
+        elif stderr_handle is not None:
+            try:
+                stderr_handle.close()
+            except BaseException as error:
+                supervisor_error = supervisor_error or error
+
+    return_code = process.returncode if process is not None else None
+    child_outcome = classify_child_exit(
+        return_code,
+        spawn_error=spawn_error,
+        forwarded_signals=forwarded_signals,
+        forced_kill=forced_kill,
+    )
+    terminal = _terminal_payload(
+        spec,
+        materialization_claim=materialization_claim,
+        materialization_claim_sha256=materialization_sha256,
+        child_outcome=child_outcome,
+        heartbeat=heartbeat,
+        stdout_receipt=stdout_receipt,
+        stderr_receipt=stderr_receipt,
+        supervisor_error=supervisor_error,
+        process_group_cleanup_signals=process_group_cleanup_signals,
+    )
+    _write_new_json(terminal_path, terminal)
+    if spawn_error is not None:
+        return os.EX_OSERR
+    if supervisor_error is not None:
+        return os.EX_SOFTWARE
+    if return_code is None:
+        return os.EX_SOFTWARE
+    return _normalized_process_exit(return_code)
+
+
+def validate_systemd_shadow(
+    spec: Mapping[str, object],
+    observed: Mapping[str, str],
+) -> None:
+    runtime = spec["runtime"]
+    if not isinstance(runtime, Mapping):
+        raise AssertionError("validated runtime contract changed")
+    systemd = runtime["systemd"]
+    if not isinstance(systemd, Mapping):
+        raise AssertionError("validated systemd contract changed")
+    expected = systemd["shadow_properties"]
+    if not isinstance(expected, Mapping):
+        raise AssertionError("validated systemd shadow changed")
+    if dict(observed) != dict(expected):
+        raise PermissionError("loaded systemd unit differs from frozen shadow")
+
+
+def _query_systemd_shadow(unit_name: str) -> dict[str, str]:
+    command = [
+        _SYSTEMCTL_PATH,
+        "--user",
+        "show",
+        unit_name,
+        "--no-pager",
+        *[f"--property={name}" for name in sorted(_SYSTEMD_SHADOW_KEYS)],
+    ]
+    completed = subprocess.run(
+        command,
+        shell=False,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("systemctl show failed before attempt commit")
+    observed: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in observed:
+            raise ValueError("systemctl returned a duplicate property")
+        observed[key] = _normalize_systemd_shadow_value(
+            key, value
+        )
+    if set(observed) != _SYSTEMD_SHADOW_KEYS:
+        raise ValueError("systemctl did not return the complete unit shadow")
+    return observed
+
+
+def _query_systemd_runtime_identity(unit_name: str) -> dict[str, str]:
+    command = [
+        _SYSTEMCTL_PATH,
+        "--user",
+        "show",
+        unit_name,
+        "--no-pager",
+        "--property=InvocationID",
+        "--property=ControlGroup",
+    ]
+    completed = subprocess.run(
+        command,
+        shell=False,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("systemctl identity query failed")
+    observed: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in observed:
+            raise ValueError("systemctl returned duplicate identity")
+        observed[key] = value
+    if set(observed) != {"InvocationID", "ControlGroup"}:
+        raise ValueError("systemctl identity response is incomplete")
+    invocation_id = observed["InvocationID"]
+    control_group = observed["ControlGroup"]
+    if (
+        len(invocation_id) != 32
+        or any(
+            character not in "0123456789abcdef"
+            for character in invocation_id
+        )
+        or not control_group.startswith("/")
+        or control_group == "/"
+    ):
+        raise PermissionError("systemd runtime identity is malformed")
+    return {
+        "invocation_id": invocation_id,
+        "control_group": control_group,
+    }
+
+
+def _self_cgroup_path() -> str:
+    raw = Path("/proc/self/cgroup").read_text(encoding="ascii")
+    candidates: list[str] = []
+    for line in raw.splitlines():
+        parts = line.split(":", 2)
+        if len(parts) == 3 and parts[0] == "0" and parts[1] == "":
+            candidates.append(parts[2])
+    if (
+        len(candidates) != 1
+        or not candidates[0].startswith("/")
+    ):
+        raise PermissionError("unified process cgroup is unavailable")
+    return candidates[0]
+
+
+def _validate_live_systemd_context(
+    spec: Mapping[str, object],
+    systemd_invocation_id: str,
+) -> str:
+    runtime = spec["runtime"]
+    if not isinstance(runtime, Mapping):
+        raise AssertionError("validated runtime contract changed")
+    systemd = runtime["systemd"]
+    if not isinstance(systemd, Mapping):
+        raise AssertionError("validated systemd contract changed")
+    identity = _query_systemd_runtime_identity(
+        str(systemd["unit_name"])
+    )
+    if identity["invocation_id"] != systemd_invocation_id:
+        raise PermissionError("INVOCATION_ID differs from systemd manager")
+    control_group = identity["control_group"]
+    if _self_cgroup_path() != control_group:
+        raise PermissionError("supervisor is outside the frozen unit cgroup")
+    return control_group
+
+
+def _verify_attempt_commit_lineage(
+    spec: Mapping[str, object],
+) -> dict[str, object]:
+    artifacts = spec["artifacts"]
+    if not isinstance(artifacts, Mapping):
+        raise AssertionError("validated artifact contract changed")
+    path = Path(str(artifacts["attempt_commit"]))
+    payload = _read_canonical_json(path, name="r2 attempt commit")
+    body = dict(payload)
+    fingerprint = body.pop("attempt_commit_fingerprint", None)
+    runtime = spec["runtime"]
+    if not isinstance(runtime, Mapping) or not isinstance(
+        runtime["systemd"], Mapping
+    ):
+        raise AssertionError("validated systemd contract changed")
+    expected_shadow = runtime["systemd"]["shadow_properties"]
+    if (
+        not _is_sha256(fingerprint)
+        or fingerprint != stable_fingerprint(body)
+        or payload.get("schema_version") != ATTEMPT_COMMIT_SCHEMA
+        or payload.get("execution_kind") != spec["execution_kind"]
+        or payload.get("candidate") != spec["candidate"]
+        or payload.get("stage_id") != spec["stage_id"]
+        or payload.get("attempt_id") != spec["attempt_id"]
+        or payload.get("attempt_ordinal") != spec["attempt_ordinal"]
+        or payload.get("prior_attempt_count") != spec["prior_attempt_count"]
+        or payload.get("runtime_spec_fingerprint")
+        != spec["runtime_spec_fingerprint"]
+        or not _is_sha256(payload.get("authorization_fingerprint"))
+        or not _is_sha256(payload.get("authorization_file_sha256"))
+        or payload.get("boot_id") != _boot_id()
+        or payload.get("systemd_unit_name")
+        != runtime["systemd"]["unit_name"]
+        or payload.get("systemd_shadow_properties") != expected_shadow
+        or payload.get("systemd_shadow_fingerprint")
+        != stable_fingerprint(expected_shadow)
+        or payload.get("launch_limit") != 1
+        or payload.get("automatic_retry_allowed") is not False
+        or payload.get("resume_allowed") is not False
+    ):
+        raise PermissionError("r2 attempt commit is invalid")
+    return {
+        **payload,
+        "attempt_commit_file_sha256": file_sha256(path),
+    }
+
+
+def _verify_attempt_commit(
+    spec: Mapping[str, object],
+    authorization: Mapping[str, object],
+) -> dict[str, object]:
+    payload = _verify_attempt_commit_lineage(spec)
+    if (
+        payload.get("authorization_fingerprint")
+        != authorization["authorization_fingerprint"]
+        or payload.get("authorization_file_sha256")
+        != authorization["authorization_file_sha256"]
+    ):
+        raise PermissionError(
+            "r2 attempt commit does not match current authorization"
+        )
+    return payload
+
+
+def commit_and_start(spec_path: str | Path) -> int:
+    """Commit one actual attempt, then issue exactly one nonblocking start."""
+
+    canonical_spec_path = _canonical_regular_file(
+        spec_path,
+        name="runtime supervisor spec",
+    )
+    spec = load_runtime_spec(canonical_spec_path)
+    if spec["execution_kind"] != ACTUAL_EXECUTION_KIND:
+        raise PermissionError("commit-and-start is actual-r2-only")
+    # Authorization absence rejects before filesystem validation, artifacts,
+    # systemctl inspection, or any process launch.
+    authorization = _verify_actual_authorization(
+        spec,
+        spec_path=canonical_spec_path,
+    )
+    _validate_runtime_filesystem(spec)
+    _validate_precommit_artifacts(spec)
+    runtime = spec["runtime"]
+    artifacts = spec["artifacts"]
+    if not isinstance(runtime, Mapping) or not isinstance(artifacts, Mapping):
+        raise AssertionError("validated runtime spec changed")
+    systemd = runtime["systemd"]
+    if not isinstance(systemd, Mapping):
+        raise AssertionError("validated systemd contract changed")
+    unit_name = str(systemd["unit_name"])
+    observed = _query_systemd_shadow(unit_name)
+    validate_systemd_shadow(spec, observed)
+    commit = _attempt_commit_payload(spec, authorization, observed)
+    _write_new_json(Path(str(artifacts["attempt_commit"])), commit)
+
+    # There is intentionally no loop and no retry around this exact start.
+    completed = subprocess.run(
+        [_SYSTEMCTL_PATH, "--user", "start", "--no-block", unit_name],
+        shell=False,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("systemctl start failed after attempt commit")
+    return 0
+
+
+def _systemd_invocation_id(environment: Mapping[str, str]) -> str:
+    invocation_id = environment.get("INVOCATION_ID")
+    if (
+        not isinstance(invocation_id, str)
+        or len(invocation_id) != 32
+        or any(
+            character not in "0123456789abcdef"
+            for character in invocation_id
+        )
+    ):
+        raise PermissionError("systemd INVOCATION_ID is absent or malformed")
+    return invocation_id
+
+
+def claim_materialization(
+    spec_path: str | Path,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> int:
+    """ExecCondition entry point: publish the invocation-bound claim."""
+
+    canonical_spec_path = _canonical_regular_file(
+        spec_path,
+        name="runtime supervisor spec",
+    )
+    spec = load_runtime_spec(canonical_spec_path)
+    control_group: str | None = None
+    authorization: dict[str, object] | None = None
+    attempt_commit: dict[str, object] | None = None
+    if spec["execution_kind"] == ACTUAL_EXECUTION_KIND:
+        # Missing actual authorization is rejected before any artifact.
+        authorization = _verify_actual_authorization(
+            spec,
+            spec_path=canonical_spec_path,
+        )
+    _validate_runtime_filesystem(spec)
+    if authorization is not None:
+        attempt_commit = _verify_attempt_commit(spec, authorization)
+        runtime = spec["runtime"]
+        if not isinstance(runtime, Mapping) or not isinstance(
+            runtime["systemd"], Mapping
+        ):
+            raise AssertionError("validated systemd contract changed")
+        observed = _query_systemd_shadow(
+            str(runtime["systemd"]["unit_name"])
+        )
+        validate_systemd_shadow(spec, observed)
+    invocation_id = _systemd_invocation_id(
+        dict(os.environ) if environment is None else environment
+    )
+    if authorization is not None:
+        control_group = _validate_live_systemd_context(
+            spec, invocation_id
+        )
+    artifacts = spec["artifacts"]
+    if not isinstance(artifacts, Mapping):
+        raise AssertionError("validated artifact contract changed")
+    claim = _materialization_claim(
+        spec,
+        authorization,
+        attempt_commit,
+        invocation_id,
+        control_group,
+    )
+    _write_new_json(
+        Path(str(artifacts["materialization_claim"])),
+        claim,
+    )
+    return 0
+
+
+def _verify_materialization_claim(
+    spec: Mapping[str, object],
+    *,
+    authorization: Mapping[str, object] | None,
+    attempt_commit: Mapping[str, object] | None,
+    systemd_invocation_id: str,
+    systemd_control_group: str | None,
+) -> dict[str, object]:
+    artifacts = spec["artifacts"]
+    if not isinstance(artifacts, Mapping):
+        raise AssertionError("validated artifact contract changed")
+    path = Path(str(artifacts["materialization_claim"]))
+    payload = _read_canonical_json(path, name="materialization claim")
+    body = dict(payload)
+    fingerprint = body.pop("materialization_claim_fingerprint", None)
+    expected_authorization = (
+        authorization["authorization_fingerprint"]
+        if authorization is not None
+        else None
+    )
+    expected_commit = (
+        attempt_commit["attempt_commit_fingerprint"]
+        if attempt_commit is not None
+        else None
+    )
+    if (
+        not _is_sha256(fingerprint)
+        or fingerprint != stable_fingerprint(body)
+        or payload.get("schema_version") != MATERIALIZATION_CLAIM_SCHEMA
+        or payload.get("runtime_spec_fingerprint")
+        != spec["runtime_spec_fingerprint"]
+        or payload.get("authorization_fingerprint")
+        != expected_authorization
+        or payload.get("attempt_commit_fingerprint") != expected_commit
+        or payload.get("systemd_invocation_id") != systemd_invocation_id
+        or payload.get("systemd_control_group")
+        != systemd_control_group
+        or payload.get("boot_id") != _boot_id()
+        or not isinstance(
+            payload.get("claimer_proc_starttime_ticks"),
+            int,
+        )
+        or payload.get("launch_limit") != 1
+        or payload.get("shell") is not False
+        or payload.get("automatic_retry_allowed") is not False
+        or payload.get("resume_allowed") is not False
+    ):
+        raise PermissionError("materialization claim is invalid")
+    return {
+        **payload,
+        "materialization_claim_file_sha256": file_sha256(path),
+    }
+
+
+def run_once(
+    spec_path: str | Path,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> int:
+    """Service entry point: claim materialization, then Popen exactly once."""
+
+    canonical_spec_path = _canonical_regular_file(
+        spec_path,
+        name="runtime supervisor spec",
+    )
+    spec = load_runtime_spec(canonical_spec_path)
+    authorization: dict[str, object] | None = None
+    attempt_commit: dict[str, object] | None = None
+    control_group: str | None = None
+    if spec["execution_kind"] == ACTUAL_EXECUTION_KIND:
+        # This remains before any attempt artifact, log, signal setup, or Popen.
+        authorization = _verify_actual_authorization(
+            spec,
+            spec_path=canonical_spec_path,
+        )
+    _validate_runtime_filesystem(spec)
+    if authorization is not None:
+        attempt_commit = _verify_attempt_commit(spec, authorization)
+        runtime = spec["runtime"]
+        if not isinstance(runtime, Mapping) or not isinstance(
+            runtime["systemd"], Mapping
+        ):
+            raise AssertionError("validated systemd contract changed")
+        observed = _query_systemd_shadow(
+            str(runtime["systemd"]["unit_name"])
+        )
+        validate_systemd_shadow(spec, observed)
+    invocation_id = _systemd_invocation_id(
+        dict(os.environ) if environment is None else environment
+    )
+    if authorization is not None:
+        control_group = _validate_live_systemd_context(
+            spec, invocation_id
+        )
+    materialization_claim = _verify_materialization_claim(
+        spec,
+        authorization=authorization,
+        attempt_commit=attempt_commit,
+        systemd_invocation_id=invocation_id,
+        systemd_control_group=control_group,
+    )
+    return _run_child_once(
+        spec,
+        authorization=authorization,
+        attempt_commit=attempt_commit,
+        materialization_claim=materialization_claim,
+    )
+
+
+def verify_runtime_spec(
+    spec_path: str | Path,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> int:
+    """ExecStartPre entry point with no artifact or child mutation."""
+
+    canonical_spec_path = _canonical_regular_file(
+        spec_path,
+        name="runtime supervisor spec",
+    )
+    spec = load_runtime_spec(canonical_spec_path)
+    authorization: dict[str, object] | None = None
+    attempt_commit: dict[str, object] | None = None
+    control_group: str | None = None
+    if spec["execution_kind"] == ACTUAL_EXECUTION_KIND:
+        authorization = _verify_actual_authorization(
+            spec,
+            spec_path=canonical_spec_path,
+        )
+    _validate_runtime_filesystem(spec)
+    if authorization is not None:
+        attempt_commit = _verify_attempt_commit(spec, authorization)
+        runtime = spec["runtime"]
+        if not isinstance(runtime, Mapping) or not isinstance(
+            runtime["systemd"], Mapping
+        ):
+            raise AssertionError("validated systemd contract changed")
+        observed = _query_systemd_shadow(
+            str(runtime["systemd"]["unit_name"])
+        )
+        validate_systemd_shadow(spec, observed)
+    invocation_id = _systemd_invocation_id(
+        dict(os.environ) if environment is None else environment
+    )
+    if authorization is not None:
+        control_group = _validate_live_systemd_context(
+            spec, invocation_id
+        )
+    _verify_materialization_claim(
+        spec,
+        authorization=authorization,
+        attempt_commit=attempt_commit,
+        systemd_invocation_id=invocation_id,
+        systemd_control_group=control_group,
+    )
+    return 0
+
+
+def classify_systemd_exit(
+    environment: Mapping[str, str],
+) -> dict[str, object]:
+    service_result = environment.get("SERVICE_RESULT", "unknown")
+    exit_code = environment.get("EXIT_CODE", "unknown")
+    exit_status = environment.get("EXIT_STATUS", "unknown")
+    categories = {
+        "exit-code": "SYSTEMD_MAIN_EXIT_NONZERO",
+        "signal": "SYSTEMD_MAIN_SIGNAL",
+        "core-dump": "SYSTEMD_MAIN_CORE_DUMP",
+        "timeout": "SYSTEMD_TIMEOUT",
+        "watchdog": "SYSTEMD_WATCHDOG",
+        "oom-kill": "SYSTEMD_OOM_KILL",
+        "resources": "SYSTEMD_RESOURCE_FAILURE",
+        "protocol": "SYSTEMD_PROTOCOL_FAILURE",
+        "start-limit-hit": "SYSTEMD_START_LIMIT_HIT",
+        "exec-condition": "SYSTEMD_EXEC_CONDITION",
+    }
+    success = (
+        service_result == "success"
+        and exit_code == "exited"
+        and exit_status == "0"
+    )
+    category = (
+        "SYSTEMD_SERVICE_SUCCESS"
+        if success
+        else categories.get(service_result, "SYSTEMD_OTHER_FAILURE")
+    )
+    return {
+        "category": category,
+        "service_result": service_result,
+        "exit_code": exit_code,
+        "exit_status": exit_status,
+        "invocation_id": environment.get("INVOCATION_ID"),
+        "systemd_success": success,
+        "scientific_gate_passed": None,
+    }
+
+
+def finalize_systemd(
+    spec_path: str | Path,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> int:
+    """Publish manager-level exit evidence only for a consumed launch."""
+
+    canonical_spec_path = _canonical_regular_file(
+        spec_path,
+        name="runtime supervisor spec",
+    )
+    spec = load_runtime_spec(canonical_spec_path)
+    effective_environment = (
+        dict(os.environ) if environment is None else environment
+    )
+    invocation_id = _systemd_invocation_id(effective_environment)
+    artifacts = spec["artifacts"]
+    if not isinstance(artifacts, Mapping):
+        raise AssertionError("validated runtime spec changed")
+    root = _canonical_directory(
+        Path(str(artifacts["root"])),
+        name="artifact root",
+    )
+    invocation_directory = _canonical_directory(
+        Path(str(artifacts["systemd_invocation_dir"])),
+        name="systemd invocation directory",
+    )
+    if invocation_directory.parent != root:
+        raise PermissionError("systemd sidecar directory escapes artifact root")
+    materialization_path = Path(str(artifacts["materialization_claim"]))
+    attempt_commit_path = Path(str(artifacts["attempt_commit"]))
+    attempt_commit_required = (
+        spec["execution_kind"] == ACTUAL_EXECUTION_KIND
+    )
+    live_control_group: str | None = None
+    current_authorization_valid: bool | None = None
+    current_runtime_closure_valid: bool | None = None
+    current_runtime_closure_error_type: str | None = None
+    authorization_matches_commit: bool | None = None
+    attempt_commit_fingerprint: str | None = None
+    attempt_commit_sha256: str | None = None
+    attempt_commit_valid = False
+    attempt_commit: dict[str, object] | None = None
+    if attempt_commit_required:
+        live_control_group = _validate_live_systemd_context(
+            spec,
+            invocation_id,
+        )
+        if (
+            not attempt_commit_path.is_file()
+            or attempt_commit_path.is_symlink()
+        ):
+            raise PermissionError(
+                "actual systemd exit has no consumed attempt commit"
+            )
+        attempt_commit = _verify_attempt_commit_lineage(spec)
+        attempt_commit_valid = True
+        attempt_commit_fingerprint = str(
+            attempt_commit["attempt_commit_fingerprint"]
+        )
+        attempt_commit_sha256 = str(
+            attempt_commit["attempt_commit_file_sha256"]
+        )
+        try:
+            _validate_runtime_filesystem(spec)
+        except (OSError, TypeError, ValueError, AssertionError) as error:
+            current_runtime_closure_valid = False
+            current_runtime_closure_error_type = type(error).__name__
+        else:
+            current_runtime_closure_valid = True
+        try:
+            current_authorization = _verify_actual_authorization(
+                spec,
+                spec_path=canonical_spec_path,
+            )
+        except PermissionError:
+            current_authorization_valid = False
+            authorization_matches_commit = False
+        else:
+            current_authorization_valid = True
+            authorization_matches_commit = bool(
+                attempt_commit.get("authorization_fingerprint")
+                == current_authorization["authorization_fingerprint"]
+                and attempt_commit.get("authorization_file_sha256")
+                == current_authorization["authorization_file_sha256"]
+            )
+    fingerprint: str | None = None
+    materialization_sha256: str | None = None
+    claim_invocation_id: str | None = None
+    claim_valid = False
+    if materialization_path.is_file() and not materialization_path.is_symlink():
+        materialization = _read_canonical_json(
+            materialization_path,
+            name="runtime materialization claim",
+        )
+        body = dict(materialization)
+        candidate_fingerprint = body.pop(
+            "materialization_claim_fingerprint",
+            None,
+        )
+        claim_invocation_id = materialization.get("systemd_invocation_id")
+        expected_authorization_fingerprint = (
+            attempt_commit.get("authorization_fingerprint")
+            if attempt_commit is not None
+            else None
+        )
+        expected_commit_fingerprint = (
+            attempt_commit.get("attempt_commit_fingerprint")
+            if attempt_commit is not None
+            else None
+        )
+        claim_valid = bool(
+            _is_sha256(candidate_fingerprint)
+            and candidate_fingerprint == stable_fingerprint(body)
+            and materialization.get("schema_version")
+            == MATERIALIZATION_CLAIM_SCHEMA
+            and materialization.get("execution_kind")
+            == spec["execution_kind"]
+            and materialization.get("candidate") == spec["candidate"]
+            and materialization.get("stage_id") == spec["stage_id"]
+            and materialization.get("attempt_id") == spec["attempt_id"]
+            and materialization.get("runtime_spec_fingerprint")
+            == spec["runtime_spec_fingerprint"]
+            and materialization.get("authorization_fingerprint")
+            == expected_authorization_fingerprint
+            and materialization.get("attempt_commit_fingerprint")
+            == expected_commit_fingerprint
+            and materialization.get("boot_id") == _boot_id()
+            and materialization.get("systemd_control_group")
+            == live_control_group
+            and materialization.get("launch_limit") == 1
+            and materialization.get("shell") is False
+            and materialization.get("automatic_retry_allowed") is False
+            and materialization.get("resume_allowed") is False
+            and materialization.get("child_argv_fingerprint")
+            == spec["child"]["argv_fingerprint"]
+        )
+        if _is_sha256(candidate_fingerprint):
+            fingerprint = str(candidate_fingerprint)
+        materialization_sha256 = file_sha256(materialization_path)
+    claim_matches_invocation = bool(
+        claim_valid and claim_invocation_id == invocation_id
+    )
+    audit_valid = bool(
+        claim_matches_invocation
+        and (
+            not attempt_commit_required
+            or (
+                attempt_commit_valid
+                and current_authorization_valid is True
+                and current_runtime_closure_valid is True
+                and authorization_matches_commit is True
+            )
+        )
+    )
+    systemd_outcome = classify_systemd_exit(effective_environment)
+    terminal = _seal(
+        {
+            "schema_version": SYSTEMD_TERMINAL_SCHEMA,
+            "candidate": spec["candidate"],
+            "stage_id": spec["stage_id"],
+            "attempt_id": spec["attempt_id"],
+            "runtime_spec_fingerprint": spec[
+                "runtime_spec_fingerprint"
+            ],
+            "materialization_claim_fingerprint": fingerprint,
+            "materialization_claim_file_sha256": materialization_sha256,
+            "attempt_commit_fingerprint": attempt_commit_fingerprint,
+            "attempt_commit_file_sha256": attempt_commit_sha256,
+            "attempt_commit_required": attempt_commit_required,
+            "attempt_commit_valid": attempt_commit_valid,
+            "current_authorization_valid": current_authorization_valid,
+            "current_runtime_closure_valid": current_runtime_closure_valid,
+            "current_runtime_closure_error_type": (
+                current_runtime_closure_error_type
+            ),
+            "authorization_matches_commit": authorization_matches_commit,
+            "systemd_control_group": live_control_group,
+            "claim_systemd_invocation_id": claim_invocation_id,
+            "sidecar_systemd_invocation_id": invocation_id,
+            "claim_valid": claim_valid,
+            "claim_matches_invocation": claim_matches_invocation,
+            "audit_valid": audit_valid,
+            "time_utc": _utc_now(),
+            "systemd_outcome": systemd_outcome,
+            "scientific_decision": (
+                "NOT_EVALUATED_BY_RUNTIME_SUPERVISOR"
+            ),
+            "scientific_gate_passed": None,
+        },
+        fingerprint_field="systemd_terminal_fingerprint",
+    )
+    _write_new_json(
+        invocation_directory / f"{invocation_id}.json",
+        terminal,
+    )
+    return 0
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="mode", required=True)
+    commit = subparsers.add_parser("commit-and-start")
+    commit.add_argument("--spec", required=True)
+    claim = subparsers.add_parser("claim-materialization")
+    claim.add_argument("--spec", required=True)
+    verify = subparsers.add_parser("verify-runtime-spec")
+    verify.add_argument("--spec", required=True)
+    run = subparsers.add_parser("run-once")
+    run.add_argument("--spec", required=True)
+    finalize = subparsers.add_parser("systemd-finalize")
+    finalize.add_argument("--spec", required=True)
+    record = subparsers.add_parser("record-systemd-exit")
+    record.add_argument("--spec", required=True)
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    arguments = _parser().parse_args(argv)
+    try:
+        if arguments.mode == "commit-and-start":
+            return commit_and_start(arguments.spec)
+        if arguments.mode == "claim-materialization":
+            return claim_materialization(arguments.spec)
+        if arguments.mode == "verify-runtime-spec":
+            return verify_runtime_spec(arguments.spec)
+        if arguments.mode == "run-once":
+            return run_once(arguments.spec)
+        return finalize_systemd(arguments.spec)
+    except PermissionError as error:
+        print(f"permission denied: {error}", file=sys.stderr, flush=True)
+        return os.EX_NOPERM
+    except FileExistsError as error:
+        print(
+            f"create-once identity already exists: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+        return os.EX_CANTCREAT
+    except (TypeError, ValueError) as error:
+        print(f"invalid runtime contract: {error}", file=sys.stderr, flush=True)
+        return os.EX_CONFIG
+    except OSError as error:
+        print(f"runtime operating-system error: {error}", file=sys.stderr, flush=True)
+        return os.EX_OSERR
+    except RuntimeError as error:
+        print(f"runtime evidence error: {error}", file=sys.stderr, flush=True)
+        return os.EX_SOFTWARE
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -22,7 +22,41 @@ claim.
 
 ## Current status
 
-### Latest validated node: v23 PACRE-VC completed Formal800 and failed `D_V`
+### Current candidate: v24 GCR-PACRE; formal `D_R` remains undecided
+
+v24 introduces **Gated Common-Residual PACRE (GCR-PACRE)** as one frozen
+mechanistic change to v23: the PACRE phase-residual interaction is retained,
+while its amplitude is gated by parameter-free, flip-even common evidence.
+The model definition, independent oracle, dataset-free checks, training and
+verification chain, and downstream protocol scaffolding are implemented.
+
+The current evidence boundary is:
+
+```text
+v24 core implementation                 COMPLETE
+isolated release matrix                 279 PASS, 1 SKIP
+dataset-free / efficiency               30 / 30 PASS (CUDA receipt verified)
+D_R preaccess                           COMPLETE
+D_R structural r1                       OBSERVABILITY LOST; NO DECISION
+D_R structural r2                       NOT AUTHORIZED / NOT CREATED
+D_R OOF, bounded-400, Formal800         BLOCKED
+D_V / D_T                               BLOCKED; payloads not authorized
+```
+
+The r1 structural attempt crossed its execution marker, but no authentic
+terminal receipt, process identity, or recoverable tool session remained when
+execution observability was restored. It is therefore neither a structural
+PASS nor a scientific FAIL. Generated-data success, supervisor scaffolding, and
+process exit state do not substitute for decision-bearing real-data evidence.
+Until a separately authorized fresh r2 attempt produces an authentic structural
+PASS, v24 cannot proceed to OOF, bounded training, Formal800, `D_V`, or `D_T`.
+
+See
+[the v24 design and execution record](CURE_Lite_PACRE_VC_v23_DV_FAIL归因与v24_GCR_PACRE修改方案.md)
+and
+[the v24 protocol directory](protocols/IRSTD-1K/gcr_pacre_v24/).
+
+### Historical node: v23 PACRE-VC completed Formal800 and failed `D_V`
 
 v23 adopts PACRE-VC, a verifier-corrected residual/value-centering formulation:
 

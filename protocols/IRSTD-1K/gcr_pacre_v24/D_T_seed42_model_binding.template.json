@@ -1,0 +1,35 @@
+{
+  "schema_version": "cure-lite-v24-D_T-seed42-model-binding-template-v1",
+  "status": "TEMPLATE_NOT_A_VALID_BINDING_RECEIPT",
+  "protocol_preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48",
+  "D_T_preregistration_fingerprint": "62ea5fe778d0d3cef94a005f63b1f2ac8813483bf49770cbc3f153755f56412e",
+  "required_completed_schema_version": "cure-lite-v24-D_T-seed42-model-binding-v1",
+  "required_fields_when_completed": [
+    "Formal800_evidence_receipt_fingerprint",
+    "Formal800_pair_fingerprint",
+    "training_receipt_fingerprint",
+    "seed",
+    "role",
+    "final_model_fingerprint",
+    "model_contract_fingerprint",
+    "terminal_artifact",
+    "access_audit_receipt_fingerprint",
+    "events",
+    "D_V_authorization_created",
+    "D_V_payload_accessed",
+    "D_T_payload_accessed",
+    "receipt_fingerprint"
+  ],
+  "completion_rules": {
+    "seed": 42,
+    "role": "primary",
+    "must_match_verified_Formal800_terminal_bytes": true,
+    "verified_Formal800_seed43_independence_required": true,
+    "must_be_sealed_before_D_V_authorization": true,
+    "D_V_authorization_created_at_seal_time": false,
+    "D_V_payload_accessed_at_seal_time": false,
+    "D_T_payload_accessed_at_seal_time": false
+  },
+  "final_model_fingerprint": null,
+  "receipt_fingerprint": null
+}

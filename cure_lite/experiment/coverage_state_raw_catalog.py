@@ -698,9 +698,11 @@ def build_coverage_state_raw_catalog(
         bundle.split_manifest_fingerprint
     ):
         raise ValueError("manifest and strict D_R bundle bindings differ")
+    allowed_samples = {row.sample_id for row in bundle.rows}
     group_by_sample = {
         record.sample_id: record.group_id
         for record in manifest.records_for("D_R")
+        if record.sample_id in allowed_samples
     }
     if set(group_by_sample) != {row.sample_id for row in bundle.rows}:
         raise ValueError("manifest D_R identities differ from the cache bundle")

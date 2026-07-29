@@ -1,0 +1,175 @@
+{
+  "schema_version": "cure-lite-v24-D_R-structural-interruption-receipt-v2",
+  "receipt_role": "interpretation_erratum_for_r1_observability_loss",
+  "candidate": "GCR-PACRE-v24",
+  "stage_id": "gcr_pacre_v24_D_R_structural",
+  "run_id": "gcr_pacre_v24_D_R_zero_update_structural_r1",
+  "created_at_local": "2026-07-29T18:09:33.045964785+08:00",
+  "supersession": {
+    "authoritative_for_interpretation": true,
+    "historical_v1_path": "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_attempt_r1_interruption_receipt.json",
+    "historical_v1_file_sha256": "c97962bb351ee973f22af06defb80cd8d2151ff738f34a4eda6c7d89f0212eab",
+    "historical_v1_receipt_fingerprint": "f5859ea86515eefaaadec5757b087f8e76bf2f379815d0809dbb33dafa30f0c5",
+    "historical_v1_bytes_modified": false,
+    "historical_v1_remains_part_of_audit_history": true,
+    "scope": "This v2 receipt supersedes v1 only for evidentiary interpretation. It neither converts r1 into a decision-bearing run nor alters any historical artifact."
+  },
+  "corrections": [
+    {
+      "topic": "causal_attribution",
+      "v1_interpretation": "EXECUTION_SESSION_INTERRUPTION",
+      "v2_interpretation": "EXECUTION_OBSERVABILITY_LOST_NO_DECISION",
+      "reason": "The records show a last healthy observation followed by a poll with no recorded return and later absence of the session and PID. They do not expose the process termination event, exact exit time, or OS cause."
+    },
+    {
+      "topic": "official_receipt_absence",
+      "v1_interpretation": "stopped before an official receipt was written",
+      "v2_interpretation": "no authenticated official receipt was available at recovery or in the bounded known-path search",
+      "reason": "Without a filesystem event ledger, historical transient creation followed by loss is not independently auditable."
+    },
+    {
+      "topic": "D_V_D_T_and_training_scope",
+      "v1_interpretation": "unqualified false values",
+      "v2_interpretation": "authorization, available-record observation, and independently audited runtime fact are reported separately",
+      "reason": "The frozen authorization and source contract are strong protocol evidence, but no system-level open-event or execution-event ledger survived the observability loss."
+    },
+    {
+      "topic": "artifact_mutability_language",
+      "v1_interpretation": "append-only interruption receipt",
+      "v2_interpretation": "create-once/read-only/self-fingerprinted artifact under the stated local threat model",
+      "reason": "Mode 0444, one hard link, hashes, and an internal fingerprint support local change detection; they do not provide filesystem append-only enforcement, an external signature, or protection from a malicious same-user replacement."
+    },
+    {
+      "topic": "temporary_or_partial_receipt_search",
+      "v1_interpretation": "unbounded absence claim",
+      "v2_interpretation": "not found in the fixed protocol/run roots, to depth four, for files newer than the recorded pre-run cutoff",
+      "reason": "The search result is valid only within its recorded paths, depth, time predicate, and recovery-time observation window."
+    }
+  ],
+  "authoritative_observation": {
+    "classification": "EXECUTION_OBSERVABILITY_LOST_NO_DECISION",
+    "command_started_at_utc": "2026-07-28T21:52:06.824Z",
+    "irreversible_marker_created_at_local": "2026-07-29T05:52:09.929794039+08:00",
+    "last_confirmed_healthy_at_utc": "2026-07-28T22:35:36.448Z",
+    "last_confirmed_healthy_elapsed": "00:43:29",
+    "last_confirmed_healthy_pid": 2077593,
+    "last_confirmed_healthy_tool_session_id": 35488,
+    "last_confirmed_official_receipt_state": "PENDING",
+    "subsequent_poll_has_recorded_return": false,
+    "next_recorded_task_event_at_utc": "2026-07-29T08:03:48.860Z",
+    "tool_session_present_at_recovery": false,
+    "pid_present_at_recovery": false,
+    "matching_or_reparented_process_present_at_recovery": false,
+    "process_termination_event_observed": false,
+    "exact_process_exit_time": "UNKNOWN_NOT_OBSERVABLE",
+    "exact_os_exit_cause": "UNKNOWN_NOT_OBSERVABLE",
+    "python_traceback_observed": false,
+    "oom_evidence_observed": false,
+    "scientific_model_failure_established": false,
+    "structural_gate_failure_established": false
+  },
+  "official_receipt_evidence": {
+    "fixed_path": "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_receipt.json",
+    "exists_at_last_healthy_observation": false,
+    "exists_at_recovery": false,
+    "found_in_bounded_known_path_search": false,
+    "historical_transient_creation_or_loss": "NOT_INDEPENDENTLY_AUDITED_NO_FILESYSTEM_EVENT_LEDGER",
+    "authenticated_gate_decision_available": false,
+    "D_R_gate_decision": "NO_AUTHENTICATED_DECISION_AVAILABLE",
+    "scientific_pass_or_fail": null
+  },
+  "bounded_known_path_search": {
+    "session_source_path": "/home/md0/ly/.codex/sessions/2026/07/28/rollout-2026-07-28T17-15-33-019fa802-0a9c-7ac3-bdd7-14aad146788f.jsonl",
+    "line_hash_contract": "sha256-over-exact-jsonl-line-including-trailing-LF",
+    "command_record": {
+      "line_number": 11118,
+      "timestamp_utc": "2026-07-29T08:06:55.166Z",
+      "line_sha256": "7145a582a1cfe88841b5602c3fa6fb269e35bad2b4de15f95d2b3b4298104d16"
+    },
+    "result_record": {
+      "line_number": 11119,
+      "timestamp_utc": "2026-07-29T08:07:18.823Z",
+      "line_sha256": "ba193ea1e319960798947ee96310087215b83747e2c092fa2c87165e12f4d633"
+    },
+    "roots": [
+      "protocols/IRSTD-1K/gcr_pacre_v24",
+      "runs/irstd1k_stage_a_seed42"
+    ],
+    "maximum_depth": 4,
+    "file_time_predicate": "newer than 2026-07-29 05:51:00 +08:00",
+    "returned_files": [
+      "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_access_audit.json",
+      "protocols/IRSTD-1K/gcr_pacre_v24/D_R_structural_authorization.json",
+      "runs/irstd1k_stage_a_seed42/gcr_pacre_v24_D_R_structural_run_start_3500d1fe352d0b7fc4622bab128f37f3fa6232769ee489fa49c4f9cd40e3063f.json"
+    ],
+    "official_or_partial_receipt_returned": false,
+    "claim_boundary": "This search does not establish global or historical nonexistence outside the recorded scope."
+  },
+  "runtime_scope": {
+    "D_R": {
+      "payload_authorized": true,
+      "execution_started": true,
+      "materialization_intended": true,
+      "materialization_completion": "UNKNOWN_NOT_OBSERVABLE",
+      "structural_probe_completion": "UNKNOWN_NOT_OBSERVABLE"
+    },
+    "D_V": {
+      "payload_authorized": false,
+      "payload_access_observed_in_available_protocol_and_session_records": false,
+      "system_open_event_ledger_available": false,
+      "actual_runtime_payload_access": "NOT_INDEPENDENTLY_AUDITED_AFTER_OBSERVABILITY_LOSS"
+    },
+    "D_T": {
+      "payload_authorized": false,
+      "payload_access_observed_in_available_protocol_and_session_records": false,
+      "system_open_event_ledger_available": false,
+      "actual_runtime_payload_access": "NOT_INDEPENDENTLY_AUDITED_AFTER_OBSERVABILITY_LOSS"
+    },
+    "training": {
+      "authorized": false,
+      "optimizer_steps_authorized": 0,
+      "parameter_updates_authorized": 0,
+      "frozen_runner_static_contract": "read-only zero-update D_R structural probe",
+      "training_observed_in_available_protocol_and_session_records": false,
+      "system_execution_event_ledger_available": false,
+      "actual_runtime_training_execution": "NOT_INDEPENDENTLY_AUDITED_AFTER_OBSERVABILITY_LOSS"
+    },
+    "downstream": {
+      "OOF_authorization_present": false,
+      "bounded_400_authorization_present": false,
+      "formal_800_authorization_present": false,
+      "D_V_authorization_present": false,
+      "D_T_authorization_present": false,
+      "downstream_command_launch_observed": false
+    }
+  },
+  "threat_model": {
+    "artifact_description": "create-once/read-only/self-fingerprinted under a local non-adversarial evidence model",
+    "historical_v1_mode": "0444",
+    "historical_v1_link_count": 1,
+    "historical_v1_internal_fingerprint_verified": true,
+    "historical_v1_file_sha256_verified": true,
+    "local_byte_change_detection_if_trusted_hash_is_retained": true,
+    "filesystem_append_only_enforced": false,
+    "external_signature_or_transparency_log_anchor_present": false,
+    "malicious_same_user_rewrite_or_replacement_prevented": false
+  },
+  "protocol_disposition": {
+    "attempt_ordinal": 1,
+    "attempt_status": "GCR_PACRE_V24_D_R_R1_EXECUTION_OBSERVABILITY_LOST_NO_DECISION",
+    "official_D_R_receipt_valid": false,
+    "D_R_structural_gate_passed": null,
+    "OOF_authorized": false,
+    "bounded_400_authorized": false,
+    "formal_800_authorized": false,
+    "D_V_authorized": false,
+    "D_T_authorized": false,
+    "same_run_resume_allowed": false,
+    "automatic_retry_allowed": false,
+    "historical_marker_may_be_removed_or_overwritten": false,
+    "next_action": "STOP_AND_PRESERVE_R1_EVIDENCE",
+    "fresh_attempt_requirement": "EXPLICIT_NEW_EXECUTION_PROTOCOL_VERSION, FRESH RUN IDENTITY, NEW CREATE-ONCE ARTIFACT NAMESPACE, AND EXPLICIT USER AUTHORIZATION; MUST NOT BE REPRESENTED AS R1 RESUME OR RETRY",
+    "fresh_attempt_currently_authorized": false
+  },
+  "receipt_fingerprint": "d599df00a201d65f8cbd4b9390a4ef784a2a504200923b9894e12cd26d249792"
+}

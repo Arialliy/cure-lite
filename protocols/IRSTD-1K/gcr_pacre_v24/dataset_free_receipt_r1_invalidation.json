@@ -1,0 +1,34 @@
+{
+  "schema_version": "cure-lite-v24-gcr-pacre-dataset-free-receipt-invalidation-v1",
+  "status": "INVALIDATED_BEFORE_D_R_EXECUTION",
+  "invalidated_receipt": {
+    "repo_path": "protocols/IRSTD-1K/gcr_pacre_v24/dataset_free_receipt.json",
+    "file_sha256": "5308b7863c9a7fd13a6da1c0ff0ecacae507cb264c5aa85b07610c1c6b4e1c86",
+    "receipt_fingerprint": "0898f0e01a9884990d3d75247112ab3677e7ac5e9b2ad6e131dca3dedea1ef9f",
+    "bound_gcr_pacre_source_sha256": "027c249daaf5ae546a3f332b2b6b6bfdd12097de92e771e6b4993352223b85c2"
+  },
+  "invalidation": {
+    "detected_at": "2026-07-29T02:25:39+08:00",
+    "reason": "training-time fields validator did not yet aggregate finite checks for every non-boolean ledger tensor required by section 15.2",
+    "current_gcr_pacre_source_sha256": "9d0efb03928211ec1f615f9db17f195664b0d8de4fc6aaf4e6785a70665d9369",
+    "old_receipt_verify_only_exit": 1,
+    "old_receipt_verify_only_error": "dataset-free source binding changed",
+    "scientific_result_consumed": false,
+    "downstream_authorization_created": false
+  },
+  "replacement": {
+    "repo_path": "protocols/IRSTD-1K/gcr_pacre_v24/dataset_free_receipt_r2.json",
+    "file_sha256": "845132fa2930b16ad18f220c5496524cf65cb2d41874a85944c61fd3b0872883",
+    "receipt_fingerprint": "efd55afcb8709ed20fb67aad8696c348bda166323a548018c7a7f282f1adad0a",
+    "must_be_generated_from_current_sources": true,
+    "must_pass_independent_verify_only": true,
+    "independent_verify_only_passed": true,
+    "old_receipt_may_authorize_D_R": false
+  },
+  "access_boundary": {
+    "D_R_accessed": false,
+    "D_V_accessed": false,
+    "D_T_accessed": false
+  },
+  "invalidation_fingerprint": "9dadc749bb2b97b041a0c1077b65205dbaf498c7d7ccfdf47fd5029509ab7d56"
+}

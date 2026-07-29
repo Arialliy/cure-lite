@@ -1,0 +1,88 @@
+{
+  "schema_version": "cure-lite-v24-gcr-pacre-D_R-OOF4-split-preregistration-v1",
+  "protocol_id": "irstd1k-gcr-pacre-v24-evidence-v1",
+  "protocol_preregistration_fingerprint": "1ee1e952a8c352c6297e0220e312d210c2a2152d73e1771b912854e062c77f48",
+  "status": "SPLIT_FROZEN_EXECUTION_NOT_AUTHORIZED",
+  "source_bindings": {
+    "manifest_repo_path": "protocols/IRSTD-1K/stage_a_seed42/manifest.json",
+    "manifest_file_sha256": "aa8e33529bd86f564ce6e163e0f9a7b1b3053e9c15054a59c6702a1523f35c02",
+    "state_index_repo_path": "runs/irstd1k_stage_a_seed42/cure_lite_stage_a_fx_v3/d_r/state_cache/index.json",
+    "state_index_file_sha256": "075fc1ad217f365df85b1d29568ad215f06ce6e0b691ef78a5dd85f0affe6298"
+  },
+  "root_source_derivation": {
+    "algorithm": "transitive_connected_components_over_same-field_grouping_keys_v1",
+    "grouping_fields": [
+      "group_id",
+      "scene_id",
+      "sequence_id",
+      "crop_source_id",
+      "near_duplicate_group"
+    ],
+    "sample_count": 160,
+    "root_source_count": 156,
+    "root_by_sample_fingerprint": "d2c965b1088ccddfedbde82fbaa261e2778775f5a49040d6ce51b24baf139eb5"
+  },
+  "plan": {
+    "schema_version": "cure-lite-v24-gcr-pacre-oof4-plan-v1",
+    "namespace": "cure-lite-v24-gcr-pacre-root-oof4-v1",
+    "seed": 42,
+    "fold_count": 4,
+    "assignment_policy": "sha256_ranked_root_source_round_robin_no_python_hash_v1",
+    "plan_fingerprint": "40727e0ae728aed0cceb9e11244645bddf5da7366507826791f793948f156089",
+    "fold_summaries": [
+      {
+        "fold_id": 0,
+        "held_out_root_source_count": 39,
+        "held_out_sample_count": 39,
+        "held_out_root_source_ids_fingerprint": "bab879bc8a152f0af2cc867ab045755fea2d529da0acc03e2373edec4dcabbf9",
+        "held_out_sample_ids_fingerprint": "f4c45612258350f5294d2fe53937ebc760fbbe3148f1f0c0b1d6d0ddc1e223e0"
+      },
+      {
+        "fold_id": 1,
+        "held_out_root_source_count": 39,
+        "held_out_sample_count": 39,
+        "held_out_root_source_ids_fingerprint": "d79322e800088d93b62cf809af5259c9398b84a985f978fcc4f241c22c85d7e4",
+        "held_out_sample_ids_fingerprint": "9ce621ada5afa839965827e0e45c4409a509387631a4f5363e5010002832199b"
+      },
+      {
+        "fold_id": 2,
+        "held_out_root_source_count": 39,
+        "held_out_sample_count": 41,
+        "held_out_root_source_ids_fingerprint": "bc84cc53297128b4ea276722de559502bd95db1f596d6b75dedfc3da3202278f",
+        "held_out_sample_ids_fingerprint": "3a635f0c895342653dcd292af5877596059fd3ac5b2fbfbb4ad927582c5552d8"
+      },
+      {
+        "fold_id": 3,
+        "held_out_root_source_count": 39,
+        "held_out_sample_count": 41,
+        "held_out_root_source_ids_fingerprint": "4747122ade714ea1238c135c5239c7dc908a165695f8d7edc2868263e48809f3",
+        "held_out_sample_ids_fingerprint": "f8a542e92a40f8f86e9ee4333aa3a8bf307319f3bea115975b9c08f319a0ee4e"
+      }
+    ]
+  },
+  "root_counts_differ_by_at_most_one": true,
+  "each_root_held_out_exactly_once": true,
+  "derived_role_closure": {
+    "status": "PENDING_D_R_AUTHORIZED_MATERIALIZATION",
+    "reason": "frozen_manifest_and_state_index_do_not_contain_the_complete_derived_role_ledger",
+    "required_roles": [
+      "factual_miss",
+      "factual_no_miss",
+      "clean",
+      "null",
+      "target",
+      "context",
+      "occupancy_pair",
+      "feature_source",
+      "label_source"
+    ],
+    "per_fold_role_counts": null,
+    "four_fold_role_union_intersection_proof": null,
+    "materialization_authorized": false,
+    "fabricated_or_evenly_apportioned_counts_forbidden": true
+  },
+  "OOF4_authorized": false,
+  "D_V_payload_accessed": false,
+  "D_T_payload_accessed": false,
+  "receipt_fingerprint": "89ab70c0462c83f3e40f95fb7e33c3b39f4ea3a370e6cd877c07080c2f56bd20"
+}

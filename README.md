@@ -34,11 +34,12 @@ The current evidence boundary is:
 
 ```text
 v24 core implementation                 COMPLETE
-isolated release matrix                 279 PASS, 1 SKIP
-dataset-free / efficiency               30 / 30 PASS (CUDA receipt verified)
-D_R preaccess                           COMPLETE
+dataset-free / efficiency               PASS (sealed CUDA receipt)
 D_R structural r1                       OBSERVABILITY LOST; NO DECISION
-D_R structural r2                       NOT AUTHORIZED / NOT CREATED
+D_R structural r2 scientific preaccess  AUTHORIZED
+r2 unit realization                     RECOVERED AND SEALED
+r2 preaccess compatibility              BLOCKED BEFORE MATERIALIZATION
+D_R payload access in r2                NONE
 D_R OOF, bounded-400, Formal800         BLOCKED
 D_V / D_T                               BLOCKED; payloads not authorized
 ```
@@ -48,11 +49,21 @@ terminal receipt, process identity, or recoverable tool session remained when
 execution observability was restored. It is therefore neither a structural
 PASS nor a scientific FAIL. Generated-data success, supervisor scaffolding, and
 process exit state do not substitute for decision-bearing real-data evidence.
-Until a separately authorized fresh r2 attempt produces an authentic structural
-PASS, v24 cannot proceed to OOF, bounded training, Formal800, `D_V`, or `D_T`.
+
+Fresh r2 now has a sealed scientific preaccess authorization and a recovered,
+sealed actual-unit realization. Its execution bridge has nevertheless stopped
+at successive preaccess compatibility checks. The recorded failures occurred
+before result materialization, runtime launch, or scientific-attempt
+consumption; no `D_R`, `D_V`, or `D_T` payload was accessed. Consequently r2
+has not produced a structural decision and must not be described as either
+PASS or FAIL. OOF, bounded training, Formal800, `D_V`, and `D_T` remain blocked
+until the explicitly authorized compatibility chain completes and one authentic
+r2 structural receipt passes.
 
 See
 [the v24 design and execution record](CURE_Lite_PACRE_VC_v23_DV_FAIL归因与v24_GCR_PACRE修改方案.md)
+,
+[the r2 execution-closure record](CURE_Lite_v24_r2执行阻断归因与user_systemd环境闭合方案.md),
 and
 [the v24 protocol directory](protocols/IRSTD-1K/gcr_pacre_v24/).
 

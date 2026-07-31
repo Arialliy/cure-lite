@@ -1,0 +1,774 @@
+#!/usr/bin/env python3
+"""Seal the superseded c2 preauthorization failure before source revision.
+
+This is a metadata-only forensic terminal.  Creation is allowed only while
+the exact failed B0/R0/S0/E0/L0 generation is still present.  It reproduces
+the historical c1 live-closure error through the read-only validator, proves
+the complete r11 dummy-integration PASS, and proves that no c2 or scientific
+output was materialized.  It never invokes ``authorize_c2`` or any runtime
+entry point.
+
+After creation, ``validate-terminal`` is archival: it validates the sealed
+terminal and immutable r11/c1 evidence, but deliberately does not compare
+live parent-directory link counts or require future c2 outputs to stay absent.
+Current-state enforcement belongs to the revised c2 phase state machine.
+"""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+from types import ModuleType
+from typing import Mapping, Sequence
+
+
+REPOSITORY = Path(__file__).resolve().parents[1]
+EVIDENCE_ROOT = (
+    REPOSITORY / "protocols/IRSTD-1K/gcr_pacre_v24/runtime_evidence_r2"
+).resolve()
+RUNS_ROOT = (REPOSITORY / "runs/irstd1k_stage_a_seed42").resolve()
+
+TERMINAL_PATH = (
+    EVIDENCE_ROOT
+    / "r2_preaccess_schema_compat_c2_prewrite_failure_terminal.json"
+)
+SCHEMA = (
+    "cure-lite-v24-r2-preaccess-schema-compat-c2-"
+    "prewrite-failure-terminal-v1"
+)
+EXPECTED_ERROR = "expired-prewrite terminal live closure changed"
+R11_SCENARIO_ID = (
+    "supervisor-v2-dummy-compat-c2-r11-20260730c2000011"
+)
+R11_ROOT = (
+    EVIDENCE_ROOT
+    / "supervisor_v2_systemd_integration_preaccess_compat_c2_r11"
+)
+R11_AUTHORIZATION_PATH = R11_ROOT / "control/authorization.json"
+R11_RECEIPT_PATH = R11_ROOT / "control/integration-receipt.json"
+
+BRIDGE_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_preaccess_schema_compatibility_c2.py"
+).resolve()
+REALIZER_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_actual_unit_realization_preaccess_compat_c2.py"
+).resolve()
+SUPERVISOR_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_runtime_supervisor_preaccess_compat_c2.py"
+).resolve()
+ENVIRONMENT_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_runtime_environment_preaccess_compat_c2.py"
+).resolve()
+RELEASE_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_actual_runtime_release_preaccess_compat_c2.py"
+).resolve()
+ADAPTER_PATH = (
+    REPOSITORY
+    / "tools/"
+    "run_cure_lite_v24_gcr_pacre_dr_gate_r2_preaccess_compat_c2.py"
+).resolve()
+TEMPLATE_PATH = (
+    REPOSITORY
+    / "deploy/systemd/"
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c2.service.template"
+).resolve()
+C1_TERMINAL_PATH = (
+    EVIDENCE_ROOT
+    / "r2_preaccess_schema_compat_c1_expired_prewrite_terminal.json"
+)
+
+FAILED_SOURCE_BINDINGS: dict[str, tuple[Path, str]] = {
+    "bridge_B0": (
+        BRIDGE_PATH,
+        "6212d744bb644a857880212da698926fec95dbe23ac80c330e7e359cc00151aa",
+    ),
+    "realizer_R0": (
+        REALIZER_PATH,
+        "8d19ebc528d3b7b0a2ad0a8edd15b22aca401948c7981e8eedde67fdd1c42066",
+    ),
+    "supervisor_S0": (
+        SUPERVISOR_PATH,
+        "83124d5d47333818126e19022eb5a848f4ae3c345831136ec80b6a7333bd6aab",
+    ),
+    "environment_E0": (
+        ENVIRONMENT_PATH,
+        "d6e5f38cc735fca5f069bb5dfbbf124c44513018765308918cfe8ff6ce269fee",
+    ),
+    "release_L0": (
+        RELEASE_PATH,
+        "becdd5f5e38e757d76318fe554ff72f9d33c421369856f134e0bc728c89f548a",
+    ),
+    "adapter": (
+        ADAPTER_PATH,
+        "510826b8345948803cf976d180edb1764575874d22379e4223cb6f97dc96728f",
+    ),
+    "template": (
+        TEMPLATE_PATH,
+        "4e485e5ba86a79b9244fb73d5add1a7015d71aa5f16f56479bd9c2c200d12967",
+    ),
+}
+C1_TERMINAL_SHA256 = (
+    "0cc6e86dde617fcc83a79f689894050b8e430b1c06648fed2955d73362e5fa1b"
+)
+
+R11_FILE_BINDINGS: dict[str, tuple[Path, str]] = {
+    "authorization": (
+        R11_AUTHORIZATION_PATH,
+        "00815dd1c6e78eae63fcbff9c49b7aeea9a9ca311ab455ddc89b401c0f9a3ccf",
+    ),
+    "integration_terminal": (
+        R11_ROOT / "control/integration-terminal.json",
+        "bf5882e9f89165e5c0b4223243fa5873b8893d75b45811770b5b9f53b53d0cb7",
+    ),
+    "receipt": (
+        R11_RECEIPT_PATH,
+        "1d415709b23173baa9710c73385e25a492972a5c491e281cc437133dcdce1eea",
+    ),
+    "removal_authorization": (
+        R11_ROOT / "control/removal-authorization.json",
+        "4b32e8204ea68d11daa10f50d35c8f608d9241852d5f91d36f9d711ff048bbc7",
+    ),
+    "removal_state": (
+        R11_ROOT / "control/removal-state.json",
+        "c19f5eb7495a7642ce91a52cd654a3f8e256ef324975fc47d1ea50f11c67bd59",
+    ),
+}
+
+C2_UNIT_NAME = (
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c2.service"
+)
+C2_OUTPUT_PATHS: dict[str, Path] = {
+    "compatibility_authorization": (
+        EVIDENCE_ROOT / "r2_preaccess_schema_compat_c2_authorization.json"
+    ),
+    "compatibility_receipt": (
+        EVIDENCE_ROOT / "r2_preaccess_schema_compat_c2_receipt.json"
+    ),
+    "environment_policy": (
+        EVIDENCE_ROOT
+        / "runtime_environment_policy_preaccess_compat_c2.json"
+    ),
+    "environment_stability": (
+        EVIDENCE_ROOT
+        / "runtime_environment_stability_receipt_preaccess_compat_c2.json"
+    ),
+    "environment_postcleanup": (
+        EVIDENCE_ROOT
+        / "runtime_environment_postcleanup_receipt_preaccess_compat_c2.json"
+    ),
+    "unit_authorization": (
+        EVIDENCE_ROOT
+        / "r2_preaccess_compat_c2_unit_realization_authorization.json"
+    ),
+    "unit_receipt": (
+        EVIDENCE_ROOT
+        / "r2_preaccess_compat_c2_unit_realization_receipt.json"
+    ),
+    "unit_terminal": (
+        EVIDENCE_ROOT
+        / "r2_preaccess_compat_c2_unit_realization_terminal.json"
+    ),
+    "runtime_spec": (
+        EVIDENCE_ROOT
+        / "D_R_structural_attempt_r2_preaccess_compat_c2_runtime_spec.json"
+    ),
+    "runtime_launch_authorization": (
+        EVIDENCE_ROOT
+        / "D_R_structural_attempt_r2_preaccess_compat_c2_"
+        "runtime_launch_authorization.json"
+    ),
+    "runtime_artifacts": (
+        EVIDENCE_ROOT
+        / "D_R_structural_attempt_r2_preaccess_compat_c2_runtime_artifacts"
+    ),
+    "gpu_lease": (
+        EVIDENCE_ROOT
+        / "D_R_structural_attempt_r2_preaccess_compat_c2_gpu_lease"
+    ),
+    "compat_run_alias": (
+        RUNS_ROOT
+        / "gcr_pacre_v24_D_R_structural_attempt_r2_preaccess_compat_c2"
+    ),
+    "compat_result_alias": (
+        EVIDENCE_ROOT
+        / "D_R_structural_attempt_r2_preaccess_compat_c2_receipt.json"
+    ),
+    "scientific_run_root": (
+        RUNS_ROOT / "gcr_pacre_v24_D_R_structural_attempt_r2"
+    ),
+    "scientific_result_receipt": (
+        EVIDENCE_ROOT / "D_R_structural_attempt_r2_receipt.json"
+    ),
+}
+
+_TOP_LEVEL_KEYS = frozenset(
+    {
+        "schema_version",
+        "identity",
+        "terminalizer_source_root",
+        "failed_generation_roots",
+        "r11_pass_closure",
+        "deterministic_reproduction",
+        "c2_absence_snapshot",
+        "payload_observation",
+        "continuation_policy",
+        "terminal_fingerprint",
+    }
+)
+
+
+def _canonical_bytes(value: Mapping[str, object]) -> bytes:
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+
+
+def stable_fingerprint(value: Mapping[str, object]) -> str:
+    return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _format_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat(
+        timespec="microseconds"
+    ).replace("+00:00", "Z")
+
+
+def _stat_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+        value.st_gid,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def _file_root(
+    path: Path,
+    *,
+    expected_sha256: str | None = None,
+    expected_mode: int | None = None,
+) -> dict[str, object]:
+    target = Path(path).absolute()
+    parent = target.parent
+    if parent.resolve(strict=True) != parent:
+        raise PermissionError(f"non-canonical evidence parent: {parent}")
+    parent_fd = os.open(
+        parent,
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0),
+    )
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            target.name,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=parent_fd,
+        )
+        before = os.fstat(descriptor)
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        linked = os.stat(target.name, dir_fd=parent_fd, follow_symlinks=False)
+        if (
+            _stat_identity(before) != _stat_identity(after)
+            or _stat_identity(before) != _stat_identity(linked)
+            or not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.getuid()
+            or before.st_nlink != 1
+            or target.resolve(strict=True) != target
+            or (
+                expected_mode is not None
+                and stat.S_IMODE(before.st_mode) != expected_mode
+            )
+        ):
+            raise PermissionError(f"unsafe evidence/source identity: {target}")
+        raw = b"".join(chunks)
+        digest = hashlib.sha256(raw).hexdigest()
+        if expected_sha256 is not None and digest != expected_sha256:
+            raise PermissionError(f"frozen file hash changed: {target}")
+        return {
+            "path": str(target),
+            "file_sha256": digest,
+            "device": before.st_dev,
+            "inode": before.st_ino,
+            "owner_uid": before.st_uid,
+            "mode": stat.S_IMODE(before.st_mode),
+            "nlink": before.st_nlink,
+            "size": before.st_size,
+        }
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        os.close(parent_fd)
+
+
+def _read_bytes(path: Path, *, expected_sha256: str) -> bytes:
+    root = _file_root(path, expected_sha256=expected_sha256)
+    raw = Path(path).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != root["file_sha256"]:
+        raise PermissionError(f"source changed while loading: {path}")
+    return raw
+
+
+def _load_verified_module(
+    path: Path,
+    *,
+    expected_sha256: str,
+    name: str,
+) -> ModuleType:
+    raw = _read_bytes(path, expected_sha256=expected_sha256)
+    module = ModuleType(name)
+    module.__file__ = str(path)
+    module.__package__ = "tools"
+    sys.modules[name] = module
+    try:
+        exec(
+            compile(raw, str(path), "exec", dont_inherit=True),
+            module.__dict__,
+        )
+        if (
+            _file_root(path, expected_sha256=expected_sha256)
+            ["file_sha256"]
+            != expected_sha256
+        ):
+            raise PermissionError(f"module changed while loading: {path}")
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
+def _failed_generation_roots() -> dict[str, dict[str, object]]:
+    roots = {
+        label: _file_root(path, expected_sha256=digest)
+        for label, (path, digest) in FAILED_SOURCE_BINDINGS.items()
+    }
+    roots["c1_terminal"] = _file_root(
+        C1_TERMINAL_PATH,
+        expected_sha256=C1_TERMINAL_SHA256,
+        expected_mode=0o444,
+    )
+    return roots
+
+
+def _validate_r11_pass(
+    release: ModuleType,
+) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
+    roots = {
+        label: _file_root(
+            path,
+            expected_sha256=digest,
+            expected_mode=0o444,
+        )
+        for label, (path, digest) in R11_FILE_BINDINGS.items()
+    }
+    closure = release.compat_c1.legacy._validate_integration_chain(
+        authorization_path=R11_AUTHORIZATION_PATH,
+        receipt_path=R11_RECEIPT_PATH,
+    )
+    release._require_final_r11_supervisor_binding(
+        {"integration": closure}
+    )
+    authorization = closure.get("authorization")
+    receipt = closure.get("receipt")
+    identities = closure.get("identities")
+    if (
+        not isinstance(authorization, Mapping)
+        or not isinstance(receipt, Mapping)
+        or not isinstance(identities, Mapping)
+        or authorization.get("scenario_id") != R11_SCENARIO_ID
+        or receipt.get("passed") is not True
+        or receipt.get("fragment_removed") is not True
+        or receipt.get("gpu_accessed") is not False
+        or authorization.get("actual_r2_authorized") is not False
+        or authorization.get("payload_authority") != "none"
+    ):
+        raise PermissionError("r11 is not an exact payload-free PASS")
+    return dict(closure), roots
+
+
+def _reproduce_failure(bridge: ModuleType) -> dict[str, object]:
+    try:
+        bridge._validate_c1_failure_terminal(
+            unit_state_reader=bridge._default_unit_state_reader,
+            now=_utc_now(),
+        )
+    except PermissionError as error:
+        if type(error) is not PermissionError or error.args != (
+            EXPECTED_ERROR,
+        ):
+            raise PermissionError(
+                "c2 prewrite failure did not reproduce exactly"
+            ) from error
+    else:
+        raise PermissionError("c2 prewrite failure no longer reproduces")
+    return {
+        "validator": "_validate_c1_failure_terminal",
+        "observation_kind": (
+            "post_hoc_deterministic_reproduction_before_source_revision"
+        ),
+        "original_call_id_claimed": False,
+        "original_failure_time_claimed": False,
+        "write_capable_entrypoint_invoked": False,
+        "exception_type": "PermissionError",
+        "exception_message": EXPECTED_ERROR,
+        "reproduced": True,
+    }
+
+
+def _collect_absence_snapshot(
+    bridge: ModuleType,
+    *,
+    observed_at: datetime,
+) -> dict[str, object]:
+    present = {
+        label: str(path)
+        for label, path in C2_OUTPUT_PATHS.items()
+        if os.path.lexists(path)
+    }
+    if present:
+        raise PermissionError(f"c2/scientific output already exists: {present}")
+    state = dict(bridge._default_unit_state_reader(C2_UNIT_NAME))
+    if (
+        state.get("Id") != C2_UNIT_NAME
+        or state.get("LoadState") != "not-found"
+        or state.get("ActiveState") != "inactive"
+        or state.get("SubState") != "dead"
+        or state.get("NRestarts") != "0"
+        or state.get("FragmentPath") not in ("", None)
+        or state.get("InvocationID") not in ("", None)
+        or state.get("Restart") != "no"
+    ):
+        raise PermissionError("c2 unit was not exact not-found/inert")
+    return {
+        "observed_at_utc": _format_utc(observed_at),
+        "exact_absent_paths": {
+            label: str(path.absolute())
+            for label, path in C2_OUTPUT_PATHS.items()
+        },
+        "all_required_paths_absent": True,
+        "c2_unit_state": state,
+        "D_R_materialized": False,
+        "D_V_materialized": False,
+        "D_T_materialized": False,
+        "scientific_attempt_consumed": False,
+    }
+
+
+def _write_create_once(
+    path: Path,
+    body: Mapping[str, object],
+) -> dict[str, object]:
+    payload = dict(body)
+    payload["terminal_fingerprint"] = stable_fingerprint(body)
+    raw = _canonical_bytes(payload) + b"\n"
+    parent_fd = os.open(
+        path.parent,
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0),
+    )
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            path.name,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o400,
+            dir_fd=parent_fd,
+        )
+        offset = 0
+        while offset < len(raw):
+            offset += os.write(descriptor, raw[offset:])
+        os.fsync(descriptor)
+        os.fchmod(descriptor, 0o444)
+        os.fsync(descriptor)
+        observed = os.fstat(descriptor)
+        if (
+            observed.st_uid != os.getuid()
+            or observed.st_nlink != 1
+            or stat.S_IMODE(observed.st_mode) != 0o444
+            or observed.st_size != len(raw)
+        ):
+            raise PermissionError("created c2 failure terminal is unsafe")
+        os.fsync(parent_fd)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        os.close(parent_fd)
+    terminal, _root = validate_archival(path)
+    return terminal
+
+
+def create_terminal(path: Path | None = None) -> dict[str, object]:
+    selected = TERMINAL_PATH if path is None else Path(path).absolute()
+    if selected != TERMINAL_PATH.absolute():
+        raise PermissionError("c2 failure terminal path is not fixed")
+    if os.path.lexists(selected):
+        raise FileExistsError("c2 failure terminal already exists")
+
+    roots = _failed_generation_roots()
+    bridge = _load_verified_module(
+        BRIDGE_PATH,
+        expected_sha256=FAILED_SOURCE_BINDINGS["bridge_B0"][1],
+        name="tools._cure_lite_v24_failed_c2_bridge_for_terminal",
+    )
+    release = _load_verified_module(
+        RELEASE_PATH,
+        expected_sha256=FAILED_SOURCE_BINDINGS["release_L0"][1],
+        name="tools._cure_lite_v24_failed_c2_release_for_terminal",
+    )
+    reproduction = _reproduce_failure(bridge)
+    closure, r11_roots = _validate_r11_pass(release)
+    observed_at = _utc_now()
+    absence = _collect_absence_snapshot(
+        bridge,
+        observed_at=observed_at,
+    )
+    authorization = closure["authorization"]
+    receipt = closure["receipt"]
+    identities = closure["identities"]
+    body: dict[str, object] = {
+        "schema_version": SCHEMA,
+        "identity": {
+            "candidate": "GCR-PACRE-v24",
+            "stage_id": "gcr_pacre_v24_D_R_structural_r2",
+            "scientific_attempt_id": (
+                "gcr_pacre_v24_D_R_zero_update_structural_r2"
+            ),
+            "scientific_attempt_ordinal": 2,
+            "runtime_compatibility_id": "c2",
+            "sealed_at_utc": _format_utc(observed_at),
+        },
+        "terminalizer_source_root": _file_root(Path(__file__).resolve()),
+        "failed_generation_roots": roots,
+        "r11_pass_closure": {
+            "integration_root": str(R11_ROOT.absolute()),
+            "scenario_id": authorization["scenario_id"],
+            "authorization_root": r11_roots["authorization"],
+            "integration_terminal_root": r11_roots[
+                "integration_terminal"
+            ],
+            "receipt_root": r11_roots["receipt"],
+            "removal_authorization_root": r11_roots[
+                "removal_authorization"
+            ],
+            "removal_state_root": r11_roots["removal_state"],
+            "supervisor_source_root": roots["supervisor_S0"],
+            "validated_identity_roots": dict(identities),
+            "passed": receipt["passed"],
+            "fragment_removed": receipt["fragment_removed"],
+        },
+        "deterministic_reproduction": reproduction,
+        "c2_absence_snapshot": absence,
+        "payload_observation": {
+            "D_R_payload_accessed": False,
+            "D_V_payload_accessed": False,
+            "D_T_payload_accessed": False,
+            "gpu_access_evidence_present": False,
+            "training_evidence_present": False,
+            "optimizer_steps": 0,
+            "parameter_updates": 0,
+        },
+        "continuation_policy": {
+            "automatic_retry": False,
+            "same_source_reentry": False,
+            "revised_source_manual_reentry": True,
+            "fixed_r12_required": True,
+            "c3_required": False,
+            "scientific_attempt_consumed": False,
+            "runtime_launch_consumed": False,
+            "materialization_consumed": False,
+        },
+    }
+    return _write_create_once(selected, body)
+
+
+def validate_archival(
+    path: Path | None = None,
+) -> tuple[dict[str, object], dict[str, object]]:
+    selected = TERMINAL_PATH if path is None else Path(path).absolute()
+    if selected != TERMINAL_PATH.absolute():
+        raise PermissionError("c2 failure terminal path is not fixed")
+    root = _file_root(selected, expected_mode=0o444)
+    raw = selected.read_bytes()
+    if (
+        hashlib.sha256(raw).hexdigest() != root["file_sha256"]
+        or not raw.endswith(b"\n")
+        or raw.count(b"\n") != 1
+    ):
+        raise PermissionError("c2 failure terminal layout changed")
+    try:
+        payload = json.loads(raw[:-1].decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PermissionError("c2 failure terminal is not JSON") from error
+    if (
+        not isinstance(payload, dict)
+        or set(payload) != _TOP_LEVEL_KEYS
+        or payload.get("schema_version") != SCHEMA
+        or raw != _canonical_bytes(payload) + b"\n"
+    ):
+        raise PermissionError("c2 failure terminal schema/layout changed")
+    fingerprint = payload.get("terminal_fingerprint")
+    body = dict(payload)
+    body.pop("terminal_fingerprint")
+    if (
+        not isinstance(fingerprint, str)
+        or fingerprint != stable_fingerprint(body)
+    ):
+        raise PermissionError("c2 failure terminal fingerprint changed")
+
+    identity = payload.get("identity")
+    reproduction = payload.get("deterministic_reproduction")
+    absence = payload.get("c2_absence_snapshot")
+    observation = payload.get("payload_observation")
+    continuation = payload.get("continuation_policy")
+    r11 = payload.get("r11_pass_closure")
+    if (
+        not isinstance(identity, Mapping)
+        or identity.get("candidate") != "GCR-PACRE-v24"
+        or identity.get("scientific_attempt_ordinal") != 2
+        or identity.get("runtime_compatibility_id") != "c2"
+        or not isinstance(reproduction, Mapping)
+        or reproduction.get("exception_type") != "PermissionError"
+        or reproduction.get("exception_message") != EXPECTED_ERROR
+        or reproduction.get("reproduced") is not True
+        or reproduction.get("write_capable_entrypoint_invoked") is not False
+        or not isinstance(absence, Mapping)
+        or absence.get("all_required_paths_absent") is not True
+        or absence.get("scientific_attempt_consumed") is not False
+        or not isinstance(observation, Mapping)
+        or any(
+            observation.get(field) is not False
+            for field in (
+                "D_R_payload_accessed",
+                "D_V_payload_accessed",
+                "D_T_payload_accessed",
+                "gpu_access_evidence_present",
+                "training_evidence_present",
+            )
+        )
+        or observation.get("optimizer_steps") != 0
+        or observation.get("parameter_updates") != 0
+        or not isinstance(continuation, Mapping)
+        or continuation.get("automatic_retry") is not False
+        or continuation.get("same_source_reentry") is not False
+        or continuation.get("revised_source_manual_reentry") is not True
+        or continuation.get("fixed_r12_required") is not True
+        or continuation.get("scientific_attempt_consumed") is not False
+        or not isinstance(r11, Mapping)
+        or r11.get("integration_root") != str(R11_ROOT.absolute())
+        or r11.get("scenario_id") != R11_SCENARIO_ID
+        or r11.get("passed") is not True
+        or r11.get("fragment_removed") is not True
+    ):
+        raise PermissionError("c2 failure terminal semantics changed")
+
+    stored_r11 = {
+        "authorization": r11.get("authorization_root"),
+        "integration_terminal": r11.get("integration_terminal_root"),
+        "receipt": r11.get("receipt_root"),
+        "removal_authorization": r11.get(
+            "removal_authorization_root"
+        ),
+        "removal_state": r11.get("removal_state_root"),
+    }
+    for label, (evidence_path, digest) in R11_FILE_BINDINGS.items():
+        current = _file_root(
+            evidence_path,
+            expected_sha256=digest,
+            expected_mode=0o444,
+        )
+        if stored_r11.get(label) != current:
+            raise PermissionError(f"archived r11 root changed: {label}")
+    c1_root = _file_root(
+        C1_TERMINAL_PATH,
+        expected_sha256=C1_TERMINAL_SHA256,
+        expected_mode=0o444,
+    )
+    failed_roots = payload.get("failed_generation_roots")
+    if (
+        not isinstance(failed_roots, Mapping)
+        or failed_roots.get("c1_terminal") != c1_root
+    ):
+        raise PermissionError("archived c1 terminal root changed")
+    terminalizer_root = payload.get("terminalizer_source_root")
+    if (
+        not isinstance(terminalizer_root, Mapping)
+        or dict(terminalizer_root)
+        != _file_root(Path(__file__).resolve())
+    ):
+        raise PermissionError("failure terminalizer generation changed")
+    for label, (source_path, digest) in FAILED_SOURCE_BINDINGS.items():
+        stored = failed_roots.get(label)
+        if (
+            not isinstance(stored, Mapping)
+            or stored.get("path") != str(source_path.absolute())
+            or stored.get("file_sha256") != digest
+        ):
+            raise PermissionError(
+                f"archived failed-generation root changed: {label}"
+            )
+    if r11.get("supervisor_source_root") != failed_roots.get(
+        "supervisor_S0"
+    ):
+        raise PermissionError("r11 supervisor/failed-generation binding changed")
+    root["terminal_fingerprint"] = fingerprint
+    root["schema_version"] = SCHEMA
+    return payload, root
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers.add_parser("create-terminal")
+    subparsers.add_parser("validate-terminal")
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    if args.command == "create-terminal":
+        create_terminal()
+    else:
+        validate_archival()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

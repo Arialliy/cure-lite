@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tools import cure_lite_v24_actual_unit_realization as realization
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = (
@@ -51,7 +53,17 @@ def test_r2_service_template_is_static_non_installable_and_no_restart() -> None:
 
 
 def test_r2_service_template_invokes_only_absolute_python_supervisor_argv() -> None:
-    directives = _directives(TEMPLATE.read_text(encoding="utf-8"))
+    python_path = Path("/usr/bin/python3.12")
+    supervisor_path = ROOT / "tools/cure_lite_v24_runtime_supervisor.py"
+    runtime_spec_path = (
+        ROOT / "protocols/IRSTD-1K/gcr_pacre_v24/"
+        "D_R_structural_attempt_r2_runtime_spec.json"
+    )
+    rendered = realization.render_fragment(
+        TEMPLATE.read_text(encoding="utf-8"), python_path=python_path,
+        supervisor_path=supervisor_path, runtime_spec_path=runtime_spec_path,
+    )
+    directives = _directives(rendered)
     expected_modes = {
         "ExecCondition": "claim-materialization",
         "ExecStartPre": "verify-runtime-spec",
@@ -62,20 +74,13 @@ def test_r2_service_template_invokes_only_absolute_python_supervisor_argv() -> N
         values = directives[directive]
         assert len(values) == 1
         argv = values[0].split()
-        assert argv[0] == "/home/md0/ly/MSHNet/.venv/bin/python"
-        assert argv[1:3] == ["-I", "-u"]
-        assert argv[3] == (
-            "/home/md0/ly/cure_lite/"
-            "tools/cure_lite_v24_runtime_supervisor.py"
-        )
-        assert argv[4] == mode
-        assert argv[5] == "--spec"
-        assert argv[6] == (
-            "/home/md0/ly/cure_lite/protocols/IRSTD-1K/"
-            "gcr_pacre_v24/"
-            "D_R_structural_attempt_r2_runtime_spec.json"
-        )
-        assert len(argv) == 7
+        assert argv[0] == str(python_path)
+        assert argv[1:5] == ["-I", "-S", "-B", "-u"]
+        assert argv[5] == str(supervisor_path)
+        assert argv[6] == mode
+        assert argv[7] == "--spec"
+        assert argv[8] == str(runtime_spec_path)
+        assert len(argv) == 9
         assert all(
             forbidden not in values[0]
             for forbidden in (

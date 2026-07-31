@@ -1,0 +1,33 @@
+# DATASET-FREE SUPERVISOR-V2 INTEGRATION TEMPLATE. Never use as actual r2.
+[Unit]
+Description=CURE-Lite v24 supervisor-v2 integration @@SCENARIO_ID@@
+StartLimitIntervalSec=infinity
+StartLimitBurst=1
+
+[Service]
+Type=exec
+ExitType=main
+WorkingDirectory=@@SCENARIO_ROOT@@
+UMask=0077
+ExecCondition=@@PYTHON_PATH@@ -I -u @@SUPERVISOR_PATH@@ claim-materialization --spec @@RUNTIME_SPEC_PATH@@
+ExecStartPre=@@PYTHON_PATH@@ -I -u @@SUPERVISOR_PATH@@ verify-runtime-spec --spec @@RUNTIME_SPEC_PATH@@
+ExecStart=@@PYTHON_PATH@@ -I -u @@SUPERVISOR_PATH@@ run-once --spec @@RUNTIME_SPEC_PATH@@
+ExecStopPost=@@PYTHON_PATH@@ -I -u @@SUPERVISOR_PATH@@ record-systemd-exit --spec @@RUNTIME_SPEC_PATH@@
+Restart=no
+RestartSec=0
+KillMode=mixed
+KillSignal=SIGTERM
+SendSIGKILL=yes
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+RuntimeMaxSec=infinity
+WatchdogSec=0
+OOMPolicy=kill
+RemainAfterExit=no
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=@@UNIT_NAME@@
+SuccessExitStatus=0
+
+# Intentionally static and non-installable.

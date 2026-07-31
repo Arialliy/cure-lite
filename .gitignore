@@ -9,3 +9,4 @@ dist/
 runs/
 .tmp/
 .tmp-*/
+CODEX_WINDOW_CONTEXT_*.md

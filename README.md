@@ -61,8 +61,7 @@ until the explicitly authorized compatibility chain completes and one authentic
 r2 structural receipt passes.
 
 See
-[the v24 design and execution record](CURE_Lite_PACRE_VC_v23_DV_FAIL归因与v24_GCR_PACRE修改方案.md)
-,
+[the v24 design and execution record](CURE_Lite_PACRE_VC_v23_DV_FAIL归因与v24_GCR_PACRE修改方案.md),
 [the r2 execution-closure record](CURE_Lite_v24_r2执行阻断归因与user_systemd环境闭合方案.md),
 and
 [the v24 protocol directory](protocols/IRSTD-1K/gcr_pacre_v24/).

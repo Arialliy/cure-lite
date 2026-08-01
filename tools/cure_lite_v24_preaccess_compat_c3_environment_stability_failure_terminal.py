@@ -3,9 +3,10 @@
 
 This terminalizer is forensic and metadata-only.  It binds the exact c3
 source generation, the expired B3/R3 authorizations, the R3 PASS receipt,
-the installed static c3 fragment, the sealed c3 environment policy, and the
-historical precleanup inventory.  Its deterministic reproduction compares
-only sealed JSON scope projections.  It does not import or call the c3
+the installed static c3 fragment, the sealed c3 environment policy, the
+historical precleanup inventory, and the fixed cleanup receipt.  Its
+deterministic reproduction compares only sealed JSON scope projections.  It
+does not import or call the c3
 environment gate, an inventory collector, a sleeper, a clock, or a writer.
 
 No raw command/traceback artifact survived the original call.  Consequently
@@ -194,6 +195,17 @@ PRECLEANUP_INVENTORY_FINGERPRINT = (
     "242ad174c21be4d37a93e197c38059a9ba06eb61cd112abe1f641572a8e0a1f3"
 )
 
+CLEANUP_RECEIPT_PATH = (
+    EVIDENCE_ROOT
+    / "environment_cleanup_recovery_r1/cleanup-receipt.json"
+)
+CLEANUP_RECEIPT_SHA256 = (
+    "511090ba1da235ff5383970ad7ec8ae456c030386700059eec029828b6edb762"
+)
+CLEANUP_RECEIPT_FINGERPRINT = (
+    "b2a630de1afb5b239e410a97240b99a0f0b310ff180e193461d29d4cb2ca58e5"
+)
+
 C3_FRAGMENT_SHA256 = (
     "855a8e061c548cf2559cd94bd9d3271573a2f04c14d035d3040b77102ac072f0"
 )
@@ -294,6 +306,27 @@ _CONTINUATION_POLICY = {
     "materialization_consumed": False,
 }
 
+_UNIT_REALIZATION_CLOSURE = {
+    "R3_receipt_passed": True,
+    "static": True,
+    "enabled": False,
+    "started": False,
+    "removed": False,
+    "payload_authority": "none",
+    "fragment_sha256": C3_FRAGMENT_SHA256,
+    "unit_name": C3_UNIT_NAME,
+}
+
+_FAILURE_CONTROL_FLOW = {
+    "E3_calls_frozen_run_environment_stability_gate": True,
+    "frozen_gate_prepares_contract_before_sampling": True,
+    "scope_validator_raises_before_collector": True,
+    "collector_reached": False,
+    "sleep_reached": False,
+    "monotonic_clock_reached": False,
+    "writer_reached": False,
+}
+
 _PAYLOAD_OBSERVATION = {
     "D_R_payload_accessed": False,
     "D_V_payload_accessed": False,
@@ -351,6 +384,28 @@ def _canonical_bytes(
 
 def stable_fingerprint(value: Mapping[str, object]) -> str:
     return hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _deep_exact_equal(left: object, right: object) -> bool:
+    """Compare JSON-shaped values without bool/int coercion."""
+    try:
+        left_raw = json.dumps(
+            left,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+        right_raw = json.dumps(
+            right,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return False
+    return left_raw == right_raw
 
 
 def _fingerprint(
@@ -469,6 +524,7 @@ def _read_regular(
             follow_symlinks=False,
         )
         parent_after = os.fstat(parent_fd)
+        parent_linked_after = parent.lstat()
         if (
             _stat_identity(before) != _stat_identity(after)
             or _stat_identity(before) != _stat_identity(linked)
@@ -488,6 +544,17 @@ def _read_regular(
                 parent_before.st_dev,
                 parent_before.st_ino,
             )
+            or not stat.S_ISDIR(parent_linked_after.st_mode)
+            or stat.S_ISLNK(parent_linked_after.st_mode)
+            or (
+                parent_linked_after.st_dev,
+                parent_linked_after.st_ino,
+            )
+            != (
+                parent_before.st_dev,
+                parent_before.st_ino,
+            )
+            or parent.resolve(strict=True) != parent
         ):
             raise PermissionError(f"unsafe fixed file: {target}")
         raw = b"".join(chunks)
@@ -772,6 +839,54 @@ def _validate_precleanup(
     return value, root
 
 
+def _validate_cleanup_receipt(
+) -> tuple[dict[str, object], dict[str, object]]:
+    value, root = _load_canonical_json(
+        CLEANUP_RECEIPT_PATH,
+        expected_sha256=CLEANUP_RECEIPT_SHA256,
+        fingerprint_field="cleanup_receipt_fingerprint",
+        expected_fingerprint=CLEANUP_RECEIPT_FINGERPRINT,
+        ensure_ascii=False,
+    )
+    guard = value.get("activation_guard")
+    partial = value.get("partial_lineage")
+    if (
+        value.get("schema_version")
+        != "cure-lite-v24-runtime-cleanup-receipt-v2"
+        or value.get("passed") is not True
+        or value.get("cleanup_mode")
+        != "partial-runtime-mask-stop-recovery"
+        or value.get("payload_authority") != "none"
+        or value.get("D_R_payload_accessed") is not False
+        or value.get("D_V_payload_accessed") is not False
+        or value.get("D_T_payload_accessed") is not False
+        or not isinstance(guard, Mapping)
+        or guard.get("unit_name")
+        != "confa-v41-mshnet-nudt-clean-formal-20260718-v1.service"
+        or guard.get("path")
+        != (
+            "/run/user/1008/systemd/user/"
+            "confa-v41-mshnet-nudt-clean-formal-20260718-v1.service"
+        )
+        or guard.get("target") != "/dev/null"
+        or guard.get("mode")
+        != "ineffective-runtime-mask-symlink-plus-explicit-stop"
+        or guard.get("observed_unit_file_state") != "enabled"
+        or not isinstance(partial, Mapping)
+        or partial.get("original_stop_dispatched") is not False
+        or partial.get("legacy_runtime_mask_may_remain_false_reconciled")
+        is not True
+        or value.get("action_receipt_fingerprints")
+        != [
+            "cf94f733b23d14b661593ff1c5b39d761a135f4ad90ca1ef2d87db443cf535ca"
+        ]
+        or value.get("intent_fingerprint")
+        != "a6f440e63c593e019302801efeaf8a48fb05620d27176fbc1bec986d2f80f003"
+    ):
+        raise PermissionError("fixed cleanup receipt lineage changed")
+    return value, root
+
+
 def _validate_policy(
 ) -> tuple[dict[str, object], dict[str, object]]:
     value, root = _load_canonical_json(
@@ -783,6 +898,7 @@ def _validate_policy(
     )
     scope = value.get("unit_scope")
     precleanup = value.get("precleanup_root")
+    cleanup = value.get("cleanup_root")
     sampling = value.get("sampling")
     if (
         value.get("schema_version")
@@ -807,6 +923,11 @@ def _validate_policy(
         != PRECLEANUP_RECEIPT_FINGERPRINT
         or precleanup.get("inventory_fingerprint")
         != PRECLEANUP_INVENTORY_FINGERPRINT
+        or not isinstance(cleanup, Mapping)
+        or cleanup.get("path") != str(CLEANUP_RECEIPT_PATH)
+        or cleanup.get("file_sha256") != CLEANUP_RECEIPT_SHA256
+        or cleanup.get("cleanup_receipt_fingerprint")
+        != CLEANUP_RECEIPT_FINGERPRINT
         or not isinstance(sampling, Mapping)
         or sampling.get("minimum_sample_count") != 2
         or sampling.get("sample_interval_seconds") != 30.0
@@ -828,6 +949,7 @@ def _validate_fixed_inputs(
     )
     r3_receipt, r3_receipt_root = _validate_r3_receipt()
     precleanup, precleanup_root = _validate_precleanup()
+    cleanup, cleanup_root = _validate_cleanup_receipt()
     policy, policy_root = _validate_policy()
     fragment_raw, fragment_root = _read_regular(
         C3_UNIT_FRAGMENT_PATH,
@@ -848,6 +970,7 @@ def _validate_fixed_inputs(
         "R3_authorization": r3_authorization,
         "R3_receipt": r3_receipt,
         "historical_precleanup": precleanup,
+        "fixed_cleanup_receipt": cleanup,
         "C3_environment_policy": policy,
     }
     roots = {
@@ -855,6 +978,7 @@ def _validate_fixed_inputs(
         "R3_authorization": r3_authorization_root,
         "R3_receipt": r3_receipt_root,
         "historical_precleanup": precleanup_root,
+        "fixed_cleanup_receipt": cleanup_root,
         "C3_environment_policy": policy_root,
         "C3_unit_fragment": fragment_root,
     }
@@ -875,6 +999,10 @@ def _validate_fixed_inputs(
             "field": "receipt_fingerprint",
             "value": PRECLEANUP_RECEIPT_FINGERPRINT,
             "inventory_fingerprint": PRECLEANUP_INVENTORY_FINGERPRINT,
+        },
+        "fixed_cleanup_receipt": {
+            "field": "cleanup_receipt_fingerprint",
+            "value": CLEANUP_RECEIPT_FINGERPRINT,
         },
         "C3_environment_policy": {
             "field": "policy_fingerprint",
@@ -908,6 +1036,7 @@ def _raise_if_precleanup_scope_changed(
 def _reproduce_scope_mismatch() -> dict[str, object]:
     """Reproduce only the sealed scope contradiction; perform no live audit."""
     precleanup, _precleanup_root = _validate_precleanup()
+    _cleanup, cleanup_root = _validate_cleanup_receipt()
     policy, _policy_root = _validate_policy()
     inventory = precleanup["inventory"]
     if not isinstance(inventory, Mapping):
@@ -944,6 +1073,10 @@ def _reproduce_scope_mismatch() -> dict[str, object]:
             "post_hoc_deterministic_read_only_reproduction"
         ),
         "sealed_inputs_only": True,
+        "sealed_cleanup_receipt_root": cleanup_root,
+        "sealed_cleanup_receipt_fingerprint": (
+            CLEANUP_RECEIPT_FINGERPRINT
+        ),
         "observed_precleanup_scope": old_scope,
         "requested_C3_scope": c3_scope,
         "mismatch_fields": mismatch_fields,
@@ -961,6 +1094,7 @@ def _reproduce_scope_mismatch() -> dict[str, object]:
         "E3_module_loaded": False,
         "E3_gate_invoked": False,
         "inventory_collector_invoked": False,
+        "activation_guard_reader_invoked": False,
         "sleeper_invoked": False,
         "monotonic_clock_invoked": False,
         "writer_invoked": False,
@@ -1055,22 +1189,22 @@ def _exact_absent_paths() -> dict[str, str]:
     }
 
 
+def _existing_output_paths() -> dict[str, str]:
+    return {
+        label: str(path)
+        for label, path in ABSENT_OUTPUT_PATHS.items()
+        if os.path.lexists(path)
+    }
+
+
 def _collect_historical_state_observation(
     *,
     observed_at: datetime,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, object]:
-    before = {
-        label: str(path)
-        for label, path in ABSENT_OUTPUT_PATHS.items()
-        if os.path.lexists(path)
-    }
+    before = _existing_output_paths()
     state = _read_c3_unit_state(runner=runner)
-    after = {
-        label: str(path)
-        for label, path in ABSENT_OUTPUT_PATHS.items()
-        if os.path.lexists(path)
-    }
+    after = _existing_output_paths()
     if before or after:
         raise PermissionError(
             f"C3 future output exists: {before or after}"
@@ -1090,9 +1224,82 @@ def _collect_historical_state_observation(
     }
 
 
+def _revalidate_open_creation_guard(
+    *,
+    expected_generation_roots: Mapping[str, object],
+    expected_values: Mapping[str, object],
+    expected_input_roots: Mapping[str, object],
+    expected_input_fingerprints: Mapping[str, object],
+    expected_terminalizer_source_root: Mapping[str, object],
+    expected_unit_state: Mapping[str, str],
+    runner: Callable[..., subprocess.CompletedProcess[str]],
+) -> None:
+    """Revalidate all mutable observations while the terminal fd is open."""
+    before_absence = _existing_output_paths()
+    if before_absence:
+        raise PermissionError(
+            f"C3 future output appeared while terminal open: {before_absence}"
+        )
+
+    generation_before = _fixed_generation_roots()
+    source_before = _read_regular(Path(__file__).resolve())[1]
+    values_before, roots_before, fingerprints_before = (
+        _validate_fixed_inputs()
+    )
+    try:
+        state_before = _read_c3_unit_state(runner=runner)
+    except PermissionError as error:
+        raise PermissionError(
+            "C3 unit state drifted while terminal open"
+        ) from error
+    values_after, roots_after, fingerprints_after = (
+        _validate_fixed_inputs()
+    )
+    source_after = _read_regular(Path(__file__).resolve())[1]
+    generation_after = _fixed_generation_roots()
+    try:
+        state_after = _read_c3_unit_state(runner=runner)
+    except PermissionError as error:
+        raise PermissionError(
+            "C3 unit state drifted while terminal open"
+        ) from error
+    after_absence = _existing_output_paths()
+
+    if after_absence:
+        raise PermissionError(
+            f"C3 future output appeared while terminal open: {after_absence}"
+        )
+    if (
+        not _deep_exact_equal(state_before, expected_unit_state)
+        or not _deep_exact_equal(state_after, expected_unit_state)
+    ):
+        raise PermissionError("C3 unit state drifted while terminal open")
+    expected_groups = (
+        (generation_before, expected_generation_roots),
+        (generation_after, expected_generation_roots),
+        (source_before, expected_terminalizer_source_root),
+        (source_after, expected_terminalizer_source_root),
+        (values_before, expected_values),
+        (values_after, expected_values),
+        (roots_before, expected_input_roots),
+        (roots_after, expected_input_roots),
+        (fingerprints_before, expected_input_fingerprints),
+        (fingerprints_after, expected_input_fingerprints),
+    )
+    if any(
+        not _deep_exact_equal(observed, expected)
+        for observed, expected in expected_groups
+    ):
+        raise PermissionError(
+            "fixed C3 input/source drifted while terminal open"
+        )
+
+
 def _write_create_once(
     path: Path,
     body: Mapping[str, object],
+    *,
+    preseal_guard: Callable[[], None] | None = None,
 ) -> dict[str, object]:
     target = Path(path).absolute()
     payload = dict(body)
@@ -1138,6 +1345,7 @@ def _write_create_once(
             0o400,
             dir_fd=parent_fd,
         )
+        os.fchmod(descriptor, 0o400)
         offset = 0
         while offset < len(raw):
             written = os.write(descriptor, raw[offset:])
@@ -1145,6 +1353,9 @@ def _write_create_once(
                 raise OSError("short failure-terminal write")
             offset += written
         os.fsync(descriptor)
+        os.fsync(parent_fd)
+        if preseal_guard is not None:
+            preseal_guard()
         os.fchmod(descriptor, 0o444)
         os.fsync(descriptor)
 
@@ -1171,12 +1382,27 @@ def _write_create_once(
             )
         os.fsync(parent_fd)
         finished_parent = os.fstat(parent_fd)
+        linked_parent = parent.lstat()
         if (
-            finished_parent.st_dev,
-            finished_parent.st_ino,
-        ) != (
-            parent_before.st_dev,
-            parent_before.st_ino,
+            (
+                finished_parent.st_dev,
+                finished_parent.st_ino,
+            )
+            != (
+                parent_before.st_dev,
+                parent_before.st_ino,
+            )
+            or not stat.S_ISDIR(linked_parent.st_mode)
+            or stat.S_ISLNK(linked_parent.st_mode)
+            or (
+                linked_parent.st_dev,
+                linked_parent.st_ino,
+            )
+            != (
+                parent_before.st_dev,
+                parent_before.st_ino,
+            )
+            or parent.resolve(strict=True) != parent
         ):
             raise PermissionError(
                 "failure-terminal parent changed after create"
@@ -1248,6 +1474,9 @@ def create_terminal(
     failure = {
         "known_entrypoint_path": str(ENVIRONMENT_PATH),
         "known_subcommand": "stability-gate",
+        "known_precleanup_input_path": str(PRECLEANUP_PATH),
+        "known_cleanup_input_path": str(CLEANUP_RECEIPT_PATH),
+        "known_policy_input_path": str(C3_POLICY_PATH),
         "original_call_artifact_available": False,
         "original_argv_claimed": False,
         "original_traceback_artifact_available": False,
@@ -1261,16 +1490,11 @@ def create_terminal(
         "failure_observation": (
             "post_hoc_deterministic_read_only_reproduction"
         ),
-        "frozen_control_flow": {
-            "E3_calls_frozen_run_environment_stability_gate": True,
-            "frozen_gate_prepares_contract_before_sampling": True,
-            "scope_validator_raises_before_collector": True,
-            "collector_reached": False,
-            "sleep_reached": False,
-            "monotonic_clock_reached": False,
-            "writer_reached": False,
-        },
+        "frozen_control_flow": dict(_FAILURE_CONTROL_FLOW),
     }
+    terminalizer_source_root = _read_regular(
+        Path(__file__).resolve()
+    )[1]
     body: dict[str, object] = {
         "schema_version": SCHEMA,
         "identity": {
@@ -1281,9 +1505,7 @@ def create_terminal(
             "runtime_compatibility_id": RUNTIME_COMPATIBILITY_ID,
             "sealed_at_utc": _format_utc(observed_at),
         },
-        "terminalizer_source_root": _read_regular(
-            Path(__file__).resolve()
-        )[1],
+        "terminalizer_source_root": terminalizer_source_root,
         "failed_generation_roots": generation_roots,
         "sealed_input_roots": {
             label: {
@@ -1293,31 +1515,58 @@ def create_terminal(
             for label in input_roots
         },
         "authorization_expiry": expiry,
-        "unit_realization_closure": {
-            "R3_receipt_passed": True,
-            "static": True,
-            "enabled": False,
-            "started": False,
-            "removed": False,
-            "payload_authority": "none",
-            "fragment_sha256": C3_FRAGMENT_SHA256,
-            "unit_name": C3_UNIT_NAME,
-        },
+        "unit_realization_closure": dict(_UNIT_REALIZATION_CLOSURE),
         "environment_stability_failure": failure,
         "deterministic_reproduction": reproduction,
         "historical_state_observation": historical,
         "payload_observation": dict(_PAYLOAD_OBSERVATION),
         "continuation_policy": dict(_CONTINUATION_POLICY),
     }
-    return _write_create_once(selected, body)
+
+    historical_state = historical.get("C3_unit_state")
+    if not isinstance(historical_state, Mapping):
+        raise PermissionError("historical C3 unit state disappeared")
+
+    def preseal_guard() -> None:
+        _revalidate_open_creation_guard(
+            expected_generation_roots=generation_roots,
+            expected_values=values,
+            expected_input_roots=input_roots,
+            expected_input_fingerprints=input_fingerprints,
+            expected_terminalizer_source_root=terminalizer_source_root,
+            expected_unit_state=dict(historical_state),
+            runner=runner,
+        )
+
+    return _write_create_once(
+        selected,
+        body,
+        preseal_guard=preseal_guard,
+    )
 
 
-def _validate_historical_state_record(value: object) -> None:
+def _validate_historical_state_record(
+    value: object,
+    *,
+    sealed_at: datetime,
+) -> None:
     if not isinstance(value, Mapping):
         raise PermissionError("historical C3 state record is malformed")
     state = value.get("C3_unit_state")
     if (
-        value.get("exact_absent_paths") != _exact_absent_paths()
+        set(value)
+        != {
+            "observed_at_utc",
+            "exact_absent_paths",
+            "all_required_paths_absent",
+            "B3_authorization_unsealed_basis",
+            "C3_unit_state",
+            "historical_observation_only",
+            "future_state_authority",
+            "archival_live_absence_recheck_required",
+            "archival_live_manager_recheck_required",
+        }
+        or value.get("exact_absent_paths") != _exact_absent_paths()
         or value.get("all_required_paths_absent") is not True
         or value.get("B3_authorization_unsealed_basis")
         != "B3 compatibility receipt absent at observation"
@@ -1325,8 +1574,13 @@ def _validate_historical_state_record(value: object) -> None:
         or value.get("future_state_authority") is not False
         or value.get("archival_live_absence_recheck_required") is not False
         or value.get("archival_live_manager_recheck_required") is not False
-        or not isinstance(value.get("observed_at_utc"), str)
+        or _parse_utc(
+            value.get("observed_at_utc"),
+            name="historical state observation",
+        )
+        != sealed_at
         or not isinstance(state, Mapping)
+        or set(state) != set(_STATE_PROPERTIES)
         or state.get("Id") != C3_UNIT_NAME
         or state.get("LoadState") != "loaded"
         or state.get("ActiveState") != "inactive"
@@ -1356,7 +1610,18 @@ def _validate_expiry_record(
         name="stored R3 expiry",
     )
     if (
-        value.get("B3_expires_at_utc") != B3_AUTHORIZATION_EXPIRES_AT
+        set(value)
+        != {
+            "observed_at_utc",
+            "B3_expires_at_utc",
+            "B3_expired",
+            "B3_compatibility_receipt_absent_at_observation",
+            "B3_sealed_by_compatibility_receipt",
+            "R3_expires_at_utc",
+            "R3_expired",
+            "R3_PASS_receipt_exists",
+        }
+        or value.get("B3_expires_at_utc") != B3_AUTHORIZATION_EXPIRES_AT
         or value.get("B3_expired") is not True
         or value.get(
             "B3_compatibility_receipt_absent_at_observation"
@@ -1430,8 +1695,18 @@ def validate_archival(
         identity.get("sealed_at_utc"),
         name="failure terminal sealed_at",
     )
+    expected_reproduction = _reproduce_scope_mismatch()
     if (
-        identity.get("candidate") != CANDIDATE
+        set(identity)
+        != {
+            "candidate",
+            "stage_id",
+            "scientific_attempt_id",
+            "scientific_attempt_ordinal",
+            "runtime_compatibility_id",
+            "sealed_at_utc",
+        }
+        or identity.get("candidate") != CANDIDATE
         or identity.get("stage_id") != STAGE_ID
         or identity.get("scientific_attempt_id")
         != SCIENTIFIC_ATTEMPT_ID
@@ -1439,8 +1714,33 @@ def validate_archival(
         != SCIENTIFIC_ATTEMPT_ORDINAL
         or identity.get("runtime_compatibility_id") != "c3"
         or not isinstance(failure, Mapping)
+        or set(failure)
+        != {
+            "known_entrypoint_path",
+            "known_subcommand",
+            "known_precleanup_input_path",
+            "known_cleanup_input_path",
+            "known_policy_input_path",
+            "original_call_artifact_available",
+            "original_argv_claimed",
+            "original_traceback_artifact_available",
+            "original_traceback_claimed",
+            "original_failure_time_claimed",
+            "attempt_count",
+            "retry",
+            "samples_collected",
+            "expected_exception_type",
+            "expected_exception_message",
+            "failure_observation",
+            "frozen_control_flow",
+        }
         or failure.get("known_entrypoint_path") != str(ENVIRONMENT_PATH)
         or failure.get("known_subcommand") != "stability-gate"
+        or failure.get("known_precleanup_input_path")
+        != str(PRECLEANUP_PATH)
+        or failure.get("known_cleanup_input_path")
+        != str(CLEANUP_RECEIPT_PATH)
+        or failure.get("known_policy_input_path") != str(C3_POLICY_PATH)
         or failure.get("original_call_artifact_available") is not False
         or failure.get("original_argv_claimed") is not False
         or failure.get("original_traceback_artifact_available")
@@ -1454,63 +1754,28 @@ def validate_archival(
         or failure.get("expected_exception_message") != EXPECTED_ERROR
         or failure.get("failure_observation")
         != "post_hoc_deterministic_read_only_reproduction"
-        or not isinstance(reproduction, Mapping)
-        or reproduction.get("observation_kind")
-        != "post_hoc_deterministic_read_only_reproduction"
-        or reproduction.get("mismatch_fields")
-        != ["target_unit_id", "require_target_ready"]
-        or reproduction.get("exception_type") != "PermissionError"
-        or reproduction.get("exception_message") != EXPECTED_ERROR
-        or reproduction.get("exception_args") != [EXPECTED_ERROR]
-        or reproduction.get("reproduced") is not True
-        or reproduction.get("E3_module_loaded") is not False
-        or reproduction.get("E3_gate_invoked") is not False
-        or reproduction.get("inventory_collector_invoked") is not False
-        or reproduction.get("sleeper_invoked") is not False
-        or reproduction.get("monotonic_clock_invoked") is not False
-        or reproduction.get("writer_invoked") is not False
-        or reproduction.get("samples_collected") != 0
-        or not isinstance(closure, Mapping)
-        or closure.get("R3_receipt_passed") is not True
-        or closure.get("static") is not True
-        or closure.get("enabled") is not False
-        or closure.get("started") is not False
-        or closure.get("removed") is not False
-        or closure.get("payload_authority") != "none"
-        or closure.get("fragment_sha256") != C3_FRAGMENT_SHA256
-        or closure.get("unit_name") != C3_UNIT_NAME
-        or payload.get("payload_observation") != _PAYLOAD_OBSERVATION
-        or payload.get("continuation_policy") != _CONTINUATION_POLICY
+        or not _deep_exact_equal(reproduction, expected_reproduction)
+        or not _deep_exact_equal(closure, _UNIT_REALIZATION_CLOSURE)
+        or not _deep_exact_equal(
+            payload.get("payload_observation"),
+            _PAYLOAD_OBSERVATION,
+        )
+        or not _deep_exact_equal(
+            payload.get("continuation_policy"),
+            _CONTINUATION_POLICY,
+        )
     ):
         raise PermissionError(
             "environment-stability failure semantics changed"
         )
-    control_flow = failure.get("frozen_control_flow")
-    if (
-        not isinstance(control_flow, Mapping)
-        or control_flow.get(
-            "E3_calls_frozen_run_environment_stability_gate"
-        )
-        is not True
-        or control_flow.get(
-            "frozen_gate_prepares_contract_before_sampling"
-        )
-        is not True
-        or control_flow.get("scope_validator_raises_before_collector")
-        is not True
-        or any(
-            control_flow.get(field) is not False
-            for field in (
-                "collector_reached",
-                "sleep_reached",
-                "monotonic_clock_reached",
-                "writer_reached",
-            )
-        )
+    if not _deep_exact_equal(
+        failure.get("frozen_control_flow"),
+        _FAILURE_CONTROL_FLOW,
     ):
         raise PermissionError("frozen failure control flow changed")
     _validate_historical_state_record(
-        payload.get("historical_state_observation")
+        payload.get("historical_state_observation"),
+        sealed_at=sealed_at,
     )
     _validate_expiry_record(
         payload.get("authorization_expiry"),
@@ -1518,17 +1783,26 @@ def validate_archival(
     )
 
     terminalizer_root = _read_regular(Path(__file__).resolve())[1]
-    if payload.get("terminalizer_source_root") != terminalizer_root:
+    if not _deep_exact_equal(
+        payload.get("terminalizer_source_root"),
+        terminalizer_root,
+    ):
         raise PermissionError("terminalizer source lineage changed")
     generation_roots = _fixed_generation_roots()
-    if payload.get("failed_generation_roots") != generation_roots:
+    if not _deep_exact_equal(
+        payload.get("failed_generation_roots"),
+        generation_roots,
+    ):
         raise PermissionError("failed C3 generation lineage changed")
     _values, roots, fingerprints = _validate_fixed_inputs()
     expected_inputs = {
         label: {"root": roots[label], **fingerprints[label]}
         for label in roots
     }
-    if payload.get("sealed_input_roots") != expected_inputs:
+    if not _deep_exact_equal(
+        payload.get("sealed_input_roots"),
+        expected_inputs,
+    ):
         raise PermissionError("sealed C3 input lineage changed")
 
     # Archival validation intentionally does not inspect ABSENT_OUTPUT_PATHS,

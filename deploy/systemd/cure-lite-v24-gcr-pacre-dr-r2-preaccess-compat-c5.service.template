@@ -1,0 +1,38 @@
+# TEMPLATE ONLY.  This file is not installed, enabled, or authorized to run.
+# Rendering and SHA-256 are bound by the create-only compatibility c5 authorization.
+[Unit]
+Description=CURE-Lite v24 GCR-PACRE D_R structural fresh attempt r2
+StartLimitIntervalSec=infinity
+StartLimitBurst=1
+
+[Service]
+Type=exec
+ExitType=main
+WorkingDirectory=/home/md0/ly/cure_lite
+UMask=0077
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=CUBLAS_WORKSPACE_CONFIG=:4096:8
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+ExecCondition=@@PYTHON_PATH@@ -I -S -B -u @@SUPERVISOR_PATH@@ claim-materialization --spec @@RUNTIME_SPEC_PATH@@
+ExecStartPre=@@PYTHON_PATH@@ -I -S -B -u @@SUPERVISOR_PATH@@ verify-runtime-spec --spec @@RUNTIME_SPEC_PATH@@
+ExecStart=@@PYTHON_PATH@@ -I -S -B -u @@SUPERVISOR_PATH@@ run-once --spec @@RUNTIME_SPEC_PATH@@
+ExecStopPost=@@PYTHON_PATH@@ -I -S -B -u @@SUPERVISOR_PATH@@ record-systemd-exit --spec @@RUNTIME_SPEC_PATH@@
+Restart=no
+RestartSec=0
+KillMode=mixed
+KillSignal=SIGTERM
+SendSIGKILL=yes
+TimeoutStartSec=5min
+TimeoutStopSec=10min
+RuntimeMaxSec=infinity
+WatchdogSec=0
+OOMPolicy=kill
+RemainAfterExit=no
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cure-lite-v24-gcr-pacre-dr-r2
+SuccessExitStatus=0
+
+# Intentionally no installation section: this unit must never be enabled.

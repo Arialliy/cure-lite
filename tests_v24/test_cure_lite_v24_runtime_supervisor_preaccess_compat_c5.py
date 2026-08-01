@@ -1,0 +1,1302 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+from types import SimpleNamespace
+
+import pytest
+
+from tests_v24 import (
+    test_gcr_pacre_v24_dr_r2_runtime_supervisor as frozen_fixtures,
+)
+from tools import cure_lite_v24_runtime_supervisor as frozen_supervisor
+from tools import (
+    cure_lite_v24_preaccess_schema_compatibility_c5 as actual_bridge,
+)
+from tools import (
+    cure_lite_v24_runtime_supervisor_preaccess_compat_c5 as supervisor,
+)
+
+
+REPOSITORY = Path(__file__).resolve().parents[1]
+SCIENTIFIC_AUTHORIZATION = Path(
+    frozen_supervisor._ACTUAL_SCIENTIFIC_AUTHORIZATION_PATH
+)
+SCIENTIFIC_ACCESS_AUDIT = Path(
+    frozen_supervisor._ACTUAL_SCIENTIFIC_ACCESS_AUDIT_PATH
+)
+LEGACY_GATE = (
+    REPOSITORY / "tools/run_cure_lite_v24_gcr_pacre_dr_gate.py"
+).resolve()
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _enable_guarded_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        supervisor,
+        "_require_source_generations",
+        lambda: None,
+    )
+
+
+def _reseal_spec(payload: dict[str, object]) -> None:
+    systemd = payload["runtime"]["systemd"]
+    systemd["immutable_shadow_fingerprint"] = (
+        supervisor.compat_c1.legacy.stable_fingerprint(
+            systemd["immutable_shadow_properties"]
+        )
+    )
+    body = dict(payload)
+    body.pop("runtime_spec_fingerprint", None)
+    payload["runtime_spec_fingerprint"] = (
+        supervisor.compat_c1.legacy.stable_fingerprint(body)
+    )
+
+
+def _actual_c5_spec(tmp_path: Path) -> dict[str, object]:
+    _path, payload = frozen_fixtures._dummy_spec(
+        tmp_path,
+        [],
+        actual=True,
+    )
+    scientific_authorization = json.loads(
+        SCIENTIFIC_AUTHORIZATION.read_text(encoding="utf-8")
+    )
+    scientific_audit = json.loads(
+        SCIENTIFIC_ACCESS_AUDIT.read_text(encoding="utf-8")
+    )
+    payload["authorization"] = {
+        "path": supervisor.COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH,
+        "required_schema": (
+            supervisor.compat_c1.legacy.RUNTIME_LAUNCH_AUTHORIZATION_SCHEMA
+        ),
+    }
+    payload["scientific_preaccess"] = {
+        "authorization_path": str(SCIENTIFIC_AUTHORIZATION),
+        "authorization_file_sha256": _sha256(
+            SCIENTIFIC_AUTHORIZATION
+        ),
+        "authorization_fingerprint": scientific_authorization[
+            "authorization_fingerprint"
+        ],
+        "authorization_required_schema": scientific_authorization[
+            "schema_version"
+        ],
+        "access_audit_path": str(SCIENTIFIC_ACCESS_AUDIT),
+        "access_audit_file_sha256": _sha256(
+            SCIENTIFIC_ACCESS_AUDIT
+        ),
+        "access_audit_fingerprint": scientific_audit[
+            "receipt_fingerprint"
+        ],
+        "access_audit_required_schema": (
+            supervisor.compat_c1.AUTHORITATIVE_ACCESS_AUDIT_SCHEMA
+        ),
+        "source_closure_fingerprint_103": (
+            frozen_supervisor._ACTUAL_SOURCE_CLOSURE_FINGERPRINT_103
+        ),
+    }
+    adapter_path = Path(supervisor.COMPAT_ADAPTER_PATH)
+    supervisor_path = Path(supervisor.COMPAT_SUPERVISOR_PATH)
+    child_argv = [
+        frozen_supervisor._ACTUAL_PYTHON_PATH,
+        "-I",
+        "-S",
+        "-B",
+        "-u",
+        str(adapter_path),
+        "real",
+        "--execute-real-dr",
+        "--device",
+        "cuda:0",
+        "--runtime-launch-authorization",
+        supervisor.COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH,
+    ]
+    payload["child"]["argv"] = child_argv
+    payload["child"]["argv_fingerprint"] = (
+        supervisor.compat_c1.legacy.stable_fingerprint(child_argv)
+    )
+    payload["child"]["entrypoint_path"] = str(adapter_path)
+    payload["source_bindings"].update(
+        {
+            "supervisor_file_sha256": _sha256(supervisor_path),
+            "child_entry_file_sha256": _sha256(adapter_path),
+            "r2_adapter_path": str(adapter_path),
+            "r2_adapter_file_sha256": _sha256(adapter_path),
+            "legacy_gate_entrypoint_path": str(LEGACY_GATE),
+            "legacy_gate_entrypoint_file_sha256": _sha256(LEGACY_GATE),
+        }
+    )
+    systemd = payload["runtime"]["systemd"]
+    systemd["unit_name"] = supervisor.COMPAT_UNIT_NAME
+    shadow = systemd["immutable_shadow_properties"]
+    modes = {
+        "ExecCondition": "claim-materialization",
+        "ExecStartPre": "verify-runtime-spec",
+        "ExecStart": "run-once",
+        "ExecStopPost": "record-systemd-exit",
+    }
+    for directive, mode in modes.items():
+        argv = (
+            f"{frozen_supervisor._ACTUAL_PYTHON_PATH} -I -S -B -u "
+            f"{supervisor_path} {mode} --spec "
+            f"{supervisor.COMPAT_RUNTIME_SPEC_PATH}"
+        )
+        shadow[directive] = (
+            f"{{ path={frozen_supervisor._ACTUAL_PYTHON_PATH} ; "
+            f"argv[]={argv} ; ignore_errors=no }}"
+        )
+    artifact_root = Path(supervisor.COMPAT_RUNTIME_ARTIFACT_ROOT)
+    payload["artifacts"] = {
+        key: str(
+            artifact_root
+            if key == "root"
+            else artifact_root / Path(str(value)).name
+        )
+        for key, value in payload["artifacts"].items()
+    }
+    payload["environment"]["gpu_lease_path"] = str(
+        Path(supervisor.COMPAT_GPU_LEASE_ROOT) / "active.json"
+    )
+    payload["environment"]["gpu_lease_tombstone_path"] = str(
+        Path(supervisor.COMPAT_GPU_LEASE_ROOT) / "released.json"
+    )
+    _reseal_spec(payload)
+    return payload
+
+
+def _policy_result() -> dict[str, object]:
+    c1 = supervisor.compat_c1
+    schema = {
+        "producer_schema": c1.AUTHORITATIVE_ACCESS_AUDIT_SCHEMA,
+        "scientific_authorization_bound_schema": (
+            c1.AUTHORITATIVE_ACCESS_AUDIT_SCHEMA
+        ),
+        "compatibility_consumer_required_schema": (
+            c1.AUTHORITATIVE_ACCESS_AUDIT_SCHEMA
+        ),
+        "buggy_frozen_consumer_expected_schema": (
+            c1.FICTIONAL_ACCESS_AUDIT_SCHEMA
+        ),
+        "accept_either_schema": False,
+    }
+    return {
+        "schema_compatibility": schema,
+        "compatibility_source_roots": {
+            label: {
+                "path": str(path),
+                "file_sha256": c1.legacy.file_sha256(path),
+            }
+            for label, path in {
+                "compat_policy": supervisor.COMPAT_POLICY_SOURCE_PATH,
+                "compat_supervisor": Path(
+                    supervisor.COMPAT_SUPERVISOR_PATH
+                ),
+                "compat_adapter": Path(supervisor.COMPAT_ADAPTER_PATH),
+            }.items()
+        },
+    }
+
+
+def test_metadata_only_identity_is_fixed_and_bridge_is_frozen() -> None:
+    summary = supervisor.describe_compatibility_identity()
+
+    assert summary["production_ready"] is True
+    assert summary["bridge_source_frozen_at_load"] is True
+    assert summary["compatibility_policy_source_sha256"] == (
+        "388843b9b840db41610d57543f4982666cdf442ba81fa5acb208033de062319f"
+    )
+    assert summary["runtime_compatibility_generation"] == "c5"
+    assert summary["scientific_attempt_ordinal"] == 2
+    assert summary["unit_name"].endswith(
+        "preaccess-compat-c5.service"
+    )
+    assert summary["runtime_spec_path"].endswith(
+        "preaccess_compat_c5_runtime_spec.json"
+    )
+    assert summary["compatibility_receipt_path"].endswith(
+        "schema_compat_c5_receipt.json"
+    )
+    assert summary["runtime_launch_authorization_path"].endswith(
+        "preaccess_compat_c5_runtime_launch_authorization.json"
+    )
+    assert summary["runtime_artifact_root"].endswith(
+        "preaccess_compat_c5_runtime_artifacts"
+    )
+    assert summary["gpu_lease_root"].endswith(
+        "preaccess_compat_c5_gpu_lease"
+    )
+    assert summary["forbidden_run_root_alias"].endswith(
+        "preaccess_compat_c5"
+    )
+    assert summary["forbidden_result_receipt_alias"].endswith(
+        "preaccess_compat_c5_receipt.json"
+    )
+    assert summary["scientific_run_root"].endswith(
+        "gcr_pacre_v24_D_R_structural_attempt_r2"
+    )
+    assert summary["scientific_result_receipt_path"].endswith(
+        "D_R_structural_attempt_r2_receipt.json"
+    )
+    assert summary["adapter_path"].endswith(
+        "preaccess_compat_c5.py"
+    )
+    assert summary["supervisor_path"].endswith(
+        "runtime_supervisor_preaccess_compat_c5.py"
+    )
+    assert summary["scientific_identity_changed"] is False
+    assert summary["scientific_output_paths_changed"] is False
+    assert summary["automatic_retry_allowed"] is False
+    assert summary["resume_allowed"] is False
+    assert summary["training_authorized"] is False
+    assert summary["optimizer_steps_authorized"] == 0
+    assert summary["parameter_updates_authorized"] == 0
+    assert summary["D_R_payload_accessed"] is False
+    assert summary["D_V_payload_accessed"] is False
+    assert summary["D_T_payload_accessed"] is False
+
+
+@pytest.mark.parametrize(
+    "field, historical_value",
+    [
+        ("COMPAT_UNIT_NAME", supervisor._C4_UNIT_NAME),
+        ("COMPAT_RUNTIME_SPEC_PATH", supervisor._C4_RUNTIME_SPEC_PATH),
+        (
+            "COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH",
+            supervisor._C4_RUNTIME_LAUNCH_AUTHORIZATION_PATH,
+        ),
+        (
+            "COMPAT_RUNTIME_ARTIFACT_ROOT",
+            supervisor._C4_RUNTIME_ARTIFACT_ROOT,
+        ),
+        ("COMPAT_GPU_LEASE_ROOT", supervisor._C4_GPU_LEASE_ROOT),
+        ("COMPAT_RUN_ROOT_ALIAS_PATH", supervisor._C4_RUN_ROOT_ALIAS_PATH),
+        (
+            "COMPAT_RESULT_RECEIPT_ALIAS_PATH",
+            supervisor._C4_RESULT_RECEIPT_ALIAS_PATH,
+        ),
+        ("COMPAT_ADAPTER_PATH", supervisor._C4_ADAPTER_PATH),
+        ("COMPAT_SUPERVISOR_PATH", supervisor._C4_SUPERVISOR_PATH),
+        ("COMPATIBILITY_RECEIPT_PATH", supervisor._C4_RECEIPT_PATH),
+        (
+            "COMPAT_POLICY_SOURCE_PATH",
+            Path(supervisor._C4_POLICY_SOURCE_PATH),
+        ),
+    ],
+)
+def test_no_c4_historical_name_can_become_an_active_c5_target(
+    field: str,
+    historical_value: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(supervisor, field, historical_value)
+    with pytest.raises(PermissionError, match="c5 runtime identity changed"):
+        supervisor._require_disjoint_c5_identity()
+
+
+def _c5_lane_payload() -> dict[str, object]:
+    return {
+        "execution_kind": supervisor.compat_c1.legacy.ACTUAL_EXECUTION_KIND,
+        "attempt_id": "gcr_pacre_v24_D_R_zero_update_structural_r2",
+        "attempt_ordinal": 2,
+        "prior_attempt_count": 1,
+        "authorization": {
+            "path": supervisor.COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH,
+        },
+        "child": {
+            "argv": [
+                "/usr/bin/python3.12",
+                supervisor.COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH,
+            ],
+            "entrypoint_path": supervisor.COMPAT_ADAPTER_PATH,
+        },
+        "artifacts": {"root": supervisor.COMPAT_RUNTIME_ARTIFACT_ROOT},
+        "environment": {
+            "gpu_lease_path": str(
+                Path(supervisor.COMPAT_GPU_LEASE_ROOT) / "active.json"
+            ),
+            "gpu_lease_tombstone_path": str(
+                Path(supervisor.COMPAT_GPU_LEASE_ROOT) / "released.json"
+            ),
+        },
+        "runtime": {
+            "launch_limit": 1,
+            "automatic_retry_allowed": False,
+            "resume_allowed": False,
+            "restart": "no",
+            "systemd": {"unit_name": supervisor.COMPAT_UNIT_NAME},
+        },
+    }
+
+
+def test_exact_c5_lane_binds_unit_spec_auth_artifact_and_lease() -> None:
+    supervisor._validate_c5_runtime_lane(
+        _c5_lane_payload(),
+        loaded_spec_path=Path(supervisor.COMPAT_RUNTIME_SPEC_PATH),
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "historical"),
+    [
+        ("artifact", supervisor._OLD_RUNTIME_ARTIFACT_ROOT),
+        ("artifact", supervisor._C1_RUNTIME_ARTIFACT_ROOT),
+        ("artifact", supervisor._C2_RUNTIME_ARTIFACT_ROOT),
+        ("artifact", supervisor._C3_RUNTIME_ARTIFACT_ROOT),
+        ("artifact", supervisor._C4_RUNTIME_ARTIFACT_ROOT),
+        ("lease", supervisor._OLD_GPU_LEASE_ROOT),
+        ("lease", supervisor._C1_GPU_LEASE_ROOT),
+        ("lease", supervisor._C2_GPU_LEASE_ROOT),
+        ("lease", supervisor._C3_GPU_LEASE_ROOT),
+        ("lease", supervisor._C4_GPU_LEASE_ROOT),
+    ],
+)
+def test_old_through_c4_artifact_and_lease_lanes_are_rejected(
+    field: str,
+    historical: str,
+) -> None:
+    payload = _c5_lane_payload()
+    if field == "artifact":
+        payload["artifacts"]["root"] = historical
+    else:
+        payload["environment"]["gpu_lease_path"] = str(
+            Path(historical) / "active.json"
+        )
+        payload["environment"]["gpu_lease_tombstone_path"] = str(
+            Path(historical) / "released.json"
+        )
+    with pytest.raises(ValueError, match="runtime lane changed"):
+        supervisor._validate_c5_runtime_lane(
+            payload,
+            loaded_spec_path=Path(supervisor.COMPAT_RUNTIME_SPEC_PATH),
+        )
+
+
+def test_compatibility_aliases_fail_closed_without_touching_scientific_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    alias = tmp_path / "forbidden-c5-result-alias.json"
+    alias.write_text("reserved\n", encoding="utf-8")
+    monkeypatch.setattr(
+        supervisor,
+        "COMPAT_RESULT_RECEIPT_ALIAS_PATH",
+        str(alias),
+    )
+    with pytest.raises(PermissionError, match="scientific output alias exists"):
+        supervisor._require_compatibility_aliases_absent()
+    assert supervisor.SCIENTIFIC_RESULT_RECEIPT_PATH != str(alias)
+
+
+def _force_placeholder_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        supervisor,
+        "COMPAT_POLICY_SOURCE_SHA256",
+        "__TO_BE_FROZEN__",
+    )
+    monkeypatch.setattr(supervisor, "_BRIDGE_LOAD", None)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: supervisor.verify_compatibility_identity(),
+        lambda: supervisor.validate_prewrite_spec({}),
+        lambda: supervisor._validate_spec_structure(
+            {},
+            loaded_spec_path=Path(supervisor.COMPAT_RUNTIME_SPEC_PATH),
+        ),
+        lambda: supervisor.verify_child_runtime_attestation("a", "b"),
+        lambda: supervisor.main(["--help"]),
+        lambda: supervisor.commit_and_start(
+            supervisor.COMPAT_RUNTIME_SPEC_PATH
+        ),
+    ],
+)
+def test_placeholder_fails_closed_before_every_runtime_entrypoint(
+    call,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _force_placeholder_guard(monkeypatch)
+    with pytest.raises(
+        PermissionError,
+        match="bridge source generation is not frozen",
+    ):
+        call()
+
+
+def test_direct_cli_help_succeeds_after_bridge_freeze() -> None:
+    completed = subprocess.run(
+        [
+            "/usr/bin/python3.12",
+            "-I",
+            "-S",
+            "-B",
+            supervisor.COMPAT_SUPERVISOR_PATH,
+            "--help",
+        ],
+        cwd="/",
+        check=False,
+        capture_output=True,
+        text=True,
+        env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+    )
+    assert completed.returncode == 0
+    assert completed.stderr == ""
+    for command in (
+        "commit-and-start",
+        "claim-materialization",
+        "verify-runtime-spec",
+        "run-once",
+        "systemd-finalize",
+        "record-systemd-exit",
+    ):
+        assert command in completed.stdout
+
+
+def test_fresh_interpreter_sentinel_source_fails_before_cli_dispatch() -> None:
+    source_path = Path(supervisor.COMPAT_SUPERVISOR_PATH)
+    script = "\n".join(
+        (
+            "from pathlib import Path",
+            "from types import ModuleType",
+            f"path = Path({str(source_path)!r})",
+            "raw = path.read_text(encoding='utf-8')",
+            (
+                "raw = raw.replace("
+                f"{supervisor.COMPAT_POLICY_SOURCE_SHA256!r}, "
+                "'__TO_BE_FROZEN__', 1)"
+            ),
+            "module = ModuleType('fresh_s5_sentinel')",
+            "module.__file__ = str(path)",
+            "module.__package__ = 'tools'",
+            "exec(compile(raw, str(path), 'exec'), module.__dict__)",
+            "module.main(['--help'])",
+        )
+    )
+    completed = subprocess.run(
+        [sys.executable, "-I", "-S", "-B", "-c", script],
+        cwd="/",
+        check=False,
+        capture_output=True,
+        text=True,
+        env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+    )
+    assert completed.returncode != 0
+    assert "c5 bridge source generation is not frozen" in completed.stderr
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["commit-and-start", "--spec", "/tmp/c5-guard-absent.json"],
+        ["claim-materialization", "--spec", "/tmp/c5-guard-absent.json"],
+        ["verify-runtime-spec", "--spec", "/tmp/c5-guard-absent.json"],
+        ["run-once", "--spec", "/tmp/c5-guard-absent.json"],
+        ["systemd-finalize", "--spec", "/tmp/c5-guard-absent.json"],
+        ["record-systemd-exit", "--spec", "/tmp/c5-guard-absent.json"],
+    ],
+)
+def test_raw_legacy_main_commands_cannot_bypass_placeholder_guard(
+    argv: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _force_placeholder_guard(monkeypatch)
+    with pytest.raises(
+        PermissionError,
+        match="bridge source generation is not frozen",
+    ):
+        supervisor.compat_c1.legacy.main(argv)
+
+
+def test_raw_c1_main_cannot_bypass_placeholder_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _force_placeholder_guard(monkeypatch)
+    with pytest.raises(
+        PermissionError,
+        match="bridge source generation is not frozen",
+    ):
+        supervisor.compat_c1.main(["--help"])
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "commit_and_start",
+        "claim_materialization",
+        "verify_runtime_spec",
+        "run_once",
+        "finalize_systemd",
+    ],
+)
+def test_raw_inherited_runtime_callables_are_guarded(
+    name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _force_placeholder_guard(monkeypatch)
+    inherited = getattr(supervisor.compat_c1.legacy, name)
+    with pytest.raises(
+        PermissionError,
+        match="bridge source generation is not frozen",
+    ):
+        inherited("/tmp/c5-guard-absent.json")
+
+
+def test_guard_installation_exposes_no_raw_or_dunder_wrapped_callable() -> None:
+    assert supervisor._RAW_LEGACY_RUNTIME_ENTRYPOINTS == {}
+    guarded = (
+        supervisor._C1_MAIN,
+        supervisor.compat_c1.main,
+        supervisor.compat_c1.legacy.main,
+        supervisor.compat_c1.legacy.commit_and_start,
+        supervisor.compat_c1.legacy.claim_materialization,
+        supervisor.compat_c1.legacy.verify_runtime_spec,
+        supervisor.compat_c1.legacy.run_once,
+        supervisor.compat_c1.legacy.finalize_systemd,
+        supervisor.compat_c1.legacy.load_runtime_spec,
+        supervisor.compat_c1.legacy.verify_child_runtime_attestation,
+        supervisor.commit_and_start,
+        supervisor.claim_materialization,
+        supervisor.verify_runtime_spec,
+        supervisor.run_once,
+        supervisor.finalize_systemd,
+        supervisor.load_runtime_spec,
+    )
+    assert all(not hasattr(function, "__wrapped__") for function in guarded)
+
+
+@pytest.mark.parametrize(
+    "call",
+    (
+        lambda: supervisor.claim_materialization("/tmp/c5-guard-absent.json"),
+        lambda: supervisor.verify_runtime_spec("/tmp/c5-guard-absent.json"),
+        lambda: supervisor.run_once("/tmp/c5-guard-absent.json"),
+        lambda: supervisor.finalize_systemd("/tmp/c5-guard-absent.json"),
+        lambda: supervisor.load_runtime_spec("/tmp/c5-guard-absent.json"),
+        lambda: supervisor.compat_c1.main(["--help"]),
+        lambda: supervisor.compat_c1.commit_and_start(
+            "/tmp/c5-guard-absent.json"
+        ),
+        lambda: supervisor.compat_c1.legacy.main(["--help"]),
+        lambda: supervisor.compat_c1.legacy.load_runtime_spec(
+            "/tmp/c5-guard-absent.json"
+        ),
+        lambda: supervisor.compat_c1.legacy.verify_child_runtime_attestation(
+            "/tmp/c5-attestation-absent.json",
+            "/tmp/c5-launch-absent.json",
+        ),
+    ),
+)
+def test_every_explicit_or_inherited_entrypoint_is_placeholder_guarded(
+    call,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _force_placeholder_guard(monkeypatch)
+    with pytest.raises(
+        PermissionError,
+        match="bridge source generation is not frozen",
+    ):
+        call()
+
+
+def test_c1_source_hash_drift_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    drift = (tmp_path / "compat-c1.py").resolve()
+    drift.write_text("# drift\n", encoding="utf-8")
+    monkeypatch.setattr(
+        supervisor,
+        "FROZEN_COMPAT_C1_SUPERVISOR_PATH",
+        drift,
+    )
+    with pytest.raises(PermissionError, match="source hash changed"):
+        supervisor._require_self_and_c1_generations()
+
+
+def test_bridge_hash_or_generation_drift_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bridge = (tmp_path / "bridge.py").resolve()
+    bridge.write_text("VALUE = 1\n", encoding="utf-8")
+    raw, generation = supervisor._stable_source_bytes(bridge)
+    digest = hashlib.sha256(raw).hexdigest()
+    monkeypatch.setattr(supervisor, "COMPAT_POLICY_SOURCE_PATH", bridge)
+    monkeypatch.setattr(
+        supervisor,
+        "COMPAT_POLICY_SOURCE_SHA256",
+        digest,
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_BRIDGE_LOAD",
+        (generation, digest),
+    )
+    supervisor._require_source_generations()
+
+    bridge.write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(PermissionError, match="source hash changed"):
+        supervisor._require_source_generations()
+
+
+def test_self_generation_replacement_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    changed = dict(supervisor._SELF_LOAD_GENERATION)
+    changed["st_size"] += 1
+    monkeypatch.setattr(supervisor, "_SELF_LOAD_GENERATION", changed)
+    with pytest.raises(PermissionError, match="generation changed"):
+        supervisor._require_self_and_c1_generations()
+
+
+def test_verified_identity_accepts_only_fixed_c5_runtime_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    result = supervisor.verify_compatibility_identity()
+
+    assert result["runtime_compatibility_generation"] == "c5"
+    assert result["unit_name"] == supervisor.COMPAT_UNIT_NAME
+    assert result["runtime_spec_path"] == supervisor.COMPAT_RUNTIME_SPEC_PATH
+    assert result["runtime_launch_authorization_path"] == (
+        supervisor.COMPAT_RUNTIME_LAUNCH_AUTHORIZATION_PATH
+    )
+    assert result["adapter_path"] == supervisor.COMPAT_ADAPTER_PATH
+    assert result["compatibility_receipt_path"] == (
+        supervisor.COMPATIBILITY_RECEIPT_PATH
+    )
+    assert result["runtime_artifact_root"] == (
+        supervisor.COMPAT_RUNTIME_ARTIFACT_ROOT
+    )
+    assert result["gpu_lease_root"] == supervisor.COMPAT_GPU_LEASE_ROOT
+    assert result["scientific_run_root"] == supervisor.SCIENTIFIC_RUN_ROOT
+    assert result["scientific_result_receipt_path"] == (
+        supervisor.SCIENTIFIC_RESULT_RECEIPT_PATH
+    )
+    assert result["training_authorized"] is False
+    assert result["optimizer_steps_authorized"] == 0
+    assert result["parameter_updates_authorized"] == 0
+    assert result["production_ready"] is True
+    assert result["frozen_compat_c1_supervisor_path"] == str(
+        supervisor.FROZEN_COMPAT_C1_SUPERVISOR_PATH
+    )
+    assert result["frozen_compat_c1_supervisor_file_sha256"] == (
+        supervisor.FROZEN_COMPAT_C1_SUPERVISOR_SHA256
+    )
+    assert result["c5_supervisor_file_sha256"] == _sha256(
+        Path(supervisor.COMPAT_SUPERVISOR_PATH)
+    )
+    serialized = json.dumps(result, sort_keys=True)
+    assert "preaccess-compat-c1.service" not in serialized
+    assert "preaccess-compat-c2.service" not in serialized
+    assert "preaccess-compat-c3.service" not in serialized
+    assert "preaccess-compat-c4.service" not in serialized
+    assert "preaccess_compat_c1_runtime_spec.json" not in serialized
+    assert "preaccess_compat_c2_runtime_spec.json" not in serialized
+    assert "preaccess_compat_c3_runtime_spec.json" not in serialized
+    assert "preaccess_compat_c4_runtime_spec.json" not in serialized
+    assert "schema_compat_c3_receipt.json" not in serialized
+    assert "schema_compat_c4_receipt.json" not in serialized
+
+
+@pytest.mark.parametrize(
+    "off_path",
+    [
+        supervisor._C1_RECEIPT_PATH,
+        supervisor._C2_RECEIPT_PATH,
+        supervisor._C3_RECEIPT_PATH,
+        supervisor._C4_RECEIPT_PATH,
+    ],
+)
+def test_identity_rejects_historical_receipt_result(
+    off_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    original = supervisor._C1_VERIFY_COMPATIBILITY_IDENTITY
+
+    def drifted() -> dict[str, object]:
+        result = dict(original())
+        result["compatibility_receipt_path"] = off_path
+        return result
+
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_VERIFY_COMPATIBILITY_IDENTITY",
+        drifted,
+    )
+    with pytest.raises(PermissionError, match="identity changed"):
+        supervisor.verify_compatibility_identity()
+
+
+@pytest.mark.parametrize(
+    "off_path",
+    [
+        supervisor._C1_RUNTIME_SPEC_PATH,
+        supervisor._C2_RUNTIME_SPEC_PATH,
+        supervisor._C3_RUNTIME_SPEC_PATH,
+        supervisor._C4_RUNTIME_SPEC_PATH,
+        supervisor._OLD_RUNTIME_SPEC_PATH,
+    ],
+)
+def test_historical_runtime_specs_are_rejected_before_receipt_use(
+    off_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    bridge_called = False
+
+    def forbidden() -> object:
+        nonlocal bridge_called
+        bridge_called = True
+        raise AssertionError("bridge must not load for an off-path spec")
+
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        forbidden,
+    )
+    payload = {
+        "execution_kind": (
+            supervisor.compat_c1.legacy.ACTUAL_EXECUTION_KIND
+        )
+    }
+    with pytest.raises(ValueError, match="spec path is not exact"):
+        supervisor._validate_spec_structure(
+            payload,
+            loaded_spec_path=Path(off_path),
+        )
+    assert bridge_called is False
+
+
+@pytest.mark.parametrize(
+    "off_path",
+    [
+        supervisor._C1_RECEIPT_PATH,
+        supervisor._C2_RECEIPT_PATH,
+        supervisor._C3_RECEIPT_PATH,
+        supervisor._C4_RECEIPT_PATH,
+    ],
+)
+def test_historical_receipt_interface_is_rejected_before_verifier_call(
+    off_path: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    called = False
+
+    def verifier(*_args: object, **_kwargs: object) -> object:
+        nonlocal called
+        called = True
+        return {}
+
+    policy = SimpleNamespace(
+        COMPAT_RECEIPT_PATH=Path(off_path),
+        verify_compatibility_receipt=verifier,
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        lambda: (policy, {}),
+    )
+    with pytest.raises(PermissionError, match="path interface changed"):
+        supervisor._verify_policy_compatibility_receipt({})
+    assert called is False
+
+
+@pytest.mark.parametrize(
+    "runtime_phase, allow_runtime_activation",
+    [
+        ("preactivation", False),
+        ("commit", True),
+        ("claim", True),
+        ("verify", True),
+        ("run_once", True),
+        ("finalize_success", True),
+        ("finalize_failure", True),
+    ],
+)
+def test_runtime_receipt_verification_uses_activation_phase(
+    runtime_phase: str,
+    allow_runtime_activation: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    calls: list[tuple[object, object, bool, bool, str]] = []
+
+    def verifier(
+        path: Path,
+        *,
+        expected_spec: dict[str, object],
+        require_spec_binding: bool,
+        allow_runtime_activation: bool,
+        runtime_phase: str,
+    ) -> dict[str, object]:
+        calls.append(
+            (
+                path,
+                expected_spec,
+                require_spec_binding,
+                allow_runtime_activation,
+                runtime_phase,
+            )
+        )
+        return _policy_result()
+
+    policy = SimpleNamespace(
+        COMPAT_RECEIPT_PATH=Path(
+            supervisor.COMPATIBILITY_RECEIPT_PATH
+        ),
+        OLD_RUNTIME_SPEC_PATH=Path(supervisor._OLD_RUNTIME_SPEC_PATH),
+        OLD_RUNTIME_LAUNCH_AUTHORIZATION_PATH=(
+            Path(supervisor._OLD_RUNTIME_SPEC_PATH + ".launch")
+        ),
+        verify_compatibility_receipt=verifier,
+    )
+    _raw, generation = supervisor.compat_c1._stable_source_bytes(
+        supervisor.COMPAT_POLICY_SOURCE_PATH
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        lambda: (policy, generation),
+    )
+    payload = {"runtime": "c5"}
+
+    token = supervisor._ACTIVE_RUNTIME_PHASE.set(runtime_phase)
+    try:
+        result = supervisor._verify_policy_compatibility_receipt(payload)
+    finally:
+        supervisor._ACTIVE_RUNTIME_PHASE.reset(token)
+
+    assert result["schema_compatibility"]["accept_either_schema"] is False
+    assert calls == [
+        (
+            Path(supervisor.COMPATIBILITY_RECEIPT_PATH),
+            payload,
+            True,
+            allow_runtime_activation,
+            runtime_phase,
+        )
+    ]
+
+
+def test_real_b5_nonascii_receipt_interop_uses_producer_validator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A true B5 return shape satisfies the frozen C1 consumer contract."""
+
+    _enable_guarded_calls(monkeypatch)
+    producer, generation = (
+        supervisor._C1_LOAD_VERIFIED_COMPATIBILITY_POLICY()
+    )
+    assert Path(producer.__file__).resolve() == (
+        supervisor.COMPAT_POLICY_SOURCE_PATH
+    )
+    assert _sha256(Path(producer.__file__)) == (
+        supervisor.COMPAT_POLICY_SOURCE_SHA256
+    )
+    receipt_path = tmp_path / "b5-nonascii-receipt.json"
+    source_roots = {
+        label: producer._source_root(path)
+        for label, path in producer._source_paths().items()
+    }
+    assert set(source_roots) == producer._SOURCE_LABELS
+    assert source_roots["compat_policy"] == source_roots["compat_bridge"]
+    body = {
+        "schema_version": producer.RECEIPT_SCHEMA,
+        "candidate": producer.CANDIDATE,
+        "stage_id": producer.STAGE_ID,
+        "scientific_attempt_id": producer.SCIENTIFIC_ATTEMPT_ID,
+        "scientific_attempt_ordinal": producer.SCIENTIFIC_ATTEMPT_ORDINAL,
+        "runtime_compatibility_id": producer.RUNTIME_COMPATIBILITY_ID,
+        "created_at_utc": producer._format_utc(producer._utc_now()),
+        "compatibility_authorization_root": {},
+        "compatibility_source_roots": source_roots,
+        "compatibility_evidence_roots": {
+            label: {} for label in producer._EVIDENCE_LABELS
+        },
+        "historical_environment_contract": {
+            "test_note": "修改后继续 🚦"
+        },
+        "current_environment_contract": {},
+        "scientific_output_contract": (
+            producer._expected_scientific_output_contract()
+        ),
+        "scientific_authority": producer._expected_scientific_authority(),
+        "schema_compatibility": producer._expected_schema_compatibility(),
+        "compatibility_closure_passed": True,
+        "runtime_launch_authorized": False,
+        "systemd_start_authorized": False,
+        "automatic_retry": False,
+        "resume": False,
+        "D_R_payload_accessed": False,
+        "D_V_payload_accessed": False,
+        "D_T_payload_accessed": False,
+        "gpu_accessed": False,
+        "training_started": False,
+        "materialization_consumed": False,
+    }
+    sealed = producer._write_sealed(
+        receipt_path,
+        body,
+        fingerprint_field="receipt_fingerprint",
+    )
+    loaded, receipt_root = producer._load_sealed(
+        receipt_path,
+        fingerprint_field="receipt_fingerprint",
+        schema=producer.RECEIPT_SCHEMA,
+    )
+    assert loaded == sealed
+    expected = {**loaded, "receipt_root": receipt_root}
+    assert set(loaded) == producer._RECEIPT_KEYS
+    raw = receipt_path.read_bytes()
+    assert "修改后继续 🚦".encode("utf-8") in raw
+    assert b"\\u4fee\\u6539" not in raw
+
+    producer_calls: list[Path] = []
+
+    def producer_verify(
+        path: Path,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        producer_calls.append(path)
+        return expected
+
+    monkeypatch.setattr(
+        producer,
+        "OLD_RUNTIME_SPEC_PATH",
+        tmp_path / "old-spec-absent.json",
+    )
+    monkeypatch.setattr(
+        producer,
+        "OLD_RUNTIME_LAUNCH_AUTHORIZATION_PATH",
+        tmp_path / "old-launch-absent.json",
+    )
+    monkeypatch.setattr(
+        producer,
+        "verify_compatibility_receipt",
+        producer_verify,
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        lambda: (producer, generation),
+    )
+
+    result = supervisor._verify_policy_compatibility_receipt(
+        {"runtime": "c5-nonascii-interop"}
+    )
+
+    assert producer_calls == [Path(supervisor.COMPATIBILITY_RECEIPT_PATH)]
+    assert result == expected
+    assert result["historical_environment_contract"]["test_note"].endswith(
+        "修改后继续 🚦"
+    )
+    assert result["schema_compatibility"] == (
+        producer._expected_schema_compatibility()
+    )
+    assert result["compatibility_source_roots"]["compat_policy"] == (
+        result["compatibility_source_roots"]["compat_bridge"]
+    )
+    for label, path in {
+        "compat_policy": producer.C5_BRIDGE_SOURCE_PATH,
+        "compat_supervisor": producer.C5_SUPERVISOR_SOURCE_PATH,
+        "compat_adapter": producer.C5_ADAPTER_SOURCE_PATH,
+    }.items():
+        assert result["compatibility_source_roots"][label] == (
+            producer._source_root(path)
+        )
+    assert not hasattr(supervisor, "_canonical_json")
+
+
+@pytest.mark.parametrize(
+    "runtime_phase",
+    [
+        "commit",
+        "claim",
+        "verify",
+        "run_once",
+        "finalize_success",
+        "finalize_failure",
+    ],
+)
+def test_phase_guarded_entrypoint_sets_and_resets_context(
+    runtime_phase: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    observed: list[str] = []
+
+    def probe(value: str) -> str:
+        observed.append(supervisor._ACTIVE_RUNTIME_PHASE.get())
+        return value
+
+    wrapped = supervisor._phase_guarded_inherited_callable(
+        probe,
+        runtime_phase,
+    )
+
+    assert wrapped("ok") == "ok"
+    assert observed == [runtime_phase]
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+
+
+def test_child_attestation_keeps_run_once_across_nested_receipt_verification(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise the adapter-facing entry through its nested B5 delegation."""
+
+    _enable_guarded_calls(monkeypatch)
+    bridge_calls: list[tuple[bool, str]] = []
+    inherited_phases: list[str] = []
+
+    def verifier(
+        _path: Path,
+        *,
+        expected_spec: dict[str, object],
+        require_spec_binding: bool,
+        allow_runtime_activation: bool,
+        runtime_phase: str,
+    ) -> dict[str, object]:
+        assert expected_spec == {"runtime": "nested-attestation"}
+        assert require_spec_binding is True
+        bridge_calls.append((allow_runtime_activation, runtime_phase))
+        return _policy_result()
+
+    policy = SimpleNamespace(
+        COMPAT_RECEIPT_PATH=Path(
+            supervisor.COMPATIBILITY_RECEIPT_PATH
+        ),
+        OLD_RUNTIME_SPEC_PATH=tmp_path / "old-spec-absent.json",
+        OLD_RUNTIME_LAUNCH_AUTHORIZATION_PATH=(
+            tmp_path / "old-launch-absent.json"
+        ),
+        verify_compatibility_receipt=verifier,
+    )
+    _raw, generation = supervisor.compat_c1._stable_source_bytes(
+        supervisor.COMPAT_POLICY_SOURCE_PATH
+    )
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        lambda: (policy, generation),
+    )
+
+    def inherited_attestation(*_args: object, **_kwargs: object):
+        inherited_phases.append(supervisor._ACTIVE_RUNTIME_PHASE.get())
+        # The inherited verifier loads the runtime spec, whose structural
+        # validation delegates to this exact policy-receipt boundary.
+        return supervisor._verify_policy_compatibility_receipt(
+            {"runtime": "nested-attestation"}
+        )
+
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_VERIFY_CHILD_ATTESTATION",
+        inherited_attestation,
+    )
+
+    result = supervisor.verify_child_runtime_attestation(
+        "attestation.json",
+        "launch.json",
+    )
+
+    assert result["schema_compatibility"]["accept_either_schema"] is False
+    assert inherited_phases == ["run_once"]
+    assert bridge_calls == [(True, "run_once")]
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+
+
+def test_child_attestation_phase_resets_after_nested_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "run_once"
+        raise RuntimeError("nested attestation failure")
+
+    monkeypatch.setattr(supervisor, "_C1_VERIFY_CHILD_ATTESTATION", fail)
+
+    with pytest.raises(RuntimeError, match="nested attestation failure"):
+        supervisor.verify_child_runtime_attestation("a", "b")
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+
+
+def test_generic_guard_does_not_promote_load_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    guarded_load_probe = supervisor._guarded_inherited_callable(
+        lambda: supervisor._ACTIVE_RUNTIME_PHASE.get()
+    )
+
+    assert guarded_load_probe() == "preactivation"
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+
+
+@pytest.mark.parametrize("runtime_phase", ("commit", "claim", "verify", "run_once"))
+def test_phase_guard_drives_actual_bridge_preexecution_state_machine(
+    runtime_phase: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise S3 phase propagation against real B3 phase code, not a stub."""
+
+    _enable_guarded_calls(monkeypatch)
+    monkeypatch.setattr(
+        actual_bridge,
+        "SCIENTIFIC_RUN_ROOT",
+        tmp_path / "scientific-r2-run",
+    )
+    monkeypatch.setattr(
+        actual_bridge,
+        "SCIENTIFIC_RESULT_RECEIPT_PATH",
+        tmp_path / "scientific-r2-result.json",
+    )
+    monkeypatch.setattr(actual_bridge, "_always_absent_paths", lambda: {})
+    observed: list[str] = []
+
+    def verify_actual_bridge_phase() -> None:
+        selected = supervisor._ACTIVE_RUNTIME_PHASE.get()
+        actual_bridge._validate_scientific_output_phase(
+            allow_runtime_activation=True,
+            runtime_phase=selected,
+        )
+        observed.append(selected)
+
+    wrapped = supervisor._phase_guarded_inherited_callable(
+        verify_actual_bridge_phase,
+        runtime_phase,
+    )
+    wrapped()
+
+    assert observed == [runtime_phase]
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+    assert not (tmp_path / "scientific-r2-run").exists()
+    assert not (tmp_path / "scientific-r2-result.json").exists()
+
+
+def test_phase_guard_resets_context_after_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+
+    def fail() -> None:
+        assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "commit"
+        raise RuntimeError("expected probe failure")
+
+    wrapped = supervisor._phase_guarded_inherited_callable(
+        fail,
+        "commit",
+    )
+
+    with pytest.raises(RuntimeError, match="expected probe failure"):
+        wrapped()
+    assert supervisor._ACTIVE_RUNTIME_PHASE.get() == "preactivation"
+
+
+@pytest.mark.parametrize(
+    "environment, expected_phase",
+    [
+        (
+            {
+                "SERVICE_RESULT": "success",
+                "EXIT_CODE": "exited",
+                "EXIT_STATUS": "0",
+            },
+            "finalize_success",
+        ),
+        ({"SERVICE_RESULT": "exit-code"}, "finalize_failure"),
+        ({}, "finalize_failure"),
+    ],
+)
+def test_finalization_phase_comes_only_from_manager_outcome(
+    environment: dict[str, str],
+    expected_phase: str,
+) -> None:
+    assert (
+        supervisor._finalization_runtime_phase(
+            (),
+            {"environment": environment},
+        )
+        == expected_phase
+    )
+
+
+def test_prewrite_receipt_verification_never_allows_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    calls: list[tuple[Path, dict[str, object]]] = []
+
+    def verifier(
+        path: Path,
+        expected_spec: dict[str, object],
+    ) -> dict[str, object]:
+        calls.append((path, expected_spec))
+        return _policy_result()
+
+    policy = SimpleNamespace(
+        verify_compatibility_prewrite_spec=verifier,
+        OLD_RUNTIME_SPEC_PATH=Path(supervisor._OLD_RUNTIME_SPEC_PATH),
+        OLD_RUNTIME_LAUNCH_AUTHORIZATION_PATH=(
+            Path(supervisor._OLD_RUNTIME_SPEC_PATH + ".launch")
+        ),
+    )
+    _raw, generation = supervisor.compat_c1._stable_source_bytes(
+        supervisor.COMPAT_POLICY_SOURCE_PATH
+    )
+    monkeypatch.setattr(
+        supervisor.compat_c1,
+        "_load_verified_compatibility_policy",
+        lambda: (policy, generation),
+    )
+    payload = {"runtime": "c5-preview"}
+
+    result = supervisor._verify_policy_compatibility_prewrite(payload)
+
+    assert result["schema_compatibility"]["accept_either_schema"] is False
+    assert calls == [
+        (Path(supervisor.COMPATIBILITY_RECEIPT_PATH), payload)
+    ]
+
+
+def test_extra_runtime_spec_field_is_rejected_before_bridge(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_guarded_calls(monkeypatch)
+    payload = _actual_c5_spec(tmp_path)
+    payload["unexpected_c5_field"] = "forbidden"
+    _reseal_spec(payload)
+    bridge_called = False
+
+    def forbidden() -> object:
+        nonlocal bridge_called
+        bridge_called = True
+        raise AssertionError("bridge must not load for an invalid spec")
+
+    monkeypatch.setattr(
+        supervisor,
+        "_C1_LOAD_VERIFIED_COMPATIBILITY_POLICY",
+        forbidden,
+    )
+    with pytest.raises(ValueError, match="closed schema"):
+        supervisor._validate_spec_structure(
+            payload,
+            loaded_spec_path=Path(supervisor.COMPAT_RUNTIME_SPEC_PATH),
+        )
+    assert bridge_called is False

@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import hashlib
 import importlib.util
-import inspect
+import json
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,7 +19,8 @@ SOURCE = (
 )
 
 
-def _load():
+@pytest.fixture
+def bridge():
     name = "cure_lite_v24_preaccess_schema_compatibility_c4_tested"
     spec = importlib.util.spec_from_file_location(name, SOURCE)
     assert spec is not None and spec.loader is not None
@@ -29,295 +29,714 @@ def _load():
     return module
 
 
-@pytest.fixture
-def bridge():
-    return _load()
+def _loaded_state(unit: str, *, fragment: str = "") -> dict[str, str]:
+    return {
+        "Id": unit,
+        "LoadState": "loaded",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "static",
+        "NRestarts": "0",
+        "FragmentPath": fragment,
+        "InvocationID": "",
+    }
 
 
-def _utc(value: datetime) -> str:
-    return value.astimezone(timezone.utc).isoformat(
-        timespec="microseconds"
-    ).replace("+00:00", "Z")
+def _missing_state(unit: str) -> dict[str, str]:
+    return {
+        "Id": unit,
+        "LoadState": "not-found",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "UnitFileState": "",
+        "NRestarts": "0",
+        "FragmentPath": "",
+        "InvocationID": "",
+    }
 
 
-def _state(module, unit: str, fragment: str = "") -> dict[str, object]:
-    state = {field: "" for field in module._STATE_FIELDS}
-    state.update(
-        {
-            "Id": unit,
-            "LoadState": "loaded",
-            "ActiveState": "inactive",
-            "SubState": "dead",
-            "UnitFileState": "static",
-            "NRestarts": "0",
-            "FragmentPath": fragment,
-            "InvocationID": "",
-            "Restart": "no",
-        }
+def _payload_flags() -> dict[str, bool]:
+    return {
+        "D_R_payload_accessed": False,
+        "D_V_payload_accessed": False,
+        "D_T_payload_accessed": False,
+        "gpu_accessed": False,
+        "training_started": False,
+        "materialization_consumed": False,
+    }
+
+
+def test_generation_identity_and_paths_are_disjoint(bridge) -> None:
+    assert bridge.RUNTIME_COMPATIBILITY_ID == "c4"
+    assert bridge.SCIENTIFIC_ATTEMPT_ORDINAL == 2
+    assert bridge.C3_UNIT_NAME.endswith("compat-c3.service")
+    assert bridge.C4_UNIT_NAME.endswith("compat-c4.service")
+    assert bridge.C3_UNIT_NAME != bridge.C4_UNIT_NAME
+    assert bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_PATH.name == (
+        "r2_preaccess_schema_compat_c3_"
+        "environment_stability_failure_terminal.json"
     )
-    return state
+    assert bridge.C4_ENVIRONMENT_SCOPE_HANDOFF_PATH.name == (
+        "runtime_environment_scope_handoff_preaccess_compat_c4.json"
+    )
+    assert bridge.C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH.name == (
+        "runtime_environment_stability_attempt_preaccess_compat_c4.json"
+    )
+    assert bridge.C4_ENVIRONMENT_STABILITY_TERMINAL_PATH.name == (
+        "runtime_environment_stability_terminal_preaccess_compat_c4.json"
+    )
+    assert bridge.C4_RUNTIME_SPEC_PATH != bridge.C3_RUNTIME_SPEC_PATH
+    assert bridge.C4_RUN_ROOT_ALIAS_PATH != bridge.C3_RUN_ROOT_ALIAS_PATH
 
 
-def test_write_sealed_is_exact_0444_under_umask_077(
-    bridge, tmp_path: Path
+def test_blind_rename_did_not_corrupt_historical_c2_hashes(bridge) -> None:
+    assert bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_SHA256 == (
+        "e478e0cc3516c97b5eea91c615a64cd7ee4020a9d22ddc863c7b04375331f9e7"
+    )
+    assert bridge.C2_PREWRITE_FAILURE_TERMINAL_SHA256 == (
+        "6984dc9df2c905a5b7bc3b1577a4d5e8c21d1e1f895217997ed6915050e0f43d"
+    )
+    payload, _root, _source = (
+        bridge._validate_mode_contract_failure_terminal()
+    )
+    continuation = payload["continuation_policy"]
+    assert continuation["c3_required"] is True
+    assert "c4_required" not in continuation
+
+
+def test_direct_predecessor_terminalizer_pin_matches_frozen_source(
+    bridge,
 ) -> None:
-    target = tmp_path / "sealed.json"
-    previous = os.umask(0o077)
-    try:
-        payload = bridge._write_sealed(
-            target,
-            {"schema_version": "test-v1", "value": 7},
-            fingerprint_field="fingerprint",
+    raw = bridge.C3_ENVIRONMENT_FAILURE_TERMINALIZER_SOURCE_PATH.read_bytes()
+    if bridge.C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256 == (
+        "__TO_BE_FROZEN__"
+    ):
+        assert bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256 == (
+            "__TO_BE_FROZEN__"
         )
-    finally:
-        os.umask(previous)
-    assert target.stat().st_mode & 0o777 == 0o444
-    loaded, root = bridge._load_sealed(
-        target,
-        fingerprint_field="fingerprint",
-        schema="test-v1",
+        return
+    assert hashlib.sha256(raw).hexdigest() == (
+        bridge.C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256
     )
-    assert loaded == payload
-    assert root["mode"] == 0o444
+    assert bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SCHEMA == (
+        "cure-lite-v24-r2-preaccess-schema-compat-c3-"
+        "environment-stability-failure-terminal-v1"
+    )
 
 
-@pytest.mark.parametrize("mode", (0o400, 0o440, 0o644, 0o446))
-def test_sealed_loader_rejects_every_nonexact_mode(
-    bridge, tmp_path: Path, mode: int
+def test_terminal_hash_is_pinned_and_sentinel_remains_fail_closed(
+    bridge, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    target = tmp_path / f"sealed-{mode:o}.json"
-    bridge._write_sealed(
-        target,
-        {"schema_version": "test-v1"},
-        fingerprint_field="fingerprint",
+    assert bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256 == (
+        "527eb5c12c92e19dac8f797868de2bc8462e53b8113c24f6e701e0e54a26180a"
     )
-    target.chmod(mode)
-    with pytest.raises(PermissionError, match="unsafe sealed file"):
-        bridge._load_sealed(
-            target,
-            fingerprint_field="fingerprint",
-            schema="test-v1",
-        )
-
-
-def test_bridge_has_no_fictional_handoff_or_hash_cycle_sentinels() -> None:
-    text = SOURCE.read_text(encoding="utf-8")
-    forbidden = (
-        "C4_SCOPE_HANDOFF_AUTHORIZATION_PATH",
-        "C4_SCOPE_HANDOFF_RECEIPT_PATH",
-        "C4_SCOPE_HANDOFF_AUTHORIZATION_SCHEMA",
-        "C4_SCOPE_HANDOFF_RECEIPT_SCHEMA",
-        "_validate_scope_handoff_contract",
-        "C4_ENVIRONMENT_WRAPPER_SHA256",
+    assert hashlib.sha256(
+        bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_PATH.read_bytes()
+    ).hexdigest() == bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256",
         "__TO_BE_FROZEN__",
     )
-    assert all(token not in text for token in forbidden)
-    compile(text, str(SOURCE), "exec")
+    with pytest.raises(PermissionError, match="hashes are not frozen"):
+        bridge._require_frozen_c3_failure_hashes()
 
 
-def test_terminalizer_path_hash_and_interface_are_exact(bridge) -> None:
-    assert bridge.C1_FAILURE_TERMINALIZER_SHA256 == (
-        "72d7f8846d9bdccbdb2d15d6790d5e021b6d2db75523fe5dbe11a3d4246ca880"
+def test_frozen_production_c3_fail_boundary_validates_archivally(bridge) -> None:
+    payload, root, source_root = (
+        bridge._validate_c3_environment_failure_terminal()
     )
-    module, root = bridge._load_verified_terminalizer()
-    assert Path(module.TERMINAL_PATH) == bridge.C1_FAILURE_TERMINAL_PATH
-    assert module.SCHEMA == (
-        "cure-lite-v24-r2-preaccess-schema-compat-c1-"
-        "expired-prewrite-terminal-v1"
-    )
-    assert root["file_sha256"] == bridge.C1_FAILURE_TERMINALIZER_SHA256
-    assert callable(module.validate_terminal)
-
-
-def test_mode_contract_terminalizer_and_failure_file_are_double_fixed(
-    bridge,
-) -> None:
-    assert bridge.C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SHA256 == (
-        "86181ffbb584381754c2eafe40759f8caaf387d270a8b8c71a45f2eefa099126"
-    )
-    assert bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_SHA256 == (
-        "e478e0cc4516c97b5eea91c615a64cd7ee4020a9d22ddc863c7b04375331f9e7"
-    )
-    terminalizer, source_root = (
-        bridge._load_verified_mode_contract_failure_terminalizer()
-    )
-    assert Path(terminalizer.TERMINAL_PATH) == (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_PATH
-    )
-    assert terminalizer.SCHEMA == (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_SCHEMA
-    )
-    assert source_root["file_sha256"] == (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SHA256
-    )
-
-    payload, failure_root, observed_source_root = (
-        bridge._validate_mode_contract_failure_terminal()
-    )
-    assert payload["schema_version"] == (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_SCHEMA
-    )
-    assert failure_root["path"] == str(
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_PATH.absolute()
-    )
-    assert failure_root["file_sha256"] == (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_SHA256
-    )
-    assert observed_source_root == source_root
-    assert payload["identity"]["runtime_compatibility_id"] == "c2"
+    assert payload["identity"]["runtime_compatibility_id"] == "c3"
     assert payload["continuation_policy"]["c4_required"] is True
-    assert payload["historical_absence_observation"][
-        "future_state_authority"
-    ] is False
-
-
-def test_c2_prewrite_failure_terminal_is_a_direct_live_root(bridge) -> None:
-    payload, terminal_root, source_root = (
-        bridge._validate_c2_prewrite_failure_terminal()
+    assert payload["payload_observation"]["samples_processed"] == 0
+    assert root["file_sha256"] == (
+        bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256
     )
-    assert payload["schema_version"] == (
-        bridge.C2_PREWRITE_FAILURE_TERMINAL_SCHEMA
-    )
-    assert terminal_root["path"] == str(
-        bridge.C2_PREWRITE_FAILURE_TERMINAL_PATH.absolute()
-    )
-    assert terminal_root["file_sha256"] == (
-        bridge.C2_PREWRITE_FAILURE_TERMINAL_SHA256
-    )
-    assert terminal_root["mode"] == 0o444
-    assert source_root["path"] == str(
-        bridge.C2_PREWRITE_FAILURE_TERMINALIZER_SOURCE_PATH.absolute()
+    assert root["terminal_fingerprint"] == (
+        bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_FINGERPRINT
     )
     assert source_root["file_sha256"] == (
-        bridge.C2_PREWRITE_FAILURE_TERMINALIZER_SHA256
+        bridge.C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256
     )
-    assert payload["identity"]["runtime_compatibility_id"] == "c2"
 
 
-def test_mode_contract_failure_lineage_labels_are_explicit(bridge) -> None:
-    assert "c2_mode_contract_failure_terminalizer" in bridge._SOURCE_LABELS
-    assert "c2_prewrite_failure_terminalizer" in bridge._SOURCE_LABELS
-    assert "c2_mode_contract_failure_terminal" in bridge._EVIDENCE_LABELS
-    assert "c2_prewrite_failure_terminal" in bridge._EVIDENCE_LABELS
-    assert "c2_mode_contract_failure_terminal_root" in (
-        bridge._AUTHORIZATION_KEYS
-    )
-    assert "c2_prewrite_failure_terminal_root" in bridge._AUTHORIZATION_KEYS
-    assert bridge._source_paths()[
-        "c2_mode_contract_failure_terminalizer"
-    ] == bridge.C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SOURCE_PATH
-    assert bridge._evidence_paths()[
-        "c2_mode_contract_failure_terminal"
-    ] == bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_PATH
-    assert bridge._source_paths()[
-        "c2_prewrite_failure_terminalizer"
-    ] == bridge.C2_PREWRITE_FAILURE_TERMINALIZER_SOURCE_PATH
-    assert bridge._evidence_paths()[
-        "c2_prewrite_failure_terminal"
-    ] == bridge.C2_PREWRITE_FAILURE_TERMINAL_PATH
-
-
-@pytest.mark.parametrize("drift_target", ("terminalizer", "failure"))
-def test_mode_contract_archival_detects_postvalidation_generation_drift(
-    bridge,
-    monkeypatch: pytest.MonkeyPatch,
-    drift_target: str,
+def test_authorize_stops_on_sentinel_before_any_audit(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    payload, failure_root, source_root = (
-        bridge._validate_mode_contract_failure_terminal()
+    calls: list[str] = []
+    monkeypatch.setattr(
+        bridge, "C4_AUTHORIZATION_PATH", tmp_path / "authorization.json"
     )
-    terminalizer_path = (
-        bridge.C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SOURCE_PATH
-    )
-    failure_path = bridge.C2_MODE_CONTRACT_FAILURE_TERMINAL_PATH
-    terminalizer_raw = terminalizer_path.read_bytes()
-    failure_raw = failure_path.read_bytes()
-
-    def observed(path: Path, *, inode_delta: int = 0):
-        value = path.stat()
-        return SimpleNamespace(
-            st_dev=value.st_dev,
-            st_ino=value.st_ino + inode_delta,
-            st_mode=value.st_mode,
-            st_uid=value.st_uid,
-            st_gid=value.st_gid,
-            st_nlink=value.st_nlink,
-            st_size=value.st_size,
-            st_mtime_ns=value.st_mtime_ns,
-            st_ctime_ns=value.st_ctime_ns,
-        )
-
-    calls = {"terminalizer": 0, "failure": 0}
-
-    def read(path: Path, *, sealed: bool = True):
-        selected = Path(path).absolute()
-        if selected == terminalizer_path.absolute():
-            calls["terminalizer"] += 1
-            delta = int(
-                drift_target == "terminalizer"
-                and calls["terminalizer"] == 2
-            )
-            return terminalizer_raw, observed(
-                terminalizer_path,
-                inode_delta=delta,
-            )
-        assert selected == failure_path.absolute()
-        assert sealed is True
-        calls["failure"] += 1
-        delta = int(
-            drift_target == "failure" and calls["failure"] == 2
-        )
-        return failure_raw, observed(failure_path, inode_delta=delta)
-
-    module = SimpleNamespace(
-        validate_archival=lambda _path: (payload, failure_root),
+    monkeypatch.setattr(bridge, "C4_RECEIPT_PATH", tmp_path / "receipt.json")
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256",
+        "__TO_BE_FROZEN__",
     )
     monkeypatch.setattr(
         bridge,
-        "_load_verified_mode_contract_failure_terminalizer",
-        lambda: (module, source_root),
+        "_validate_scientific_output_phase",
+        lambda **_kwargs: calls.append("scientific"),
     )
-    monkeypatch.setattr(bridge, "_read_regular_bytes", read)
-    monkeypatch.setattr(bridge, "_source_root", lambda _path: source_root)
-
-    with pytest.raises(PermissionError, match="changed"):
-        bridge._validate_mode_contract_failure_terminal()
-    assert calls == {"terminalizer": 2, "failure": 2}
-
-
-def test_real_environment_wrapper_loads_from_captured_source_root(bridge) -> None:
-    root = bridge._source_root(bridge.C4_ENVIRONMENT_WRAPPER_SOURCE_PATH)
-    module, observed = bridge._load_verified_environment_wrapper(root)
-    assert observed == root
-    assert module.C4_TARGET_UNIT == bridge.C4_UNIT_NAME
-    assert Path(module.C4_POLICY_PATH) == bridge.C4_ENVIRONMENT_POLICY_PATH
-    assert callable(module.replay_old_scope_and_handoff)
-    assert callable(module.validate_c4_environment_closure)
+    with pytest.raises(PermissionError, match="hashes are not frozen"):
+        bridge.authorize_c4(
+            instruction_id=bridge.INSTRUCTION_ID,
+            authorization_basis=bridge.AUTHORIZATION_BASIS,
+        )
+    assert calls == []
 
 
-def test_environment_wrapper_generation_drift_fails_closed(bridge) -> None:
-    root = bridge._source_root(bridge.C4_ENVIRONMENT_WRAPPER_SOURCE_PATH)
-    root["file_sha256"] = "0" * 64
-    with pytest.raises(PermissionError, match="generation changed"):
-        bridge._load_verified_environment_wrapper(root)
-
-
-def test_environment_wrapper_interface_change_fails_closed(
+def test_byte_pinned_terminalizer_loader_accepts_only_exact_interface(
     bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    wrapper = tmp_path / "wrapper.py"
-    wrapper.write_text("C4_TARGET_UNIT = 'wrong.service'\n", encoding="utf-8")
-    monkeypatch.setattr(bridge, "C4_ENVIRONMENT_WRAPPER_SOURCE_PATH", wrapper)
-    root = bridge._source_root(wrapper)
-    with pytest.raises((AttributeError, PermissionError)):
-        bridge._load_verified_environment_wrapper(root)
+    source = tmp_path / "terminalizer.py"
+    terminal = tmp_path / "terminal.json"
+    source.write_text(
+        "\n".join(
+            (
+                f"TERMINAL_PATH = {str(terminal)!r}",
+                f"SCHEMA = {bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SCHEMA!r}",
+                f"CANDIDATE = {bridge.CANDIDATE!r}",
+                f"STAGE_ID = {bridge.STAGE_ID!r}",
+                f"SCIENTIFIC_ATTEMPT_ID = {bridge.SCIENTIFIC_ATTEMPT_ID!r}",
+                f"SCIENTIFIC_ATTEMPT_ORDINAL = {bridge.SCIENTIFIC_ATTEMPT_ORDINAL!r}",
+                "RUNTIME_COMPATIBILITY_ID = 'c3'",
+                f"C3_UNIT_NAME = {bridge.C3_UNIT_NAME!r}",
+                "def validate_archival(path=None):",
+                "    return {}, {}",
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SOURCE_PATH", source
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_PATH", terminal
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256", digest
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256", "a" * 64
+    )
+    module, root = bridge._load_verified_c3_environment_failure_terminalizer()
+    assert module.RUNTIME_COMPATIBILITY_ID == "c3"
+    assert root["file_sha256"] == digest
+
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256", "b" * 64
+    )
+    with pytest.raises(PermissionError, match="terminalizer source changed"):
+        bridge._load_verified_c3_environment_failure_terminalizer()
+
+
+def _c3_failure_payload(bridge) -> dict[str, object]:
+    return {
+        "schema_version": bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SCHEMA,
+        "identity": {
+            "candidate": bridge.CANDIDATE,
+            "stage_id": bridge.STAGE_ID,
+            "scientific_attempt_id": bridge.SCIENTIFIC_ATTEMPT_ID,
+            "scientific_attempt_ordinal": bridge.SCIENTIFIC_ATTEMPT_ORDINAL,
+            "runtime_compatibility_id": "c3",
+            "sealed_at_utc": "2026-07-31T10:00:00.000000Z",
+        },
+        "unit_realization_closure": {
+            "R3_receipt_passed": True,
+            "static": True,
+            "enabled": False,
+            "started": False,
+            "removed": False,
+            "payload_authority": "none",
+            "unit_name": bridge.C3_UNIT_NAME,
+        },
+        "environment_stability_failure": {
+            "known_subcommand": "stability-gate",
+            "attempt_count": 1,
+            "retry": False,
+            "samples_collected": 0,
+            "expected_exception_type": "PermissionError",
+            "expected_exception_message": (
+                "precleanup inventory unit scope changed"
+            ),
+        },
+        "deterministic_reproduction": {
+            "reproduced": True,
+            "samples_collected": 0,
+        },
+        "continuation_policy": {
+            "automatic_retry": False,
+            "same_c3_reentry": False,
+            "same_c3_reauthorization_allowed": False,
+            "same_c3_metadata_repair_allowed": False,
+            "c3_environment_gate_reentry_allowed": False,
+            "c3_environment_gate_repair_allowed": False,
+            "c4_required": True,
+            "new_explicit_authorization_required": True,
+            "scientific_attempt_id": bridge.SCIENTIFIC_ATTEMPT_ID,
+            "scientific_attempt_ordinal": bridge.SCIENTIFIC_ATTEMPT_ORDINAL,
+            "scientific_attempt_consumed": False,
+            "c3_authorization_consumed": True,
+            "unit_realization_consumed": True,
+            "environment_metadata_attempt_consumed": True,
+            "runtime_launch_consumed": False,
+            "materialization_consumed": False,
+        },
+        "payload_observation": {
+            "D_R_payload_accessed": False,
+            "D_V_payload_accessed": False,
+            "D_T_payload_accessed": False,
+            "gpu_accessed": False,
+            "training_started": False,
+            "samples_processed": 0,
+            "optimizer_steps": 0,
+            "parameter_updates": 0,
+        },
+    }
+
+
+def test_direct_predecessor_is_validated_as_sealed_fail_not_pass(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "terminalizer.py"
+    source.write_text("# frozen terminalizer fixture\n", encoding="utf-8")
+    terminal = tmp_path / "terminal.json"
+    payload = _c3_failure_payload(bridge)
+    terminal.write_text(
+        bridge._canonical_json(payload) + "\n", encoding="utf-8"
+    )
+    terminal.chmod(0o444)
+    source_root = bridge._source_root(source)
+    terminal_digest = hashlib.sha256(terminal.read_bytes()).hexdigest()
+    terminal_root = {
+        "path": str(terminal.absolute()),
+        "file_sha256": terminal_digest,
+        "mode": 0o444,
+        "schema_version": bridge.C3_ENVIRONMENT_FAILURE_TERMINAL_SCHEMA,
+        "terminal_fingerprint": "d" * 64,
+        "terminalizer_source_root": source_root,
+    }
+    module = SimpleNamespace(
+        validate_archival=lambda _path: (payload, terminal_root)
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SOURCE_PATH", source
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_PATH", terminal
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256",
+        source_root["file_sha256"],
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256", terminal_digest
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINAL_FINGERPRINT",
+        "d" * 64,
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_load_verified_c3_environment_failure_terminalizer",
+        lambda: (module, source_root),
+    )
+    validated, root, returned_source = (
+        bridge._validate_c3_environment_failure_terminal()
+    )
+    assert validated == payload
+    assert root == terminal_root
+    assert returned_source == source_root
+    assert "passed" not in validated
+    assert validated["continuation_policy"]["c4_required"] is True
+    assert validated["payload_observation"]["samples_processed"] == 0
+
+
+def test_direct_predecessor_drift_during_archival_is_rejected(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "terminalizer.py"
+    source.write_text("# stable source\n", encoding="utf-8")
+    terminal = tmp_path / "terminal.json"
+    terminal.write_text("{}\n", encoding="utf-8")
+    terminal.chmod(0o444)
+    source_root = bridge._source_root(source)
+    original_digest = hashlib.sha256(terminal.read_bytes()).hexdigest()
+
+    def validate(_path):
+        terminal.chmod(0o644)
+        terminal.write_text('{"drift":true}\n', encoding="utf-8")
+        terminal.chmod(0o444)
+        return {}, {}
+
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SOURCE_PATH", source
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_PATH", terminal
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256",
+        source_root["file_sha256"],
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256", original_digest
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_load_verified_c3_environment_failure_terminalizer",
+        lambda: (SimpleNamespace(validate_archival=validate), source_root),
+    )
+    with pytest.raises(PermissionError, match="lineage changed"):
+        bridge._validate_c3_environment_failure_terminal()
+
+
+def test_sealed_writer_is_create_once_and_readback_verified(
+    bridge, tmp_path: Path
+) -> None:
+    path = tmp_path / "authorization.json"
+    payload = bridge._write_sealed(
+        path,
+        {"schema_version": "fixture-v1", **_payload_flags()},
+        fingerprint_field="authorization_fingerprint",
+    )
+    assert path.stat().st_mode & 0o777 == 0o444
+    loaded, root = bridge._load_sealed(
+        path,
+        fingerprint_field="authorization_fingerprint",
+        schema="fixture-v1",
+    )
+    assert loaded == payload
+    assert root["file_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    with pytest.raises(FileExistsError):
+        bridge._write_sealed(
+            path,
+            {"schema_version": "fixture-v1", **_payload_flags()},
+            fingerprint_field="authorization_fingerprint",
+        )
+
+
+def test_source_closure_requires_all_c4_and_r14_sources_final(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths: dict[str, Path] = {}
+    for label in bridge._SOURCE_LABELS:
+        path = tmp_path / f"{label}.txt"
+        path.write_text(f"frozen:{label}\n", encoding="utf-8")
+        paths[label] = path
+    monkeypatch.setattr(bridge, "_source_paths", lambda: paths)
+    monkeypatch.setattr(
+        bridge,
+        "C1_FAILURE_TERMINALIZER_SHA256",
+        hashlib.sha256(paths["c1_failure_terminalizer"].read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SHA256",
+        hashlib.sha256(
+            paths["c2_mode_contract_failure_terminalizer"].read_bytes()
+        ).hexdigest(),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C2_PREWRITE_FAILURE_TERMINALIZER_SHA256",
+        hashlib.sha256(
+            paths["c2_prewrite_failure_terminalizer"].read_bytes()
+        ).hexdigest(),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "C3_ENVIRONMENT_FAILURE_TERMINALIZER_SHA256",
+        hashlib.sha256(
+            paths["c3_environment_failure_terminalizer"].read_bytes()
+        ).hexdigest(),
+    )
+    monkeypatch.setattr(
+        bridge, "C3_ENVIRONMENT_FAILURE_TERMINAL_SHA256", "a" * 64
+    )
+    roots = bridge._collect_source_roots()
+    assert set(roots) == bridge._SOURCE_LABELS
+    assert {
+        "compat_bridge",
+        "compat_environment_wrapper",
+        "compat_unit_realizer",
+        "compat_supervisor",
+        "compat_release",
+        "compat_adapter",
+        "compat_unit_template",
+        "r14_integration_wrapper",
+        "r14_shared_realizer",
+        "r14_dummy_child",
+        "r14_dummy_unit_template",
+    }.issubset(roots)
+
+    paths["compat_environment_wrapper"].write_text(
+        "binding = '__TO_BE_FROZEN__'\n", encoding="utf-8"
+    )
+    with pytest.raises(PermissionError, match="unfrozen binding"):
+        bridge._collect_source_roots()
+
+
+def test_protected_units_include_live_c3_and_empty_c4(bridge) -> None:
+    states = {
+        bridge.OLD_UNIT_NAME: _loaded_state(bridge.OLD_UNIT_NAME),
+        bridge.C1_UNIT_NAME: _loaded_state(bridge.C1_UNIT_NAME),
+        bridge.C2_UNIT_NAME: _missing_state(bridge.C2_UNIT_NAME),
+        bridge.C3_UNIT_NAME: _loaded_state(
+            bridge.C3_UNIT_NAME,
+            fragment=str(bridge.C3_UNIT_FRAGMENT_PATH),
+        ),
+        bridge.C4_UNIT_NAME: _missing_state(bridge.C4_UNIT_NAME),
+    }
+    observed = bridge._collect_protected_unit_states(states.__getitem__)
+    assert set(observed) == {"old", "c1", "c2", "c3"}
+    assert observed["c3"]["UnitFileState"] == "static"
+    target = bridge._collect_preauthorization_target_unit_state(
+        states.__getitem__
+    )
+    assert target["LoadState"] == "not-found"
+
+    states[bridge.C3_UNIT_NAME]["FragmentPath"] = "/wrong"
+    with pytest.raises(PermissionError, match="static/inert"):
+        bridge._collect_protected_unit_states(states.__getitem__)
+
+
+def test_c4_path_sets_encode_append_only_boundary(bridge) -> None:
+    permanent = bridge._always_absent_paths()
+    preauthorization = bridge._c4_preauthorization_paths()
+    future = bridge._c4_future_paths()
+    assert {
+        "c3_compatibility_receipt",
+        "c3_environment_stability",
+        "c3_environment_postcleanup",
+        "c3_unit_terminal",
+        "c3_runtime_spec",
+        "c3_runtime_launch_authorization",
+        "c3_runtime_artifacts",
+        "c3_gpu_lease",
+        "c3_run_alias",
+        "c3_result_alias",
+    }.issubset(permanent)
+    assert {
+        "c4_environment_policy",
+        "c4_environment_scope_handoff",
+        "c4_environment_stability_attempt",
+        "c4_environment_stability_terminal",
+        "c4_environment_stability",
+        "c4_environment_postcleanup",
+        "c4_unit_authorization",
+        "c4_unit_receipt",
+        "c4_unit_terminal",
+        "c4_unit_fragment",
+    } == set(preauthorization)
+    assert set(future) == {
+        "c4_runtime_spec",
+        "c4_runtime_launch_authorization",
+        "c4_runtime_artifacts",
+        "c4_gpu_lease",
+    }
+
+
+def _write_environment_fixture(
+    bridge,
+    path: Path,
+    *,
+    schema: str,
+    fingerprint_field: str,
+) -> dict[str, object]:
+    body: dict[str, object] = {
+        "schema_version": schema,
+        **_payload_flags(),
+    }
+    return bridge._write_sealed(
+        path, body, fingerprint_field=fingerprint_field
+    )
+
+
+def test_environment_loader_requires_handoff_attempt_pass_and_no_terminal(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = {
+        "C4_ENVIRONMENT_SCOPE_HANDOFF_PATH": tmp_path / "handoff.json",
+        "C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH": tmp_path / "attempt.json",
+        "C4_ENVIRONMENT_POLICY_PATH": tmp_path / "policy.json",
+        "C4_ENVIRONMENT_STABILITY_PATH": tmp_path / "stability.json",
+        "C4_ENVIRONMENT_POSTCLEANUP_PATH": tmp_path / "postcleanup.json",
+        "C4_ENVIRONMENT_STABILITY_TERMINAL_PATH": tmp_path / "terminal.json",
+    }
+    for name, path in paths.items():
+        monkeypatch.setattr(bridge, name, path)
+    handoff = _write_environment_fixture(
+        bridge,
+        paths["C4_ENVIRONMENT_SCOPE_HANDOFF_PATH"],
+        schema=bridge.ENVIRONMENT_SCOPE_HANDOFF_SCHEMA,
+        fingerprint_field="scope_handoff_fingerprint",
+    )
+    attempt = _write_environment_fixture(
+        bridge,
+        paths["C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH"],
+        schema=bridge.ENVIRONMENT_STABILITY_ATTEMPT_SCHEMA,
+        fingerprint_field="stability_attempt_fingerprint",
+    )
+    policy = _write_environment_fixture(
+        bridge,
+        paths["C4_ENVIRONMENT_POLICY_PATH"],
+        schema=bridge.ENVIRONMENT_POLICY_SCHEMA,
+        fingerprint_field="policy_fingerprint",
+    )
+    stability = _write_environment_fixture(
+        bridge,
+        paths["C4_ENVIRONMENT_STABILITY_PATH"],
+        schema=bridge.ENVIRONMENT_STABILITY_SCHEMA,
+        fingerprint_field="stability_receipt_fingerprint",
+    )
+    postcleanup = _write_environment_fixture(
+        bridge,
+        paths["C4_ENVIRONMENT_POSTCLEANUP_PATH"],
+        schema=bridge.ENVIRONMENT_RECEIPT_SCHEMA,
+        fingerprint_field="receipt_fingerprint",
+    )
+    loaded = bridge._load_environment_evidence()
+    assert loaded[:5] == (
+        handoff,
+        attempt,
+        policy,
+        stability,
+        postcleanup,
+    )
+    assert set(loaded[5]) == {
+        "environment_scope_handoff",
+        "environment_stability_attempt",
+        "environment_policy",
+        "environment_stability",
+        "environment_postcleanup",
+    }
+
+    paths["C4_ENVIRONMENT_STABILITY_TERMINAL_PATH"].write_text(
+        "failure\n", encoding="utf-8"
+    )
+    with pytest.raises(PermissionError, match="stability_terminal"):
+        bridge._load_environment_evidence()
+
+
+def _fake_c1_terminal(bridge) -> dict[str, object]:
+    return {
+        "evidence_roots": {
+            "bridge_authorization": {"path": "c1-authorization"},
+            "r10_authorization": {"path": "r10-authorization"},
+            "r10_receipt": {"path": "r10-receipt"},
+        },
+        "authorization_expiry": {
+            "bridge_expires_at_utc": "2026-07-31T09:00:00.000000Z"
+        },
+    }
+
+
+def test_authorize_binds_direct_fail_all_sources_units_and_new_evidence(
+    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    authorization_path = tmp_path / "c4-authorization.json"
+    receipt_path = tmp_path / "c4-receipt.json"
+    monkeypatch.setattr(bridge, "C4_AUTHORIZATION_PATH", authorization_path)
+    monkeypatch.setattr(bridge, "C4_RECEIPT_PATH", receipt_path)
+    monkeypatch.setattr(bridge, "_require_frozen_c3_failure_hashes", lambda: None)
+    monkeypatch.setattr(
+        bridge, "_validate_scientific_output_phase", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(bridge, "_require_absent", lambda _paths: None)
+    prewrite_root = {"path": "c2-prewrite"}
+    prewrite_source = {"path": "c2-prewrite-source"}
+    c2_failure_root = {"path": "c2-mode-failure"}
+    c2_failure_source = {"path": "c2-mode-source"}
+    c3_failure_root = {"path": "c3-environment-failure"}
+    c3_failure_source = {"path": "c3-terminalizer-source"}
+    c3_failure = {
+        "identity": {"sealed_at_utc": "2026-07-31T10:00:00.000000Z"}
+    }
+    c1_terminal = _fake_c1_terminal(bridge)
+    c1_terminal_root = {"path": "c1-terminal"}
+    monkeypatch.setattr(
+        bridge,
+        "_validate_c2_prewrite_failure_terminal",
+        lambda: ({}, prewrite_root, prewrite_source),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_validate_mode_contract_failure_terminal",
+        lambda: (
+            {"identity": {"sealed_at_utc": "2026-07-31T09:30:00.000000Z"}},
+            c2_failure_root,
+            c2_failure_source,
+        ),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_validate_c3_environment_failure_terminal",
+        lambda: (c3_failure, c3_failure_root, c3_failure_source),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_validate_c1_failure_terminal",
+        lambda **_kwargs: (c1_terminal, c1_terminal_root, {"path": "c1-source"}),
+    )
+    sources = {label: {"path": label} for label in bridge._SOURCE_LABELS}
+    sources["c2_prewrite_failure_terminalizer"] = prewrite_source
+    sources["c2_mode_contract_failure_terminalizer"] = c2_failure_source
+    sources["c3_environment_failure_terminalizer"] = c3_failure_source
+    monkeypatch.setattr(bridge, "_collect_source_roots", lambda: sources)
+    monkeypatch.setattr(
+        bridge,
+        "_load_verified_environment_wrapper",
+        lambda root: (SimpleNamespace(), root),
+    )
+    protected = {name: {"Id": name} for name in ("old", "c1", "c2", "c3")}
+    target_state = _missing_state(bridge.C4_UNIT_NAME)
+    monkeypatch.setattr(
+        bridge, "_collect_protected_unit_states", lambda _reader: protected
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_collect_preauthorization_target_unit_state",
+        lambda _reader: target_state,
+    )
+    written: dict[str, object] = {}
+
+    def write(_path, body, *, fingerprint_field):
+        written.update(body)
+        result = dict(body)
+        result[fingerprint_field] = bridge.stable_fingerprint(body)
+        return result
+
+    monkeypatch.setattr(bridge, "_write_sealed", write)
+    result = bridge.authorize_c4(
+        instruction_id=bridge.INSTRUCTION_ID,
+        authorization_basis=bridge.AUTHORIZATION_BASIS,
+        now=lambda: datetime(2026, 7, 31, 11, tzinfo=timezone.utc),
+    )
+    assert result["runtime_compatibility_id"] == "c4"
+    assert written["c3_environment_failure_terminal_root"] == c3_failure_root
+    assert written["compatibility_source_roots"] == sources
+    assert written["protected_unit_states"] == protected
+    assert written["preauthorization_target_unit_state"] == target_state
+    expected = written["expected_evidence_paths"]
+    assert "c3_environment_failure_terminal" in expected
+    assert "environment_scope_handoff" in expected
+    assert "environment_stability_attempt" in expected
+    assert "environment_stability_terminal" in expected
+    assert written["scientific_attempt_ordinal"] == 2
+    assert written["training_started"] is False
 
 
 @dataclass(frozen=True)
 class _Contract:
     target_unit_id: str
     require_target_ready: bool
-    selected_gpu_index: int = 0
 
 
 class _Environment:
@@ -325,7 +744,7 @@ class _Environment:
         self.bridge = bridge
         self.unit_authorization = unit_authorization
         self.unit_receipt = unit_receipt
-        self.validations: list[dict[str, object]] = []
+        self.seen: tuple[object, ...] | None = None
 
     def _production_archival_validator(self, authorization_path, receipt_path):
         assert Path(authorization_path) == self.bridge.C4_UNIT_AUTHORIZATION_PATH
@@ -339,19 +758,32 @@ class _Environment:
         return (
             _Contract(self.bridge.OLD_UNIT_NAME, False),
             _Contract(self.bridge.C4_UNIT_NAME, True),
-            {"precleanup_inventory_receipt": {}, "cleanup_receipt": {}},
+            {"handoff": "replayed"},
         )
 
     def validate_c4_environment_closure(
-        self, policy, stability, postcleanup, *, archival, c4_contract
+        self,
+        scope_handoff,
+        stability_attempt,
+        policy,
+        stability,
+        postcleanup,
+        *,
+        archival,
+        c4_contract,
     ):
-        self.validations.append(
-            {
-                "archival": archival,
-                "contract": c4_contract,
-            }
+        self.seen = (
+            scope_handoff,
+            stability_attempt,
+            policy,
+            stability,
+            postcleanup,
+            archival,
+            c4_contract,
         )
         return {
+            "scope_handoff": scope_handoff,
+            "stability_attempt": stability_attempt,
             "policy": policy,
             "stability": stability,
             "postcleanup": postcleanup,
@@ -359,349 +791,25 @@ class _Environment:
         }
 
 
-def _closure_inputs(bridge, monkeypatch: pytest.MonkeyPatch):
-    base = datetime(2026, 7, 30, 8, 0, tzinfo=timezone.utc)
-    terminal_root = {"path": "terminal", "terminal_fingerprint": "a" * 64}
-    c1_root = {"path": "c1-auth", "authorization_fingerprint": "b" * 64}
-    r10 = {
-        "authorization": {"path": "r10-auth"},
-        "receipt": {"path": "r10-receipt"},
-    }
-    terminal = {
-        "evidence_roots": {
-            "bridge_authorization": c1_root,
-            "r10_authorization": r10["authorization"],
-            "r10_receipt": r10["receipt"],
-        }
-    }
-    sources = {
-        label: {"path": label, "file_sha256": str(index) * 64}
-        for index, label in enumerate(sorted(bridge._SOURCE_LABELS), 1)
-    }
-    prewrite_root = {"path": "c2-prewrite-failure"}
-    prewrite_source_root = sources["c2_prewrite_failure_terminalizer"]
-    failure_root = {"path": "c4-prewrite-failure"}
-    failure_source_root = sources["c2_mode_contract_failure_terminalizer"]
-    wrapper_root = sources["compat_environment_wrapper"]
-    unit_authorization = {"unit_name": bridge.C4_UNIT_NAME}
-    unit_receipt = {
-        "unit_name": bridge.C4_UNIT_NAME,
-        "created_at_utc": _utc(base + timedelta(seconds=10)),
-    }
-    environment = _Environment(bridge, unit_authorization, unit_receipt)
-    policy = {"created_at_utc": _utc(base + timedelta(seconds=20))}
-    stability = {"passed": True}
-    postcleanup = {"created_at_utc": _utc(base + timedelta(seconds=35))}
-    env_roots = {
-        "environment_policy": {"path": "policy"},
-        "environment_stability": {"path": "stability"},
-        "environment_postcleanup": {"path": "postcleanup"},
-    }
-    unit_auth_root = {"path": "unit-auth"}
-    unit_receipt_root = {"path": "unit-receipt"}
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c2_prewrite_failure_terminal",
-        lambda: ({}, prewrite_root, prewrite_source_root),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_validate_mode_contract_failure_terminal",
-        lambda: ({}, failure_root, failure_source_root),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c1_failure_terminal",
-        lambda **_kwargs: (terminal, terminal_root, {"path": "terminalizer"}),
-    )
-    monkeypatch.setattr(bridge, "_validate_source_roots", lambda _roots: None)
-    monkeypatch.setattr(
-        bridge,
-        "_load_verified_environment_wrapper",
-        lambda root: (environment, dict(root)),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_validate_unit_chain",
-        lambda **_kwargs: (
-            unit_authorization,
-            unit_auth_root,
-            unit_receipt,
-            unit_receipt_root,
-            base + timedelta(seconds=10),
-        ),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_load_environment_evidence",
-        lambda: (policy, stability, postcleanup, env_roots),
-    )
-    states = {
-        bridge.OLD_UNIT_NAME: _state(bridge, bridge.OLD_UNIT_NAME),
-        bridge.C1_UNIT_NAME: _state(bridge, bridge.C1_UNIT_NAME),
-        bridge.C2_UNIT_NAME: _state(bridge, bridge.C2_UNIT_NAME),
-    }
-    states[bridge.C2_UNIT_NAME].update(
-        {"LoadState": "not-found", "UnitFileState": "", "FragmentPath": ""}
-    )
-    reader = lambda unit: states[unit]
-    protected = {
-        "old": bridge._normalized_state(reader, bridge.OLD_UNIT_NAME),
-        "c1": bridge._normalized_state(reader, bridge.C1_UNIT_NAME),
-        "c2": bridge._normalized_state(reader, bridge.C2_UNIT_NAME),
-    }
-    authorization = {
-        "compatibility_source_roots": sources,
-        "c1_failure_terminal_root": terminal_root,
-        "c2_mode_contract_failure_terminal_root": failure_root,
-        "c2_prewrite_failure_terminal_root": prewrite_root,
-        "c1_expired_authorization_root": c1_root,
-        "r10_roots": r10,
-        "protected_unit_states": protected,
-    }
-    return SimpleNamespace(
-        base=base,
-        reader=reader,
-        terminal=terminal,
-        sources=sources,
-        failure_root=failure_root,
-        failure_source_root=failure_source_root,
-        prewrite_root=prewrite_root,
-        prewrite_source_root=prewrite_source_root,
-        environment=environment,
-        policy=policy,
-        stability=stability,
-        postcleanup=postcleanup,
-        authorization=authorization,
-    )
-
-
-def test_full_closure_delegates_to_real_wrapper_contract(
+def test_full_receipt_closure_binds_c3_r4_handoff_attempt_and_e4(
     bridge, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    values = _closure_inputs(bridge, monkeypatch)
-    closure = bridge._collect_full_closure(
-        authorization=values.authorization,
-        authorization_root={"path": "c4-auth"},
-        unit_state_reader=values.reader,
-        allow_runtime_activation=False,
-        receipt_time=values.base + timedelta(seconds=40),
-    )
-    assert set(closure["evidence_roots"]) == bridge._EVIDENCE_LABELS
-    assert all("handoff" not in label for label in closure["evidence_roots"])
-    assert closure["historical_contract"]["target_unit_id"] == (
-        bridge.OLD_UNIT_NAME
-    )
-    assert closure["current_contract"] == {
-        "require_target_ready": True,
-        "selected_gpu_index": 0,
-        "target_unit_id": bridge.C4_UNIT_NAME,
+    prewrite_root = {"path": "c2-prewrite"}
+    prewrite_source = {"path": "c2-prewrite-source"}
+    failure_root = {"path": "c2-failure"}
+    failure_source = {"path": "c2-failure-source"}
+    c3_root = {"path": "c3-failure"}
+    c3_source = {"path": "c3-failure-source"}
+    c3_failure = {
+        "identity": {"sealed_at_utc": "2026-07-31T10:00:00.000000Z"}
     }
-    assert len(values.environment.validations) == 1
-
-
-def test_realization_archival_divergence_fails_closed(
-    bridge, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    values = _closure_inputs(bridge, monkeypatch)
-    values.environment.unit_receipt = {"unit_name": "wrong.service"}
-    with pytest.raises(PermissionError, match="archival validator diverged"):
-        bridge._collect_full_closure(
-            authorization=values.authorization,
-            authorization_root={},
-            unit_state_reader=values.reader,
-            allow_runtime_activation=False,
-            receipt_time=values.base + timedelta(seconds=40),
-        )
-
-
-def test_environment_must_follow_realization(
-    bridge, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    values = _closure_inputs(bridge, monkeypatch)
-    values.policy["created_at_utc"] = _utc(values.base + timedelta(seconds=5))
-    with pytest.raises(PermissionError, match="chronology/lineage"):
-        bridge._collect_full_closure(
-            authorization=values.authorization,
-            authorization_root={},
-            unit_state_reader=values.reader,
-            allow_runtime_activation=False,
-            receipt_time=values.base + timedelta(seconds=40),
-        )
-
-
-def test_authorize_captures_and_loads_wrapper_root(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    base = datetime(2026, 7, 30, 9, 0, tzinfo=timezone.utc)
-    authorization_path = tmp_path / "authorization.json"
-    receipt_path = tmp_path / "receipt.json"
-    monkeypatch.setattr(bridge, "C4_AUTHORIZATION_PATH", authorization_path)
-    monkeypatch.setattr(bridge, "COMPAT_AUTHORIZATION_PATH", authorization_path)
-    monkeypatch.setattr(bridge, "C4_RECEIPT_PATH", receipt_path)
-    terminal_root = {"path": "terminal"}
-    c1_root = {"path": "c1-auth"}
-    terminal = {
-        "evidence_roots": {
-            "bridge_authorization": c1_root,
-            "r10_authorization": {"path": "r10-auth"},
-            "r10_receipt": {"path": "r10-receipt"},
-        },
-        "authorization_expiry": {
-            "bridge_expires_at_utc": _utc(base - timedelta(seconds=1))
-        },
-    }
-    sources = {
-        label: {"path": label, "file_sha256": str(index) * 64}
-        for index, label in enumerate(sorted(bridge._SOURCE_LABELS), 1)
-    }
-    failure_root = {"path": "c4-prewrite-failure"}
-    failure_source_root = sources["c2_mode_contract_failure_terminalizer"]
-    prewrite_root = {"path": "c2-prewrite-failure"}
-    prewrite_source_root = sources["c2_prewrite_failure_terminalizer"]
-    failure_payload = {
-        "identity": {"sealed_at_utc": _utc(base - timedelta(seconds=2))}
-    }
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c2_prewrite_failure_terminal",
-        lambda: ({}, prewrite_root, prewrite_source_root),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_validate_mode_contract_failure_terminal",
-        lambda: (failure_payload, failure_root, failure_source_root),
-    )
-    loaded: list[object] = []
-    absence_calls: list[object] = []
-    monkeypatch.setattr(bridge, "_require_absent", absence_calls.append)
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c1_failure_terminal",
-        lambda **_kwargs: (terminal, terminal_root, {"path": "terminalizer"}),
-    )
-    monkeypatch.setattr(bridge, "_collect_source_roots", lambda: sources)
-    monkeypatch.setattr(
-        bridge,
-        "_load_verified_environment_wrapper",
-        lambda root: (loaded.append(root) or object(), dict(root)),
-    )
-    written: dict[str, object] = {}
-
-    def write(_path, body, *, fingerprint_field):
-        written.update(body)
-        return {**body, fingerprint_field: "f" * 64}
-
-    monkeypatch.setattr(bridge, "_write_sealed", write)
-    def reader(unit):
-        state = _state(bridge, unit)
-        if unit == bridge.C2_UNIT_NAME:
-            state.update(
-                {"LoadState": "not-found", "UnitFileState": ""}
-            )
-        return state
-
-    result = bridge.authorize_c4(
-        instruction_id=bridge.INSTRUCTION_ID,
-        authorization_basis=bridge.AUTHORIZATION_BASIS,
-        unit_state_reader=reader,
-        now=lambda: base,
-    )
-    assert loaded == [sources["compat_environment_wrapper"]]
-    assert bridge._c4_preauthorization_paths() in absence_calls
-    assert written["compatibility_source_roots"] == sources
-    assert written["c2_mode_contract_failure_terminal_root"] == failure_root
-    assert written["c2_prewrite_failure_terminal_root"] == prewrite_root
-    assert sources["c2_mode_contract_failure_terminalizer"] == (
-        failure_source_root
-    )
-    assert result["scientific_attempt_ordinal"] == 2
-    assert result["scientific_authority"]["automatic_retry"] is False
-
-
-@pytest.mark.parametrize("validity_seconds", (0, 301))
-def test_authorization_window_remains_bounded(bridge, validity_seconds: int) -> None:
-    with pytest.raises(ValueError, match="input changed"):
-        bridge.authorize_c4(
-            instruction_id=bridge.INSTRUCTION_ID,
-            authorization_basis=bridge.AUTHORIZATION_BASIS,
-            validity_seconds=validity_seconds,
-        )
-
-def _prepare_tmp_authorization_lane(
-    bridge,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-):
-    production_targets = (
-        bridge.C4_AUTHORIZATION_PATH,
-        bridge.C4_RECEIPT_PATH,
-        bridge.C4_UNIT_FRAGMENT_PATH,
-    )
-    assert all(not os.path.lexists(path) for path in production_targets)
-    output_names = (
-        "C4_ENVIRONMENT_POLICY_PATH",
-        "C4_ENVIRONMENT_STABILITY_PATH",
-        "C4_ENVIRONMENT_POSTCLEANUP_PATH",
-        "C4_UNIT_AUTHORIZATION_PATH",
-        "C4_UNIT_RECEIPT_PATH",
-        "C4_UNIT_TERMINAL_PATH",
-        "C4_RUNTIME_SPEC_PATH",
-        "C4_RUNTIME_LAUNCH_AUTHORIZATION_PATH",
-        "C4_RUNTIME_ARTIFACT_ROOT",
-        "C4_GPU_LEASE_ROOT",
-        "C4_RUN_ROOT_ALIAS_PATH",
-        "C4_RESULT_RECEIPT_ALIAS_PATH",
-        "SCIENTIFIC_RUN_ROOT",
-        "SCIENTIFIC_RESULT_RECEIPT_PATH",
-        "C2_PREWRITE_FAILURE_TERMINAL_PATH",
-        "C2_MODE_CONTRACT_FAILURE_TERMINAL_PATH",
-    )
-    for name in output_names:
-        monkeypatch.setattr(bridge, name, tmp_path / name.lower())
-    authorization_path = tmp_path / "c4-authorization.json"
-    receipt_path = tmp_path / "c4-receipt.json"
-    c2_fragment = tmp_path / "systemd" / bridge.C2_UNIT_NAME
-    c4_fragment = tmp_path / "systemd" / bridge.C4_UNIT_NAME
-    monkeypatch.setattr(bridge, "C4_AUTHORIZATION_PATH", authorization_path)
-    monkeypatch.setattr(bridge, "COMPAT_AUTHORIZATION_PATH", authorization_path)
-    monkeypatch.setattr(bridge, "C4_RECEIPT_PATH", receipt_path)
-    monkeypatch.setattr(bridge, "COMPAT_RECEIPT_PATH", receipt_path)
-    monkeypatch.setattr(bridge, "COMPATIBILITY_RECEIPT_PATH", receipt_path)
-    monkeypatch.setattr(bridge, "C2_UNIT_FRAGMENT_PATH", c2_fragment)
-    monkeypatch.setattr(bridge, "C4_UNIT_FRAGMENT_PATH", c4_fragment)
-    permanent_labels = tuple(bridge._always_absent_paths())
-    permanent = {
-        label: tmp_path / "permanent" / label
-        for label in permanent_labels
-    }
-    permanent["c2_unit_fragment"] = c2_fragment
-    monkeypatch.setattr(bridge, "_always_absent_paths", lambda: permanent)
-
-    base = datetime(2026, 7, 30, 15, 0, tzinfo=timezone.utc)
-    terminal_root = {"path": "c1-terminal"}
-    c1_root = {"path": "c1-authorization"}
-    terminal = {
-        "evidence_roots": {
-            "bridge_authorization": c1_root,
-            "r10_authorization": {"path": "r10-authorization"},
-            "r10_receipt": {"path": "r10-receipt"},
-        },
-        "authorization_expiry": {
-            "bridge_expires_at_utc": _utc(base - timedelta(seconds=10))
-        },
-    }
-    sources = {
-        label: {"path": label, "file_sha256": f"{index:064x}"}
-        for index, label in enumerate(sorted(bridge._SOURCE_LABELS), 1)
-    }
-    prewrite_root = {"path": "c2-prewrite-terminal"}
-    prewrite_source = sources["c2_prewrite_failure_terminalizer"]
-    failure_root = {"path": "c2-mode-terminal"}
-    failure_source = sources["c2_mode_contract_failure_terminalizer"]
-    failure = {
-        "identity": {"sealed_at_utc": _utc(base - timedelta(seconds=5))}
-    }
+    c1_terminal = _fake_c1_terminal(bridge)
+    c1_terminal_root = {"path": "c1-terminal"}
+    protected = {name: {"Id": name} for name in ("old", "c1", "c2", "c3")}
+    sources = {label: {"path": label} for label in bridge._SOURCE_LABELS}
+    sources["c2_prewrite_failure_terminalizer"] = prewrite_source
+    sources["c2_mode_contract_failure_terminalizer"] = failure_source
+    sources["c3_environment_failure_terminalizer"] = c3_source
     monkeypatch.setattr(
         bridge,
         "_validate_c2_prewrite_failure_terminal",
@@ -710,1304 +818,130 @@ def _prepare_tmp_authorization_lane(
     monkeypatch.setattr(
         bridge,
         "_validate_mode_contract_failure_terminal",
-        lambda: (failure, failure_root, failure_source),
+        lambda: ({}, failure_root, failure_source),
+    )
+    monkeypatch.setattr(
+        bridge,
+        "_validate_c3_environment_failure_terminal",
+        lambda: (c3_failure, c3_root, c3_source),
     )
     monkeypatch.setattr(
         bridge,
         "_validate_c1_failure_terminal",
-        lambda **_kwargs: (terminal, terminal_root, {"path": "c1-terminalizer"}),
+        lambda **_kwargs: (c1_terminal, c1_terminal_root, {"path": "c1-source"}),
     )
-    monkeypatch.setattr(bridge, "_collect_source_roots", lambda: sources)
+    monkeypatch.setattr(
+        bridge, "_collect_protected_unit_states", lambda _reader: protected
+    )
     monkeypatch.setattr(bridge, "_validate_source_roots", lambda _roots: None)
+    unit_authorization = {"unit_name": bridge.C4_UNIT_NAME}
+    unit_receipt = {"unit_name": bridge.C4_UNIT_NAME}
+    environment = _Environment(bridge, unit_authorization, unit_receipt)
     monkeypatch.setattr(
         bridge,
         "_load_verified_environment_wrapper",
-        lambda root: (object(), dict(root)),
+        lambda root: (environment, dict(root)),
     )
-    states = {
-        bridge.OLD_UNIT_NAME: _state(bridge, bridge.OLD_UNIT_NAME),
-        bridge.C1_UNIT_NAME: _state(bridge, bridge.C1_UNIT_NAME),
-        bridge.C2_UNIT_NAME: _state(bridge, bridge.C2_UNIT_NAME),
-    }
-    states[bridge.C2_UNIT_NAME].update(
-        {"LoadState": "not-found", "UnitFileState": "", "FragmentPath": ""}
-    )
-    return SimpleNamespace(
-        base=base,
-        authorization_path=authorization_path,
-        receipt_path=receipt_path,
-        c4_fragment=c4_fragment,
-        production_targets=production_targets,
-        reader=lambda unit: states[unit],
-    )
-
-
-@pytest.mark.parametrize("validity_seconds", (1, 300))
-def test_real_tmp_authorize_seals_and_validates_create_once(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    validity_seconds: int,
-) -> None:
-    lane = _prepare_tmp_authorization_lane(bridge, monkeypatch, tmp_path)
-    authorization = bridge.authorize_c4(
-        instruction_id=bridge.INSTRUCTION_ID,
-        authorization_basis=bridge.AUTHORIZATION_BASIS,
-        validity_seconds=validity_seconds,
-        unit_state_reader=lane.reader,
-        now=lambda: lane.base,
-    )
-    assert lane.authorization_path.stat().st_mode & 0o777 == 0o444
-    boundary = lane.base + timedelta(seconds=validity_seconds)
-    calls = 0
-
-    def single_sample_clock() -> datetime:
-        nonlocal calls
-        calls += 1
-        if calls > 1:
-            raise AssertionError("authorization validator sampled now twice")
-        return boundary
-
-    validated, root = bridge.validate_c4_authorization(
-        unit_state_reader=lane.reader,
-        now=single_sample_clock,
-    )
-    compat, compat_root = bridge.validate_compat_authorization(
-        unit_state_reader=lane.reader,
-        now=lambda: boundary,
-    )
-    assert validated == authorization == compat
-    assert root == compat_root
-    assert calls == 1
-    with pytest.raises(FileExistsError, match="identity is consumed"):
-        bridge.authorize_c4(
-            instruction_id=bridge.INSTRUCTION_ID,
-            authorization_basis=bridge.AUTHORIZATION_BASIS,
-            validity_seconds=validity_seconds,
-            unit_state_reader=lane.reader,
-            now=lambda: lane.base,
-        )
-    assert all(
-        not os.path.lexists(path)
-        for path in (*lane.production_targets, lane.receipt_path, lane.c4_fragment)
-    )
-
-
-@pytest.mark.parametrize(
-    "label",
-    (
-        "c4_environment_policy",
-        "c4_environment_stability",
-        "c4_environment_postcleanup",
-        "c4_unit_authorization",
-        "c4_unit_receipt",
-        "c4_unit_terminal",
-        "c4_unit_fragment",
-    ),
-)
-def test_authorize_rejects_every_existing_c4_preflight_path_before_write(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    label: str,
-) -> None:
-    lane = _prepare_tmp_authorization_lane(bridge, monkeypatch, tmp_path)
-    target = bridge._c4_preauthorization_paths()[label]
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("unexpected", encoding="utf-8")
-    with pytest.raises(PermissionError, match=label):
-        bridge.authorize_c4(
-            instruction_id=bridge.INSTRUCTION_ID,
-            authorization_basis=bridge.AUTHORIZATION_BASIS,
-            unit_state_reader=lane.reader,
-            now=lambda: lane.base,
-        )
-    assert not os.path.lexists(lane.authorization_path)
-
-
-@pytest.mark.parametrize(
-    "offset_seconds,accepted",
-    ((0, True), (1, True), (-0.000001, False), (1.000001, False)),
-)
-def test_fresh_authorization_time_boundaries(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    offset_seconds: float,
-    accepted: bool,
-) -> None:
-    lane = _prepare_tmp_authorization_lane(bridge, monkeypatch, tmp_path)
-    bridge.authorize_c4(
-        instruction_id=bridge.INSTRUCTION_ID,
-        authorization_basis=bridge.AUTHORIZATION_BASIS,
-        validity_seconds=1,
-        unit_state_reader=lane.reader,
-        now=lambda: lane.base,
-    )
-    validate = lambda: bridge.validate_c4_authorization(
-        unit_state_reader=lane.reader,
-        now=lambda: lane.base + timedelta(seconds=offset_seconds),
-    )
-    if accepted:
-        validate()
-    else:
-        with pytest.raises(PermissionError, match="stale or malformed"):
-            validate()
-
-
-
-def test_future_absence_is_phase_aware(
-    bridge, monkeypatch: pytest.MonkeyPatch
-) -> None:
+    unit_receipt_time = datetime(2026, 7, 31, 10, 1, tzinfo=timezone.utc)
     monkeypatch.setattr(
         bridge,
-        "validate_c4_authorization",
-        lambda **_kwargs: ({"ok": True}, {"path": "auth"}),
+        "_validate_unit_chain",
+        lambda **_kwargs: (
+            unit_authorization,
+            {"path": "r4-authorization"},
+            unit_receipt,
+            {"path": "r4-receipt"},
+            unit_receipt_time,
+        ),
     )
-    calls: list[object] = []
-    monkeypatch.setattr(bridge, "_require_absent", calls.append)
-    bridge.validate_compat_authorization(require_future_absence=False)
-    assert calls == [
-        bridge._always_absent_paths(),
-        bridge._preactivation_scientific_paths(),
-    ]
-    calls.clear()
-    bridge.validate_compat_authorization(require_future_absence=True)
-    assert calls == [
-        bridge._always_absent_paths(),
-        bridge._preactivation_scientific_paths(),
-        bridge._c4_future_paths(),
-    ]
-
-
-def test_original_scientific_outputs_are_not_permanent_absences(bridge) -> None:
-    permanent = bridge._always_absent_paths()
-    preactivation = bridge._preactivation_scientific_paths()
-    future = bridge._c4_future_paths()
-    preauthorization = bridge._c4_preauthorization_paths()
-    assert set(preactivation) == {
-        "scientific_run_root",
-        "scientific_result_receipt",
+    scope_handoff = {"name": "handoff"}
+    stability_attempt = {"name": "attempt"}
+    policy = {"created_at_utc": "2026-07-31T10:02:00.000000Z"}
+    stability = {"passed": True}
+    postcleanup = {"created_at_utc": "2026-07-31T10:03:00.000000Z"}
+    environment_roots = {
+        "environment_scope_handoff": {"path": "handoff"},
+        "environment_stability_attempt": {"path": "attempt"},
+        "environment_policy": {"path": "policy"},
+        "environment_stability": {"path": "stability"},
+        "environment_postcleanup": {"path": "postcleanup"},
     }
-    assert not set(preactivation) & set(permanent)
-    assert {
-        "c1_runtime_spec",
-        "c1_runtime_launch_authorization",
-        "c1_runtime_artifacts",
-        "c1_gpu_lease",
-        "old_runtime_spec",
-        "old_runtime_launch_authorization",
-        "old_runtime_artifacts",
-        "old_gpu_lease",
-        "c1_run_alias",
-        "c1_result_alias",
-        "c2_compatibility_receipt",
-        "c2_environment_policy",
-        "c2_environment_stability",
-        "c2_environment_postcleanup",
-        "c2_unit_authorization",
-        "c2_unit_receipt",
-        "c2_unit_terminal",
-        "c2_runtime_spec",
-        "c2_runtime_launch_authorization",
-        "c2_runtime_artifacts",
-        "c2_gpu_lease",
-        "c2_run_alias",
-        "c2_result_alias",
-        "c4_run_alias",
-        "c4_result_alias",
-        "c2_unit_fragment",
-    }.issubset(permanent)
-    assert set(future) == {
-        "c4_runtime_spec",
-        "c4_runtime_launch_authorization",
-        "c4_runtime_artifacts",
-        "c4_gpu_lease",
-    }
-    assert set(preauthorization) == {
-        "c4_environment_policy",
-        "c4_environment_stability",
-        "c4_environment_postcleanup",
-        "c4_unit_authorization",
-        "c4_unit_receipt",
-        "c4_unit_terminal",
-        "c4_unit_fragment",
-    }
-    assert preauthorization["c4_unit_fragment"] == (
-        bridge.C4_UNIT_FRAGMENT_PATH
-    )
-    assert permanent["c2_unit_fragment"] == bridge.C2_UNIT_FRAGMENT_PATH
-    assert not {
-        "c4_environment_policy", "c4_unit_authorization", "c4_unit_receipt"
-    } & set(permanent)
-
-
-def _redirect_scientific_outputs(
-    bridge,
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> tuple[Path, Path]:
-    run_root = tmp_path / "scientific-r2-run"
-    result = tmp_path / "scientific-r2-result.json"
-    monkeypatch.setattr(bridge, "SCIENTIFIC_RUN_ROOT", run_root)
-    monkeypatch.setattr(bridge, "SCIENTIFIC_RESULT_RECEIPT_PATH", result)
-    monkeypatch.setattr(bridge, "_always_absent_paths", lambda: {})
-    return run_root, result
-
-
-def _seal_payload(
-    bridge,
-    path: Path,
-    body: dict[str, object],
-    *,
-    fingerprint_field: str,
-    mode: int = 0o444,
-) -> dict[str, object]:
-    payload = {
-        **body,
-        fingerprint_field: bridge.stable_fingerprint(body),
-    }
-    if path.exists():
-        path.chmod(0o600)
-    path.write_text(bridge._canonical_json(payload) + "\n", encoding="utf-8")
-    path.chmod(mode)
-    return payload
-
-
-def _write_arbitrary_fake_result(
-    bridge,
-    path: Path,
-    *,
-    mode: int = 0o444,
-) -> None:
-    body = {
-        "schema_version": "test-scientific-r2-result-v1",
-        "D_R_payload_accessed": True,
-    }
-    _seal_payload(
+    monkeypatch.setattr(
         bridge,
-        path,
-        body,
-        fingerprint_field="receipt_fingerprint",
-        mode=mode,
+        "_load_environment_evidence",
+        lambda: (
+            scope_handoff,
+            stability_attempt,
+            policy,
+            stability,
+            postcleanup,
+            environment_roots,
+        ),
     )
+    authorization = {
+        "protected_unit_states": protected,
+        "preauthorization_target_unit_state": _missing_state(
+            bridge.C4_UNIT_NAME
+        ),
+        "compatibility_source_roots": sources,
+        "c1_failure_terminal_root": c1_terminal_root,
+        "c1_expired_authorization_root": c1_terminal["evidence_roots"][
+            "bridge_authorization"
+        ],
+        "c2_mode_contract_failure_terminal_root": failure_root,
+        "c2_prewrite_failure_terminal_root": prewrite_root,
+        "c3_environment_failure_terminal_root": c3_root,
+        "r10_roots": bridge._r10_roots_from_terminal(c1_terminal),
+    }
+    closure = bridge._collect_full_closure(
+        authorization=authorization,
+        authorization_root={"path": "b4-authorization"},
+        unit_state_reader=lambda _unit: {},
+        allow_runtime_activation=False,
+        receipt_time=datetime(2026, 7, 31, 10, 4, tzinfo=timezone.utc),
+    )
+    assert closure["evidence_roots"]["c3_environment_failure_terminal"] == c3_root
+    assert closure["evidence_roots"]["unit_realization_receipt"] == {
+        "path": "r4-receipt"
+    }
+    assert closure["evidence_roots"]["environment_scope_handoff"] == {
+        "path": "handoff"
+    }
+    assert closure["evidence_roots"]["environment_stability_attempt"] == {
+        "path": "attempt"
+    }
+    assert closure["scope_handoff"] == scope_handoff
+    assert closure["stability_attempt"] == stability_attempt
+    assert environment.seen is not None
 
 
-def _write_structural_real_r2_result(
-    bridge,
-    run_root: Path,
-    result: Path,
-) -> dict[str, object]:
-    implementation = {"frozen/scientific.py": "1" * 64}
-    source_closure = bridge.stable_fingerprint(implementation)
-    authorization_fingerprint = "2" * 64
-    authorization_file_sha256 = "3" * 64
-    access_fingerprint = "4" * 64
-    access_file_sha256 = "5" * 64
-    dataset_fingerprint = "6" * 64
-    dataset_file_sha256 = "7" * 64
-    protocol_fingerprint = "8" * 64
-    source_binding_fingerprint = "f" * 64
-    real_inputs_fingerprint = "0" * 64
-    population_fingerprint = "1" * 64
-    cache_fingerprint = "2" * 64
-    marker_path = run_root / (
-        bridge.R2_RUN_START_FILENAME_PREFIX
-        + authorization_fingerprint
-        + ".json"
-    )
-    intent = {
-        "execution_kind": bridge.R2_EXECUTION_KIND,
-        "split": "D_R",
-        "requested_device": "cuda:0",
-        "requested_receipt_output": str(result.absolute()),
-        "D_R_materialization_intended": True,
-        "D_V_materialization_intended": False,
-        "D_T_materialization_intended": False,
-        "optimizer_steps_authorized": 0,
-        "parameter_updates_authorized": 0,
+def test_no_scientific_or_fixed_absolute_performance_authority(bridge) -> None:
+    authority = bridge._expected_scientific_authority()
+    assert authority == {
+        "D_R_payload_authorized": False,
+        "D_V_payload_authorized": False,
+        "D_T_payload_authorized": False,
         "training_authorized": False,
+        "materialization_authorized": False,
+        "automatic_retry": False,
+        "resume": False,
+        "fresh_scientific_attempt": False,
     }
-    marker_body = {
-        "schema_version": bridge.R2_RUN_START_SCHEMA,
-        "path_policy": bridge.R2_RUN_START_PATH_POLICY,
-        "stage_id": bridge.R2_RUN_START_STAGE_ID,
-        "run_id": bridge.SCIENTIFIC_ATTEMPT_ID,
-        "candidate": bridge.CANDIDATE,
-        "marker_path": str(marker_path),
-        "authorization_fingerprint": authorization_fingerprint,
-        "authorization_receipt_file_sha256": authorization_file_sha256,
-        "access_audit_receipt_fingerprint": access_fingerprint,
-        "access_audit_receipt_file_sha256": access_file_sha256,
-        "dataset_free_receipt_fingerprint": dataset_fingerprint,
-        "dataset_free_receipt_file_sha256": dataset_file_sha256,
-        "protocol_preregistration_fingerprint": protocol_fingerprint,
-        "source_closure_fingerprint": source_closure,
-        "implementation_binding": implementation,
-        "expected_source_binding_fingerprint": source_binding_fingerprint,
-        "expected_real_inputs_fingerprint": real_inputs_fingerprint,
-        "expected_population_fingerprint": population_fingerprint,
-        "expected_cache_fingerprint": cache_fingerprint,
-        "intent": intent,
-        "intent_fingerprint": bridge.stable_fingerprint(intent),
-    }
-    marker = _seal_payload(
-        bridge,
-        marker_path,
-        marker_body,
-        fingerprint_field="marker_fingerprint",
+    names = set(bridge._AUTHORIZATION_KEYS) | set(bridge._RECEIPT_KEYS)
+    assert not any("absolute" in name or "threshold" in name for name in names)
+
+
+def test_cli_is_c4_only(bridge) -> None:
+    parser = bridge.build_parser()
+    args = parser.parse_args(
+        [
+            "authorize-c4",
+            "--instruction-id",
+            bridge.INSTRUCTION_ID,
+            "--authorization-basis",
+            bridge.AUTHORIZATION_BASIS,
+        ]
     )
-    marker_file_sha256 = hashlib.sha256(marker_path.read_bytes()).hexdigest()
-    raw = {"structural_fixture": "no-scientific-import"}
-    boundary = {
-        "execution_kind": bridge.R2_EXECUTION_KIND,
-        "split": "D_R",
-        "D_R_accessed": True,
-        "D_V_accessed": False,
-        "D_T_accessed": False,
-        "D_V_tensor_payload_accessed": False,
-        "D_T_tensor_payload_accessed": False,
-        "optimizer_module_referenced": False,
-        "optimizer_constructed": False,
-        "optimizer_steps": 0,
-        "parameter_updates": 0,
-        "training_performed": False,
-        "performance_gate_present": False,
-        "performance_claim_supported": False,
-        "threshold_or_ratio_gate": None,
-    }
-    body = {
-        "schema_version": bridge.R2_RESULT_SCHEMA,
-        "run_id": bridge.SCIENTIFIC_ATTEMPT_ID,
-        "candidate": bridge.CANDIDATE,
-        "execution_kind": bridge.R2_EXECUTION_KIND,
-        "execution_seed": bridge.R2_EXECUTION_SEED,
-        "device": "cuda:0",
-        "requested_receipt_output": str(result.absolute()),
-        "dataset_free_receipt_fingerprint": dataset_fingerprint,
-        "dataset_free_receipt_file_sha256": dataset_file_sha256,
-        "efficiency_section_fingerprint": "d" * 64,
-        "efficiency_receipt_sha256": "e" * 64,
-        "preaccess_authorization_fingerprint": authorization_fingerprint,
-        "preaccess_authorization_file_sha256": authorization_file_sha256,
-        "access_audit_receipt_fingerprint": access_fingerprint,
-        "access_audit_receipt_file_sha256": access_file_sha256,
-        "protocol_preregistration_fingerprint": protocol_fingerprint,
-        "implementation_binding": implementation,
-        "source_closure_fingerprint": source_closure,
-        "source_binding_fingerprint": source_binding_fingerprint,
-        "real_inputs_fingerprint": real_inputs_fingerprint,
-        "population_fingerprint": population_fingerprint,
-        "cache_fingerprint": cache_fingerprint,
-        "adapter_fingerprint": "3" * 64,
-        "run_start_marker": {
-            "path": str(marker_path),
-            "file_sha256": marker_file_sha256,
-            "marker_fingerprint": marker["marker_fingerprint"],
-            "payload": marker,
-        },
-        "artifact_hashes": {
-            "dataset_free_receipt": dataset_file_sha256,
-            "preaccess_authorization": authorization_file_sha256,
-            "preaccess_access_audit": access_file_sha256,
-            "persistent_run_start_marker": marker_file_sha256,
-        },
-        "raw_observations": raw,
-        "raw_observations_fingerprint": bridge.stable_fingerprint(raw),
-        "checks": {"structural_fixture": {"passed": True}},
-        "decision": {"gate_passed": True},
-        "boundary": boundary,
-    }
-    return _seal_payload(
-        bridge,
-        result,
-        body,
-        fingerprint_field="receipt_fingerprint",
-    )
-
-
-def _rewrite_result(bridge, path: Path, payload: dict[str, object]) -> None:
-    body = dict(payload)
-    body.pop("receipt_fingerprint")
-    _seal_payload(
-        bridge,
-        path,
-        body,
-        fingerprint_field="receipt_fingerprint",
-    )
-
-
-def _validate_phase(bridge, phase: str) -> None:
-    bridge._validate_scientific_output_phase(
-        allow_runtime_activation=(
-            phase != bridge.RUNTIME_PHASE_PREACTIVATION
-        ),
-        runtime_phase=phase,
-    )
-
-
-def test_runtime_phase_enum_is_exact(bridge) -> None:
-    assert bridge.RUNTIME_PHASES == {
-        "preactivation",
-        "commit",
-        "claim",
-        "verify",
-        "run_once",
-        "finalize_success",
-        "finalize_failure",
-    }
-
-
-@pytest.mark.parametrize(
-    "phase",
-    (
-        "preactivation",
-        "commit",
-        "claim",
-        "verify",
-        "run_once",
-        "finalize_success",
-        "finalize_failure",
-    ),
-)
-def test_every_phase_directly_requires_c2_physical_fragment_absent(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    fragment = tmp_path / bridge.C2_UNIT_NAME
-    fragment.write_text("unexpected", encoding="utf-8")
-    monkeypatch.setattr(bridge, "C2_UNIT_FRAGMENT_PATH", fragment)
-    with pytest.raises(PermissionError, match="c2_unit_fragment"):
-        bridge._validate_scientific_output_phase(
-            allow_runtime_activation=(phase != "preactivation"),
-            runtime_phase=phase,
-        )
-
-
-def test_legacy_active_boolean_without_phase_fails_closed(bridge) -> None:
-    with pytest.raises(PermissionError, match="explicit phase"):
-        bridge._validate_scientific_output_phase(
-            allow_runtime_activation=True,
-        )
-
-
-@pytest.mark.parametrize(
-    "allow_runtime_activation,runtime_phase",
-    (
-        (False, "commit"),
-        (True, "preactivation"),
-        (True, "unknown"),
-    ),
-)
-def test_runtime_phase_and_activation_flag_must_agree(
-    bridge,
-    allow_runtime_activation: bool,
-    runtime_phase: str,
-) -> None:
-    with pytest.raises(PermissionError, match="phase"):
-        bridge._validate_scientific_output_phase(
-            allow_runtime_activation=allow_runtime_activation,
-            runtime_phase=runtime_phase,
-        )
-
-
-@pytest.mark.parametrize("phase", ("commit", "claim", "verify", "run_once"))
-def test_preexecution_phases_require_both_outputs_absent(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    _validate_phase(bridge, phase)
-
-
-@pytest.mark.parametrize("phase", ("finalize_success",))
-def test_finalize_success_requires_original_run_root(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    _redirect_scientific_outputs(bridge, monkeypatch, tmp_path)
-    with pytest.raises(PermissionError, match="run root is absent"):
-        _validate_phase(bridge, phase)
-
-
-def test_preactivation_phase_rejects_existing_original_run_root(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    with pytest.raises(PermissionError, match="protected compatibility"):
-        bridge._validate_scientific_output_phase(
-            allow_runtime_activation=False,
-        )
-
-
-def test_finalize_result_presence_matrix(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    _validate_phase(bridge, "finalize_failure")
-    with pytest.raises(PermissionError, match="result receipt is absent"):
-        _validate_phase(bridge, "finalize_success")
-
-
-def test_finalize_failure_accepts_spawn_failure_before_run_root(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _redirect_scientific_outputs(bridge, monkeypatch, tmp_path)
-    _validate_phase(bridge, "finalize_failure")
-
-
-def test_finalize_failure_accepts_private_partial_run_root(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    (run_root / "partial-evidence.json").write_text("partial", encoding="utf-8")
-    _validate_phase(bridge, "finalize_failure")
-
-
-def test_finalize_failure_rejects_any_result_receipt(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    _write_structural_real_r2_result(bridge, run_root, result)
-    with pytest.raises(PermissionError, match="protected compatibility"):
-        _validate_phase(bridge, "finalize_failure")
-
-
-@pytest.mark.parametrize("phase", ("finalize_success",))
-def test_finalize_accepts_exact_structural_real_r2_result(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    _write_structural_real_r2_result(bridge, run_root, result)
-    _validate_phase(bridge, phase)
-
-
-@pytest.mark.parametrize("phase", ("finalize_success",))
-def test_finalize_rejects_arbitrary_self_fingerprinted_fake_receipt(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    _write_arbitrary_fake_result(bridge, result)
-    with pytest.raises(PermissionError, match="schema"):
-        _validate_phase(bridge, phase)
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    (
-        "schema",
-        "run_id",
-        "candidate",
-        "execution_kind",
-        "seed",
-        "requested_result",
-        "D_R",
-        "D_V",
-        "D_T",
-        "optimizer_steps",
-        "parameter_updates",
-        "training",
-    ),
-)
-def test_finalize_rejects_resealed_r2_identity_or_boundary_mutation(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    mutation: str,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    payload = _write_structural_real_r2_result(bridge, run_root, result)
-    if mutation == "schema":
-        payload["schema_version"] = "wrong"
-    elif mutation == "run_id":
-        payload["run_id"] = "wrong"
-    elif mutation == "candidate":
-        payload["candidate"] = "wrong"
-    elif mutation == "execution_kind":
-        payload["execution_kind"] = "generated"
-    elif mutation == "seed":
-        payload["execution_seed"] = 43
-    elif mutation == "requested_result":
-        payload["requested_receipt_output"] = str(tmp_path / "alias.json")
-    else:
-        boundary = payload["boundary"]
-        assert isinstance(boundary, dict)
-        if mutation == "D_R":
-            boundary["D_R_accessed"] = False
-        elif mutation == "D_V":
-            boundary["D_V_accessed"] = True
-        elif mutation == "D_T":
-            boundary["D_T_accessed"] = True
-        elif mutation == "optimizer_steps":
-            boundary["optimizer_steps"] = 1
-        elif mutation == "parameter_updates":
-            boundary["parameter_updates"] = 1
-        elif mutation == "training":
-            boundary["training_performed"] = True
-    _rewrite_result(bridge, result, payload)
-    with pytest.raises(PermissionError):
-        _validate_phase(bridge, "finalize_success")
-
-
-@pytest.mark.parametrize("phase", ("commit", "claim", "verify", "run_once"))
-def test_preexecution_phases_reject_nonempty_run_root(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    (run_root / "unexpected").write_text("x", encoding="utf-8")
-    with pytest.raises(PermissionError, match="protected compatibility"):
-        _validate_phase(bridge, phase)
-
-
-@pytest.mark.parametrize("phase", ("commit", "claim", "verify", "run_once"))
-def test_preexecution_phases_reject_any_result_receipt(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    phase: str,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    _write_arbitrary_fake_result(bridge, result)
-    with pytest.raises(PermissionError, match="protected compatibility"):
-        _validate_phase(bridge, phase)
-
-
-def test_finalize_binds_exact_persistent_run_start_marker(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    payload = _write_structural_real_r2_result(bridge, run_root, result)
-    run_start = payload["run_start_marker"]
-    assert isinstance(run_start, dict)
-    marker_path = Path(str(run_start["path"]))
-    marker_path.chmod(0o644)
-    with pytest.raises(PermissionError, match="unsafe sealed file"):
-        _validate_phase(bridge, "finalize_success")
-
-
-def test_runtime_phase_rejects_wrong_run_root_mode(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o755)
-    with pytest.raises(PermissionError, match="scientific r2 run root"):
-        _validate_phase(bridge, "finalize_failure")
-
-
-def test_runtime_phase_rejects_unsealed_result_mode(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    run_root.mkdir(mode=0o700)
-    _write_structural_real_r2_result(bridge, run_root, result)
-    result.chmod(0o644)
-    with pytest.raises(PermissionError, match="unsafe sealed file"):
-        _validate_phase(bridge, "finalize_success")
-
-
-@pytest.mark.parametrize("target_kind", ("run", "result"))
-def test_runtime_phase_rejects_scientific_output_symlinks(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    target_kind: str,
-) -> None:
-    run_root, result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    if target_kind == "run":
-        actual = tmp_path / "actual-run"
-        actual.mkdir(mode=0o700)
-        run_root.symlink_to(actual, target_is_directory=True)
-        match = "scientific r2 run root"
-    else:
-        run_root.mkdir(mode=0o700)
-        actual = tmp_path / "actual-result.json"
-        _write_arbitrary_fake_result(bridge, actual)
-        result.symlink_to(actual)
-        match = "scientific r2 result"
-    with pytest.raises(PermissionError, match=match):
-        _validate_phase(
-            bridge,
-            "finalize_failure" if target_kind == "run" else "finalize_success",
-        )
-
-
-def test_runtime_phase_still_rejects_compatibility_alias(
-    bridge, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _run_root, _result = _redirect_scientific_outputs(
-        bridge, monkeypatch, tmp_path
-    )
-    alias = tmp_path / "compat-c4-run-alias"
-    alias.mkdir(mode=0o700)
-    monkeypatch.setattr(
-        bridge,
-        "_always_absent_paths",
-        lambda: {"c4_run_alias": alias},
-    )
-    with pytest.raises(PermissionError, match="protected compatibility"):
-        _validate_phase(bridge, "commit")
-
-
-def test_c1_compatible_downstream_api_is_preserved(bridge) -> None:
-    assert bridge.COMPAT_AUTHORIZATION_PATH == bridge.C4_AUTHORIZATION_PATH
-    assert bridge.COMPAT_RECEIPT_PATH == bridge.C4_RECEIPT_PATH
-    assert bridge.COMPATIBILITY_RECEIPT_PATH == bridge.C4_RECEIPT_PATH
-    assert bridge.COMPAT_UNIT_REALIZER_SOURCE_PATH == (
-        bridge.C4_UNIT_REALIZER_SOURCE_PATH
-    )
-    assert bridge.COMPAT_UNIT_NAME == bridge.C4_UNIT_NAME
-    receipt_parameters = inspect.signature(
-        bridge.verify_compatibility_receipt
-    ).parameters
-    assert {
-        "path",
-        "expected_spec",
-        "require_spec_binding",
-        "allow_runtime_activation",
-        "runtime_phase",
-        "unit_state_reader",
-        "now",
-    }.issubset(receipt_parameters)
-    prewrite_parameters = inspect.signature(
-        bridge.verify_compatibility_prewrite_spec
-    ).parameters
-    assert {"expected_spec", "unit_state_reader", "now"}.issubset(
-        prewrite_parameters
-    )
-    authorization_parameters = inspect.signature(
-        bridge.validate_c4_authorization
-    ).parameters
-    assert {
-        "allow_runtime_activation",
-        "runtime_phase",
-    }.issubset(authorization_parameters)
-
-
-def test_receipt_evidence_roots_are_exact_not_schema_guessed(bridge) -> None:
-    expected = {label: {"path": label} for label in bridge._EVIDENCE_LABELS}
-    bridge._validate_receipt_evidence_roots(expected, expected)
-    changed = dict(expected)
-    changed["environment_policy"] = {"path": "other"}
-    with pytest.raises(PermissionError, match="evidence-root"):
-        bridge._validate_receipt_evidence_roots(changed, expected)
-
-
-def test_authority_never_grants_retry_resume_or_payload(bridge) -> None:
-    scientific = bridge._expected_scientific_authority()
-    mutation = bridge._expected_mutation_authority()
-    assert scientific["automatic_retry"] is False
-    assert scientific["resume"] is False
-    assert scientific["materialization_authorized"] is False
-    assert mutation["unit_start_authorized"] is False
-    assert mutation["unit_enable_authorized"] is False
-    assert mutation["payload_access_authorized"] is False
-
-
-def _minimal_c1_terminal() -> dict[str, object]:
-    return {
-        "continuation_policy": {
-            "same_c1_reauthorization_allowed": False,
-            "same_c1_receipt_sealing_allowed": False,
-            "automatic_retry_allowed": False,
-            "resume_allowed": False,
-            "new_compatibility_generation_required": True,
-        },
-        "outcome": {
-            "scientific_attempt_consumed": False,
-            "runtime_launch_consumed": False,
-            "materialization_consumed": False,
-        },
-        "payload_observation": {
-            "D_R_payload_accessed": False,
-            "D_V_payload_accessed": False,
-            "D_T_payload_accessed": False,
-            "gpu_accessed": False,
-            "training_started": False,
-        },
-        "evidence_roots": {
-            "r10_authorization": {"path": "r10-auth"},
-            "r10_receipt": {"path": "r10-receipt"},
-        },
-        "authorization_expiry": {
-            "bridge_expires_at_utc": "2026-07-30T00:00:00.000000Z",
-        },
-    }
-
-
-def _fake_c1_terminalizer(
-    tmp_path: Path,
-    terminal: dict[str, object],
-):
-    module = SimpleNamespace(
-        SCHEMA="fake-c1-terminal-v1",
-        _LIVE_KEYS={"LoadState"},
-        ABSENCE_PATHS={
-            "compat_runtime_spec": tmp_path / "c1-runtime-spec.json",
-            "scientific_run_root": tmp_path / "scientific-run",
-            "scientific_result_receipt": (
-                tmp_path / "scientific-result.json"
-            ),
-        },
-        error=PermissionError("unset"),
-    )
-
-    def validate_terminal(**_kwargs):
-        raise module.error
-
-    module.validate_terminal = validate_terminal
-    module._load_sealed = lambda *_args, **_kwargs: (
-        terminal,
-        {"path": "c1-terminal"},
-    )
-    return module
-
-
-@pytest.mark.parametrize(
-    "error_kind",
-    ("live_closure", "scientific_run", "scientific_result"),
-)
-def test_c1_historical_fallback_accepts_exact_whitelisted_errors(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    error_kind: str,
-) -> None:
-    terminal = _minimal_c1_terminal()
-    module = _fake_c1_terminalizer(tmp_path, terminal)
-    messages = {
-        "live_closure": "expired-prewrite terminal live closure changed",
-        "scientific_run": "required absent path exists: "
-        + str(Path(module.ABSENCE_PATHS["scientific_run_root"]).absolute()),
-        "scientific_result": "required absent path exists: "
-        + str(
-            Path(
-                module.ABSENCE_PATHS["scientific_result_receipt"]
-            ).absolute()
-        ),
-    }
-    module.error = PermissionError(messages[error_kind])
-    observed: list[tuple[object, object, object, datetime]] = []
-    monkeypatch.setattr(
-        bridge,
-        "_load_verified_terminalizer",
-        lambda: (module, {"path": "terminalizer"}),
-    )
-
-    def historical(
-        supplied_module,
-        supplied_terminal,
-        *,
-        c1_reader,
-        now,
-    ) -> None:
-        observed.append(
-            (supplied_module, supplied_terminal, c1_reader(), now)
-        )
-
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c1_historical_terminal",
-        historical,
-    )
-    current = datetime(2026, 7, 30, 13, 0, tzinfo=timezone.utc)
-    returned, root, source_root = bridge._validate_c1_failure_terminal(
-        unit_state_reader=lambda _unit: {"LoadState": "loaded"},
-        now=current,
-    )
-    assert returned is terminal
-    assert root == {"path": "c1-terminal"}
-    assert source_root == {"path": "terminalizer"}
-    assert observed == [
-        (module, terminal, {"LoadState": "loaded"}, current)
-    ]
-
-
-def test_c1_historical_fallback_rejects_nonexact_errors(
-    bridge,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DerivedPermissionError(PermissionError):
-        pass
-
-    terminal = _minimal_c1_terminal()
-    module = _fake_c1_terminalizer(tmp_path, terminal)
-    live_message = "expired-prewrite terminal live closure changed"
-    errors = (
-        PermissionError(
-            "required absent path exists: "
-            + str(module.ABSENCE_PATHS["compat_runtime_spec"].absolute())
-        ),
-        PermissionError(live_message, "extra-argument"),
-        DerivedPermissionError(live_message),
-        PermissionError(live_message + " "),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_load_verified_terminalizer",
-        lambda: (module, {"path": "terminalizer"}),
-    )
-    monkeypatch.setattr(
-        bridge,
-        "_validate_c1_historical_terminal",
-        lambda *_args, **_kwargs: pytest.fail(
-            "nonexact error reached historical fallback"
-        ),
-    )
-    current = datetime(2026, 7, 30, 13, 0, tzinfo=timezone.utc)
-    for expected_error in errors:
-        module.error = expected_error
-        with pytest.raises(PermissionError) as caught:
-            bridge._validate_c1_failure_terminal(
-                unit_state_reader=lambda _unit: {"LoadState": "loaded"},
-                now=current,
-            )
-        assert caught.value is expected_error
-
-
-def _historical_absence_row(path: Path) -> dict[str, object]:
-    target = path.absolute()
-    return {
-        "path": str(target),
-        "basename": target.name,
-        "lexists": False,
-        "parent_path": str(target.parent),
-        "parent_device": 1,
-        "parent_inode": 2,
-        "parent_owner_uid": os.getuid(),
-        "parent_owner_gid": os.getgid(),
-        "parent_mode": 0o700,
-        "parent_nlink": 13,
-        "parent_size": 4096,
-        "parent_mtime_ns": 10,
-        "parent_ctime_ns": 10,
-    }
-
-
-def test_historical_absence_snapshot_accepts_sealed_parent_metadata(
-    bridge,
-    tmp_path: Path,
-) -> None:
-    paths = {
-        "first": tmp_path / "first.json",
-        "second": tmp_path / "second",
-    }
-    module = SimpleNamespace(ABSENCE_PATHS=paths)
-    snapshot = {
-        name: _historical_absence_row(path)
-        for name, path in paths.items()
-    }
-    bridge._validate_c1_historical_absence_snapshot(module, snapshot)
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    (
-        "missing_key",
-        "wrong_path",
-        "wrong_basename",
-        "lexists",
-        "bool_inode",
-        "parent_divergence",
-        "world_writable",
-    ),
-)
-def test_historical_absence_snapshot_rejects_tampering(
-    bridge,
-    tmp_path: Path,
-    mutation: str,
-) -> None:
-    paths = {
-        "first": tmp_path / "first.json",
-        "second": tmp_path / "second",
-    }
-    module = SimpleNamespace(ABSENCE_PATHS=paths)
-    snapshot = {
-        name: _historical_absence_row(path)
-        for name, path in paths.items()
-    }
-    if mutation == "missing_key":
-        snapshot["first"].pop("parent_ctime_ns")
-    elif mutation == "wrong_path":
-        snapshot["first"]["path"] = str(tmp_path / "other")
-    elif mutation == "wrong_basename":
-        snapshot["first"]["basename"] = "other"
-    elif mutation == "lexists":
-        snapshot["first"]["lexists"] = True
-    elif mutation == "bool_inode":
-        snapshot["first"]["parent_inode"] = True
-    elif mutation == "parent_divergence":
-        snapshot["second"]["parent_nlink"] = 14
-    elif mutation == "world_writable":
-        snapshot["first"]["parent_mode"] = 0o702
-        snapshot["second"]["parent_mode"] = 0o702
-    else:  # pragma: no cover
-        raise AssertionError(mutation)
-    with pytest.raises(PermissionError):
-        bridge._validate_c1_historical_absence_snapshot(module, snapshot)
-
-
-def _historical_c1_fixture(bridge, tmp_path: Path):
-    absence_paths = {
-        "compat_runtime_spec": tmp_path / "c1-runtime-spec.json",
-        "scientific_run_root": tmp_path / "scientific-run",
-        "scientific_result_receipt": tmp_path / "scientific-result.json",
-    }
-    absences = {
-        name: _historical_absence_row(path)
-        for name, path in absence_paths.items()
-    }
-    payload_observation = {"sealed": True}
-    continuation = {"new_generation_required": True}
-    outcome = {"terminal": True}
-    derived = {"attempt_commit": {"absent": True}}
-    session = {"fixed_prefix": True}
-    evidence_roots = {"unit_receipt": {"path": "receipt-root"}}
-    source_roots = {"c1_source": {"path": "source-root"}}
-    fragment = {
-        "path": "fragment",
-        "file_sha256": "a" * 64,
-        "device": 1,
-        "inode": 2,
-        "owner_uid": os.getuid(),
-        "mode": 0o600,
-        "nlink": 1,
-    }
-    live = {"LoadState": "loaded"}
-    expiry = {
-        "bridge_expires_at_utc": "2026-07-30T12:00:00.000000Z"
-    }
-    body = {
-        "schema_version": "c1-historical-test-v1",
-        "candidate": bridge.CANDIDATE,
-        "stage_id": bridge.STAGE_ID,
-        "scientific_attempt_id": bridge.SCIENTIFIC_ATTEMPT_ID,
-        "scientific_attempt_ordinal": bridge.SCIENTIFIC_ATTEMPT_ORDINAL,
-        "runtime_compatibility_id": "c1",
-        "unit_name": bridge.C1_UNIT_NAME,
-        "created_at_utc": "2026-07-30T12:01:00.000000Z",
-        "instruction_id": bridge.INSTRUCTION_ID,
-        "authorization_basis": bridge.AUTHORIZATION_BASIS,
-        "session_failure": session,
-        "evidence_roots": evidence_roots,
-        "source_roots": source_roots,
-        "fragment_root": fragment,
-        "live_unit_state": live,
-        "absence_generation_roots": absences,
-        "derived_runtime_absences": derived,
-        "authorization_expiry": expiry,
-        "payload_observation": payload_observation,
-        "continuation_policy": continuation,
-        "outcome": outcome,
-    }
-    terminal = {**body, "terminal_fingerprint": "f" * 64}
-    payloads = {
-        "unit_receipt": {"fragment_identity": dict(fragment)}
-    }
-    absence_calls: list[Path] = []
-
-    def validate_live(state, *, unit_receipt):
-        if dict(state) != live or unit_receipt is not payloads["unit_receipt"]:
-            raise PermissionError("current c1 live state changed")
-        return dict(state)
-
-    def observe_absence(path: Path):
-        selected = Path(path).absolute()
-        absence_calls.append(selected)
-        if os.path.lexists(selected):
-            raise PermissionError(f"required absent path exists: {selected}")
-        return {"path": str(selected), "lexists": False}
-
-    module = SimpleNamespace(
-        SCHEMA=body["schema_version"],
-        CANDIDATE=bridge.CANDIDATE,
-        STAGE_ID=bridge.STAGE_ID,
-        SCIENTIFIC_ATTEMPT_ID=bridge.SCIENTIFIC_ATTEMPT_ID,
-        SCIENTIFIC_ATTEMPT_ORDINAL=bridge.SCIENTIFIC_ATTEMPT_ORDINAL,
-        RUNTIME_COMPATIBILITY_ID="c1",
-        UNIT_NAME=bridge.C1_UNIT_NAME,
-        INSTRUCTION_ID=bridge.INSTRUCTION_ID,
-        AUTHORIZATION_BASIS=bridge.AUTHORIZATION_BASIS,
-        _BODY_KEYS=set(body),
-        _PAYLOAD_OBSERVATION=payload_observation,
-        _CONTINUATION_POLICY=continuation,
-        _OUTCOME=outcome,
-        ABSENCE_PATHS=absence_paths,
-        _derived_runtime_absences=lambda: derived,
-        _parse_utc=bridge._parse_utc,
-        _observe_session_failure=lambda: session,
-        _observe_evidence=lambda: (evidence_roots, payloads),
-        _observe_source_roots=lambda: source_roots,
-        _observe_fragment_root=lambda: fragment,
-        _validate_evidence_semantics=(
-            lambda _payloads, *, now: expiry
-        ),
-        _validate_live_state=validate_live,
-        _observe_absence=observe_absence,
-    )
-    return module, terminal, live, absence_paths, absence_calls
-
-
-def test_historical_terminal_rechecks_only_c1_specific_current_absence(
-    bridge,
-    tmp_path: Path,
-) -> None:
-    module, terminal, live, paths, calls = _historical_c1_fixture(
-        bridge,
-        tmp_path,
-    )
-    paths["scientific_run_root"].mkdir()
-    paths["scientific_result_receipt"].write_text("shared", encoding="utf-8")
-    bridge._validate_c1_historical_terminal(
-        module,
-        terminal,
-        c1_reader=lambda: live,
-        now=datetime(2026, 7, 30, 13, 0, tzinfo=timezone.utc),
-    )
-    assert calls == [paths["compat_runtime_spec"].absolute()]
-
-
-@pytest.mark.parametrize("mutation", ("live_state", "c1_path_present"))
-def test_historical_terminal_rejects_current_c1_drift(
-    bridge,
-    tmp_path: Path,
-    mutation: str,
-) -> None:
-    module, terminal, live, paths, _calls = _historical_c1_fixture(
-        bridge,
-        tmp_path,
-    )
-    reader = lambda: live
-    if mutation == "live_state":
-        reader = lambda: {"LoadState": "active"}
-    else:
-        paths["compat_runtime_spec"].write_text("present", encoding="utf-8")
-    with pytest.raises(PermissionError):
-        bridge._validate_c1_historical_terminal(
-            module,
-            terminal,
-            c1_reader=reader,
-            now=datetime(2026, 7, 30, 13, 0, tzinfo=timezone.utc),
-        )
-
-
-@pytest.mark.parametrize(
-    "mutation",
-    ("failure_root", "terminalizer_root", "prewrite_root", "prewrite_source"),
-)
-def test_full_closure_rejects_mode_contract_failure_lineage_drift(
-    bridge,
-    monkeypatch: pytest.MonkeyPatch,
-    mutation: str,
-) -> None:
-    values = _closure_inputs(bridge, monkeypatch)
-    authorization = deepcopy(values.authorization)
-    if mutation == "failure_root":
-        authorization["c2_mode_contract_failure_terminal_root"] = {
-            "path": "wrong-failure-root"
-        }
-    elif mutation == "terminalizer_root":
-        authorization["compatibility_source_roots"][
-            "c2_mode_contract_failure_terminalizer"
-        ] = {"path": "wrong-terminalizer"}
-    elif mutation == "prewrite_root":
-        authorization["c2_prewrite_failure_terminal_root"] = {
-            "path": "wrong-prewrite-root"
-        }
-    else:
-        authorization["compatibility_source_roots"][
-            "c2_prewrite_failure_terminalizer"
-        ] = {"path": "wrong-prewrite-source"}
-    with pytest.raises(PermissionError, match="predecessor failure lineage"):
-        bridge._collect_full_closure(
-            authorization=authorization,
-            authorization_root={"path": "c4-auth"},
-            unit_state_reader=values.reader,
-            allow_runtime_activation=False,
-            receipt_time=values.base + timedelta(seconds=40),
-        )
-
-
-def test_receipt_and_source_root_sets_require_mode_contract_lineage(bridge) -> None:
-    evidence = {
-        label: {"path": label}
-        for label in bridge._EVIDENCE_LABELS
-    }
-    missing_failure = dict(evidence)
-    missing_failure.pop("c2_mode_contract_failure_terminal")
-    with pytest.raises(PermissionError, match="evidence-root"):
-        bridge._validate_receipt_evidence_roots(
-            missing_failure,
-            evidence,
-        )
-    missing_prewrite = dict(evidence)
-    missing_prewrite.pop("c2_prewrite_failure_terminal")
-    with pytest.raises(PermissionError, match="evidence-root"):
-        bridge._validate_receipt_evidence_roots(
-            missing_prewrite,
-            evidence,
-        )
-
-    sources = bridge._collect_source_roots()
-    missing_terminalizer = dict(sources)
-    missing_terminalizer.pop("c2_mode_contract_failure_terminalizer")
-    with pytest.raises(PermissionError, match="source-root labels"):
-        bridge._validate_source_roots(missing_terminalizer)
-    missing_prewrite_source = dict(sources)
-    missing_prewrite_source.pop("c2_prewrite_failure_terminalizer")
-    with pytest.raises(PermissionError, match="source-root labels"):
-        bridge._validate_source_roots(missing_prewrite_source)
+    assert args.command == "authorize-c4"
+    with pytest.raises(SystemExit):
+        parser.parse_args(["authorize-c3"])

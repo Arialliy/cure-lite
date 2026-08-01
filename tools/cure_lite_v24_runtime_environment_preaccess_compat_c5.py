@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Fresh runtime-environment scope handoff for compatibility generation c4.
+"""Fresh runtime-environment scope handoff for compatibility generation c5.
 
 This module does not reinterpret the frozen precleanup receipt as evidence
-about the c4 unit.  It first replays that receipt with its original target and
+about the c5 unit.  It first replays that receipt with its original target and
 ``require_target_ready=False``.  It then creates a new contract by replacing
 only those two fields and delegates policy construction and stability sampling
 to the hash-pinned runtime-environment implementation.
 
-The production entry point remains fail-closed until the c4 realization bridge
-has been frozen and ``C4_BRIDGE_SHA256`` has been replaced.  Pure in-memory
-functions accept an injected archival validator for unit tests.
+The production entry point remains fail-closed until the B5, R5, and C4
+terminal producers have been frozen and their explicit SHA-256 sentinels have
+been replaced.  Pure in-memory functions accept injected producer validators
+for unit tests; foreign evidence is never re-canonicalized by this module.
 """
 
 from __future__ import annotations
@@ -43,11 +44,11 @@ FROZEN_ENVIRONMENT_SHA256 = (
 )
 
 OLD_TARGET_UNIT = "cure-lite-v24-gcr-pacre-dr-r2.service"
-C4_TARGET_UNIT = (
-    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c4.service"
+C5_TARGET_UNIT = (
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c5.service"
 )
-C4_FRAGMENT_PATH = (
-    Path(f"/run/user/{os.getuid()}/systemd/user") / C4_TARGET_UNIT
+C5_FRAGMENT_PATH = (
+    Path(f"/run/user/{os.getuid()}/systemd/user") / C5_TARGET_UNIT
 )
 
 PRECLEANUP_PATH = (
@@ -56,130 +57,147 @@ PRECLEANUP_PATH = (
 CLEANUP_RECEIPT_PATH = (
     EVIDENCE_ROOT / "environment_cleanup_recovery_r1/cleanup-receipt.json"
 )
-C4_POLICY_PATH = (
-    EVIDENCE_ROOT / "runtime_environment_policy_preaccess_compat_c4.json"
+C5_POLICY_PATH = (
+    EVIDENCE_ROOT / "runtime_environment_policy_preaccess_compat_c5.json"
 )
-C4_STABILITY_PATH = (
+C5_STABILITY_PATH = (
     EVIDENCE_ROOT
-    / "runtime_environment_stability_receipt_preaccess_compat_c4.json"
+    / "runtime_environment_stability_receipt_preaccess_compat_c5.json"
 )
-C4_POSTCLEANUP_PATH = (
+C5_POSTCLEANUP_PATH = (
     EVIDENCE_ROOT
-    / "runtime_environment_postcleanup_receipt_preaccess_compat_c4.json"
+    / "runtime_environment_postcleanup_receipt_preaccess_compat_c5.json"
 )
-C4_REALIZATION_AUTHORIZATION_PATH = (
+C5_REALIZATION_AUTHORIZATION_PATH = (
     EVIDENCE_ROOT
-    / "r2_preaccess_compat_c4_unit_realization_authorization.json"
+    / "r2_preaccess_compat_c5_unit_realization_authorization.json"
 )
-C4_REALIZATION_RECEIPT_PATH = (
+C5_REALIZATION_RECEIPT_PATH = (
     EVIDENCE_ROOT
-    / "r2_preaccess_compat_c4_unit_realization_receipt.json"
+    / "r2_preaccess_compat_c5_unit_realization_receipt.json"
 )
-C4_BRIDGE_PATH = (
+C5_BRIDGE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_actual_unit_realization_preaccess_compat_c4.py"
+    / "tools/cure_lite_v24_actual_unit_realization_preaccess_compat_c5.py"
 ).resolve()
-C4_BRIDGE_SHA256 = (
-    "8708f8a13d74623f510992e23c6c23e1c4bfe70db09092c04fe56d44d29c5b65"
+C5_BRIDGE_SHA256 = (
+    "dbe35cd096554c4fd4c64b34213b0f7ac3ccb79e396f6d1d8e620c2c4c1d1be5"
 )
 
-C3_FAILURE_TERMINALIZER_PATH = (
+C5_COMPATIBILITY_BRIDGE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_preaccess_compat_c3_environment_stability_failure_terminal.py"
+    / "tools/cure_lite_v24_preaccess_schema_compatibility_c5.py"
 ).resolve()
-C3_FAILURE_TERMINALIZER_SHA256 = (
-    "b55a916dade97b9d49f1cd80758aeaac316d55725eb7ee4e1148c7c206aa9d9f"
-)
-C3_FAILURE_TERMINAL_PATH = (
-    EVIDENCE_ROOT
-    / (
-        "r2_preaccess_schema_compat_c3_"
-        "environment_stability_failure_terminal.json"
-    )
-)
-C3_FAILURE_TERMINAL_SHA256 = (
-    "527eb5c12c92e19dac8f797868de2bc8462e53b8113c24f6e701e0e54a26180a"
-)
-C3_FAILURE_TERMINAL_FINGERPRINT = (
-    "c31159e7033450ecc2a8dea071fd125ab756e43afbc8d8c433c425a045713670"
-)
-C3_TARGET_UNIT = (
-    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c3.service"
-)
-C3_FRAGMENT_PATH = (
-    Path(f"/run/user/{os.getuid()}/systemd/user") / C3_TARGET_UNIT
+C5_COMPATIBILITY_BRIDGE_SHA256 = (
+    "388843b9b840db41610d57543f4982666cdf442ba81fa5acb208033de062319f"
 )
 
-C4_SCOPE_HANDOFF_PATH = (
-    EVIDENCE_ROOT
-    / "runtime_environment_scope_handoff_preaccess_compat_c4.json"
+C4_FAILURE_TERMINALIZER_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_preaccess_compat_c4_receipt_seal_failure_terminal.py"
+).resolve()
+C4_FAILURE_TERMINALIZER_SHA256 = (
+    "3cf56e803d6d7b39c995125d17d145b5c8625a4eea03de6cf4c6118c9bc777c0"
 )
-# Backward-readable alias for the path name used during the C4 design review.
-C4_HANDOFF_PATH = C4_SCOPE_HANDOFF_PATH
-C4_STABILITY_ATTEMPT_PATH = (
+C4_FAILURE_TERMINAL_PATH = (
     EVIDENCE_ROOT
-    / "runtime_environment_stability_attempt_preaccess_compat_c4.json"
+    / "r2_preaccess_schema_compat_c4_receipt_seal_failure_terminal.json"
 )
-C4_STABILITY_TERMINAL_PATH = (
+C4_FAILURE_TERMINAL_SHA256 = (
+    "567b22e9839dad2d27168c36206b66be9b2b91d98269e9b9ce087ee3becea733"
+)
+C4_FAILURE_TERMINAL_FINGERPRINT = (
+    "d86ef0c432237043e39119c56cfb6602b7df7f8b62069f836ac6c3d08b75b622"
+)
+C4_TARGET_UNIT = (
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c4.service"
+)
+C4_FRAGMENT_PATH = (
+    Path(f"/run/user/{os.getuid()}/systemd/user") / C4_TARGET_UNIT
+)
+
+C5_SCOPE_HANDOFF_PATH = (
     EVIDENCE_ROOT
-    / "runtime_environment_stability_terminal_preaccess_compat_c4.json"
+    / "runtime_environment_scope_handoff_preaccess_compat_c5.json"
 )
-C4_HANDOFF_SCHEMA = (
+# Backward-readable alias for the path name used during the C5 design review.
+C5_HANDOFF_PATH = C5_SCOPE_HANDOFF_PATH
+C5_STABILITY_ATTEMPT_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_attempt_preaccess_compat_c5.json"
+)
+C5_STABILITY_TERMINAL_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_terminal_preaccess_compat_c5.json"
+)
+C5_HANDOFF_SCHEMA = (
     "cure-lite-v24-runtime-environment-scope-handoff-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
-C4_STABILITY_ATTEMPT_SCHEMA = (
+C5_STABILITY_ATTEMPT_SCHEMA = (
     "cure-lite-v24-runtime-environment-stability-attempt-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
-C4_STABILITY_TERMINAL_SCHEMA = (
+C5_STABILITY_TERMINAL_SCHEMA = (
     "cure-lite-v24-runtime-environment-stability-terminal-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
 
-_C3_REQUIRED_ABSENT_PATHS = MappingProxyType(
+_C4_REQUIRED_ABSENT_PATHS = MappingProxyType(
     {
-        "B3_compatibility_receipt": (
-            EVIDENCE_ROOT / "r2_preaccess_schema_compat_c3_receipt.json"
+        "B4_compatibility_receipt": (
+            EVIDENCE_ROOT / "r2_preaccess_schema_compat_c4_receipt.json"
         ),
-        "R3_unit_terminal": (
+        "R4_unit_terminal": (
             EVIDENCE_ROOT
-            / "r2_preaccess_compat_c3_unit_realization_terminal.json"
+            / "r2_preaccess_compat_c4_unit_realization_terminal.json"
         ),
-        "C3_environment_stability": (
+        "E4_environment_terminal": (
             EVIDENCE_ROOT
-            / "runtime_environment_stability_receipt_preaccess_compat_c3.json"
+            / "runtime_environment_stability_terminal_preaccess_compat_c4.json"
         ),
-        "C3_environment_postcleanup": (
+        "r14_integration_root": (
             EVIDENCE_ROOT
-            / "runtime_environment_postcleanup_receipt_preaccess_compat_c3.json"
+            / "supervisor_v2_systemd_integration_preaccess_compat_c4_r14"
         ),
-        "C3_runtime_spec": (
+        "L4_C4_runtime_spec": (
             EVIDENCE_ROOT
-            / "D_R_structural_attempt_r2_preaccess_compat_c3_runtime_spec.json"
+            / "D_R_structural_attempt_r2_preaccess_compat_c4_runtime_spec.json"
         ),
-        "C3_runtime_launch_authorization": (
+        "L4_C4_runtime_launch_authorization": (
             EVIDENCE_ROOT
             / (
-                "D_R_structural_attempt_r2_preaccess_compat_c3_"
+                "D_R_structural_attempt_r2_preaccess_compat_c4_"
                 "runtime_launch_authorization.json"
             )
         ),
-        "C3_runtime_artifacts": (
+        "C4_runtime_artifacts": (
             EVIDENCE_ROOT
-            / "D_R_structural_attempt_r2_preaccess_compat_c3_runtime_artifacts"
+            / "D_R_structural_attempt_r2_preaccess_compat_c4_runtime_artifacts"
         ),
-        "C3_gpu_lease": (
+        "C4_gpu_lease": (
             EVIDENCE_ROOT
-            / "D_R_structural_attempt_r2_preaccess_compat_c3_gpu_lease"
+            / "D_R_structural_attempt_r2_preaccess_compat_c4_gpu_lease"
         ),
-        "C3_run_alias": (
-            RUNS_ROOT
-            / "gcr_pacre_v24_D_R_structural_attempt_r2_preaccess_compat_c3"
+        "C4_run_alias": (
+            RUNS_ROOT / "gcr_pacre_v24_D_R_structural_attempt_r2_preaccess_compat_c4"
         ),
-        "C3_result_alias": (
+        "C4_result_alias": (
             EVIDENCE_ROOT
-            / "D_R_structural_attempt_r2_preaccess_compat_c3_receipt.json"
+            / "D_R_structural_attempt_r2_preaccess_compat_c4_receipt.json"
+        ),
+        "direct_runtime_spec": (
+            EVIDENCE_ROOT / "D_R_structural_attempt_r2_runtime_spec.json"
+        ),
+        "direct_runtime_launch_authorization": (
+            EVIDENCE_ROOT
+            / "D_R_structural_attempt_r2_runtime_launch_authorization.json"
+        ),
+        "direct_runtime_artifacts": (
+            EVIDENCE_ROOT / "D_R_structural_attempt_r2_runtime_artifacts"
+        ),
+        "direct_gpu_lease": (
+            EVIDENCE_ROOT / "D_R_structural_attempt_r2_gpu_lease"
         ),
         "scientific_run_root": (
             RUNS_ROOT / "gcr_pacre_v24_D_R_structural_attempt_r2"
@@ -206,31 +224,49 @@ SAMPLE_COUNT = 2
 SAMPLE_INTERVAL_SECONDS = 30.0
 
 
-def _require_c4_namespace() -> None:
+def _require_c5_namespace() -> None:
     evidence_paths = (
-        C4_POLICY_PATH,
-        C4_STABILITY_PATH,
-        C4_POSTCLEANUP_PATH,
-        C4_REALIZATION_AUTHORIZATION_PATH,
-        C4_REALIZATION_RECEIPT_PATH,
-        C4_SCOPE_HANDOFF_PATH,
-        C4_STABILITY_ATTEMPT_PATH,
-        C4_STABILITY_TERMINAL_PATH,
+        C5_POLICY_PATH,
+        C5_STABILITY_PATH,
+        C5_POSTCLEANUP_PATH,
+        C5_REALIZATION_AUTHORIZATION_PATH,
+        C5_REALIZATION_RECEIPT_PATH,
+        C5_SCOPE_HANDOFF_PATH,
+        C5_STABILITY_ATTEMPT_PATH,
+        C5_STABILITY_TERMINAL_PATH,
     )
     if (
-        "preaccess-compat-c4" not in C4_TARGET_UNIT
-        or C4_FRAGMENT_PATH.name != C4_TARGET_UNIT
+        "preaccess-compat-c5" not in C5_TARGET_UNIT
+        or C5_FRAGMENT_PATH.name != C5_TARGET_UNIT
         or len(set(evidence_paths)) != len(evidence_paths)
-        or any("compat_c4" not in path.name for path in evidence_paths)
-        or "compat_c4" not in C4_BRIDGE_PATH.name
+        or any("compat_c5" not in path.name for path in evidence_paths)
+        or "compat_c5" not in C5_BRIDGE_PATH.name
         or any(
             marker in str(path)
             for marker in ("compat_c2", "compat_c3")
             for path in evidence_paths
         )
-        or "compat_c3" not in C3_FAILURE_TERMINAL_PATH.name
+        or "compat_c4" not in C4_FAILURE_TERMINAL_PATH.name
+        or "compat_c4" not in C4_FAILURE_TERMINALIZER_PATH.name
+        or "compatibility_c5" not in C5_COMPATIBILITY_BRIDGE_PATH.name
     ):
-        raise PermissionError("c4 environment namespace is not exact")
+        raise PermissionError("c5 environment namespace is not exact")
+
+
+def _canonical_json(value: object) -> str:
+    """Canonical profile owned by E5 (UTF-8, never producer fallback)."""
+
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def _stable_fingerprint(value: object) -> str:
+    return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 _HANDOFF_FIELDS = frozenset({"target_unit_id", "require_target_ready"})
 _FILE_IDENTITY_FIELDS = (
@@ -256,7 +292,7 @@ _PARENT_GUARD_IDENTITY_FIELDS = _PARENT_IDENTITY_FIELDS + (
     "st_mtime_ns",
     "st_ctime_ns",
 )
-_R4_SUPPLIED_IDENTITY_FIELDS = frozenset(
+_R5_SUPPLIED_IDENTITY_FIELDS = frozenset(
     {
         "path",
         "resolved_path",
@@ -269,9 +305,9 @@ _R4_SUPPLIED_IDENTITY_FIELDS = frozenset(
         "nlink",
     }
 )
-_R4_ARCHIVAL_ROOT_FIELDS = frozenset(
+_R5_ARCHIVAL_ROOT_FIELDS = frozenset(
     {
-        *_R4_SUPPLIED_IDENTITY_FIELDS,
+        *_R5_SUPPLIED_IDENTITY_FIELDS,
         "owner_gid",
         "size",
         "mtime_ns",
@@ -394,7 +430,7 @@ def _load_frozen_environment() -> tuple[ModuleType, dict[str, int]]:
         raise PermissionError("frozen runtime environment source changed")
     name = (
         "tools._cure_lite_v24_runtime_environment_frozen_"
-        "for_preaccess_compat_c4"
+        "for_preaccess_compat_c5"
     )
     module = ModuleType(name)
     module.__file__ = str(FROZEN_ENVIRONMENT_PATH)
@@ -929,9 +965,9 @@ def _verify_live_sealed(
 
 _LIVE_ROOT_SPECS = MappingProxyType(
     {
-        "policy": (C4_POLICY_PATH, "policy_fingerprint"),
+        "policy": (C5_POLICY_PATH, "policy_fingerprint"),
         "stability": (
-            C4_STABILITY_PATH,
+            C5_STABILITY_PATH,
             "stability_receipt_fingerprint",
         ),
     }
@@ -945,10 +981,10 @@ def _verify_exact_live_roots(
 ) -> dict[str, dict[str, object]]:
     if live_roots is None:
         if required:
-            raise PermissionError("required c4 live roots are absent")
+            raise PermissionError("required c5 live roots are absent")
         return {}
     if set(live_roots) != required:
-        raise PermissionError("c4 live-root lane changed")
+        raise PermissionError("c5 live-root lane changed")
     roots: dict[str, dict[str, object]] = {}
     for name in sorted(required):
         try:
@@ -956,7 +992,7 @@ def _verify_exact_live_roots(
             supplied = live_roots[name]
         except (KeyError, TypeError) as error:
             raise PermissionError(
-                "c4 live-root lane is malformed"
+                "c5 live-root lane is malformed"
             ) from error
         root = _validate_sealed_root(
             supplied,
@@ -978,7 +1014,7 @@ def replay_old_scope_and_handoff(
 ) -> tuple[object, object, dict[str, object]]:
     """Replay the old scope, then replace exactly target and readiness."""
 
-    _require_c4_namespace()
+    _require_c5_namespace()
 
     _require_frozen_environment_source()
     if prepare is None:
@@ -1024,30 +1060,30 @@ def replay_old_scope_and_handoff(
         != CLEANUP_RECEIPT_PATH.absolute()
     ):
         raise PermissionError("frozen old-scope replay is not exact")
-    c4_contract = replace(
+    c5_contract = replace(
         old_contract,
-        target_unit_id=C4_TARGET_UNIT,
+        target_unit_id=C5_TARGET_UNIT,
         require_target_ready=True,
     )
-    c4_contract = _frozen.validate_environment_audit_contract(c4_contract)
+    c5_contract = _frozen.validate_environment_audit_contract(c5_contract)
     old_projection = asdict(old_contract)
-    c4_projection = asdict(c4_contract)
+    c5_projection = asdict(c5_contract)
     for field in fields(old_contract):
         if field.name in _HANDOFF_FIELDS:
             continue
         if not _frozen._deep_exact_equal(
             old_projection[field.name],
-            c4_projection[field.name],
+            c5_projection[field.name],
         ):
             raise PermissionError(
-                f"c4 scope handoff changed field:{field.name}"
+                f"c5 scope handoff changed field:{field.name}"
             )
     if (
-        c4_contract.target_unit_id != C4_TARGET_UNIT
-        or c4_contract.require_target_ready is not True
+        c5_contract.target_unit_id != C5_TARGET_UNIT
+        or c5_contract.require_target_ready is not True
     ):
-        raise PermissionError("c4 scope handoff did not close target readiness")
-    return old_contract, c4_contract, dict(roots)
+        raise PermissionError("c5 scope handoff did not close target readiness")
+    return old_contract, c5_contract, dict(roots)
 
 
 def _manager_generation_from_contract(
@@ -1075,45 +1111,45 @@ def _manager_generation_from_contract(
     }
 
 
-def validate_c4_realization_archival(
+def validate_c5_realization_archival(
     archival: Mapping[str, object],
     *,
     contract: object,
 ) -> dict[str, object]:
-    """Bind the c4 contract to one exact archival realization PASS."""
+    """Bind the c5 contract to one exact archival realization PASS."""
 
     try:
         authorization = dict(archival["authorization"])
         receipt = dict(archival["receipt"])
-        authorization_identity = _validate_r4_archival_root(
+        authorization_identity = _validate_r5_archival_root(
             archival["authorization_identity"],
-            path=C4_REALIZATION_AUTHORIZATION_PATH,
+            path=C5_REALIZATION_AUTHORIZATION_PATH,
         )
-        receipt_identity = _validate_r4_archival_root(
+        receipt_identity = _validate_r5_archival_root(
             archival["receipt_identity"],
-            path=C4_REALIZATION_RECEIPT_PATH,
+            path=C5_REALIZATION_RECEIPT_PATH,
         )
         manager = dict(receipt["manager_generation"])
         fragment = dict(receipt["fragment_identity"])
         shadow = dict(receipt["full_static_shadow"])
     except (KeyError, TypeError, ValueError) as error:
-        raise ValueError("c4 realization archival structure is malformed") from error
-    _no_payload(authorization, name="c4 realization authorization")
-    _no_payload(receipt, name="c4 realization receipt")
+        raise ValueError("c5 realization archival structure is malformed") from error
+    _no_payload(authorization, name="c5 realization authorization")
+    _no_payload(receipt, name="c5 realization receipt")
     expected_manager = _manager_generation_from_contract(contract)
     expected_shadow = {
-        "Id": C4_TARGET_UNIT,
+        "Id": C5_TARGET_UNIT,
         "LoadState": "loaded",
         "ActiveState": "inactive",
         "SubState": "dead",
         "UnitFileState": "static",
         "Restart": "no",
         "NRestarts": "0",
-        "FragmentPath": str(C4_FRAGMENT_PATH),
+        "FragmentPath": str(C5_FRAGMENT_PATH),
     }
     if (
-        authorization.get("unit_name") != C4_TARGET_UNIT
-        or receipt.get("unit_name") != C4_TARGET_UNIT
+        authorization.get("unit_name") != C5_TARGET_UNIT
+        or receipt.get("unit_name") != C5_TARGET_UNIT
         or receipt.get("passed") is not True
         or receipt.get("static") is not True
         or receipt.get("enabled") is not False
@@ -1125,7 +1161,7 @@ def validate_c4_realization_archival(
             expected_manager,
         )
         or not _frozen._deep_exact_equal(manager, expected_manager)
-        or fragment.get("path") != str(C4_FRAGMENT_PATH)
+        or fragment.get("path") != str(C5_FRAGMENT_PATH)
         or shadow.get("FragmentPath") != fragment.get("path")
         or any(
             shadow.get(key) != value
@@ -1133,7 +1169,7 @@ def validate_c4_realization_archival(
         )
     ):
         raise PermissionError(
-            "c4 realization is not an exact live-ready archival PASS"
+            "c5 realization is not an exact live-ready archival PASS"
         )
     return {
         "authorization": authorization,
@@ -1145,17 +1181,17 @@ def validate_c4_realization_archival(
     }
 
 
-def _validate_r4_archival_root(
+def _validate_r5_archival_root(
     value: object,
     *,
     path: Path,
 ) -> dict[str, object]:
-    """Validate one immutable R4 evidence-file generation root."""
+    """Validate one immutable R5 evidence-file generation root."""
 
     if not isinstance(value, Mapping):
-        raise PermissionError("r4 archival evidence root is malformed")
+        raise PermissionError("r5 archival evidence root is malformed")
     root = dict(value)
-    integer_fields = _R4_ARCHIVAL_ROOT_FIELDS - {
+    integer_fields = _R5_ARCHIVAL_ROOT_FIELDS - {
         "path",
         "resolved_path",
         "path_is_symlink",
@@ -1164,7 +1200,7 @@ def _validate_r4_archival_root(
     }
     target = path.absolute()
     if (
-        set(root) != _R4_ARCHIVAL_ROOT_FIELDS
+        set(root) != _R5_ARCHIVAL_ROOT_FIELDS
         or Path(str(root.get("path", ""))).absolute() != target
         or root.get("resolved_path") != str(target)
         or root.get("path_is_symlink") is not False
@@ -1182,21 +1218,21 @@ def _validate_r4_archival_root(
         or root.get("parent_owner_uid") != os.getuid()
         or root.get("parent_mode", 0) & 0o022
     ):
-        raise PermissionError("r4 archival evidence root changed")
+        raise PermissionError("r5 archival evidence root changed")
     return root
 
 
-def _bind_r4_archival_root(
+def _bind_r5_archival_root(
     path: Path,
     supplied_value: object,
 ) -> dict[str, object]:
-    """Extend R4's sealed identity with size and nanosecond timestamps."""
+    """Extend R5's sealed identity with size and nanosecond timestamps."""
 
     if not isinstance(supplied_value, Mapping):
-        raise PermissionError("r4 supplied evidence identity is malformed")
+        raise PermissionError("r5 supplied evidence identity is malformed")
     supplied = dict(supplied_value)
-    if set(supplied) != _R4_SUPPLIED_IDENTITY_FIELDS:
-        raise PermissionError("r4 supplied evidence identity changed")
+    if set(supplied) != _R5_SUPPLIED_IDENTITY_FIELDS:
+        raise PermissionError("r5 supplied evidence identity changed")
     target = path.absolute()
     raw, generation = _stable_source_bytes(target)
     expected_supplied = {
@@ -1211,7 +1247,7 @@ def _bind_r4_archival_root(
         "nlink": generation["st_nlink"],
     }
     if not _frozen._deep_exact_equal(supplied, expected_supplied):
-        raise PermissionError("r4 evidence changed after archival validation")
+        raise PermissionError("r5 evidence changed after archival validation")
     root = {
         **expected_supplied,
         "owner_gid": generation["st_gid"],
@@ -1225,45 +1261,62 @@ def _bind_r4_archival_root(
         "parent_owner_gid": generation["parent_st_gid"],
         "parent_mode": stat.S_IMODE(generation["parent_st_mode"]),
     }
-    return _validate_r4_archival_root(root, path=target)
+    return _validate_r5_archival_root(root, path=target)
 
 
-def _load_verified_c4_bridge() -> ModuleType:
-    _require_c4_namespace()
+def _load_verified_c5_bridge() -> ModuleType:
+    _require_c5_namespace()
+    # R5 is the sole producer validator for its authorization/receipt chain.
+    # Its fixed B5 source pin is independently checked here before R5 bytes
+    # are compiled, so neither producer can be silently swapped.
+    _verify_fixed_source(
+        C5_COMPATIBILITY_BRIDGE_PATH,
+        C5_COMPATIBILITY_BRIDGE_SHA256,
+        name="b5 compatibility bridge",
+    )
     if (
-        C4_BRIDGE_SHA256 == "__TO_BE_FROZEN__"
-        or len(C4_BRIDGE_SHA256) != 64
+        C5_BRIDGE_SHA256 == "__TO_BE_FROZEN__"
+        or len(C5_BRIDGE_SHA256) != 64
         or any(character not in "0123456789abcdef"
-               for character in C4_BRIDGE_SHA256)
+               for character in C5_BRIDGE_SHA256)
     ):
-        raise PermissionError("c4 realization bridge is not frozen")
-    raw, identity = _stable_source_bytes(C4_BRIDGE_PATH)
-    if hashlib.sha256(raw).hexdigest() != C4_BRIDGE_SHA256:
-        raise PermissionError("c4 realization bridge source changed")
+        raise PermissionError("c5 realization bridge is not frozen")
+    raw, identity = _stable_source_bytes(C5_BRIDGE_PATH)
+    if hashlib.sha256(raw).hexdigest() != C5_BRIDGE_SHA256:
+        raise PermissionError("c5 realization bridge source changed")
     name = (
         "tools._cure_lite_v24_actual_unit_realization_"
-        "preaccess_compat_c4_verified_for_environment"
+        "preaccess_compat_c5_verified_for_environment"
     )
     module = ModuleType(name)
-    module.__file__ = str(C4_BRIDGE_PATH)
+    module.__file__ = str(C5_BRIDGE_PATH)
     module.__package__ = "tools"
     sys.modules[name] = module
     try:
         exec(
-            compile(raw, str(C4_BRIDGE_PATH), "exec", dont_inherit=True),
+            compile(raw, str(C5_BRIDGE_PATH), "exec", dont_inherit=True),
             module.__dict__,
         )
+        if (
+            Path(module.COMPAT_BRIDGE_SOURCE_PATH).absolute()
+            != C5_COMPATIBILITY_BRIDGE_PATH.absolute()
+            or module.COMPAT_BRIDGE_SOURCE_SHA256
+            != C5_COMPATIBILITY_BRIDGE_SHA256
+            or module.COMPAT_UNIT != C5_TARGET_UNIT
+            or not callable(module.validate_archival_realization_chain)
+        ):
+            raise PermissionError("R5/B5 producer interface changed")
     except BaseException:
         sys.modules.pop(name, None)
         raise
-    raw_after, identity_after = _stable_source_bytes(C4_BRIDGE_PATH)
+    raw_after, identity_after = _stable_source_bytes(C5_BRIDGE_PATH)
     if (
-        hashlib.sha256(raw_after).hexdigest() != C4_BRIDGE_SHA256
+        hashlib.sha256(raw_after).hexdigest() != C5_BRIDGE_SHA256
         or identity_after != identity
     ):
         sys.modules.pop(name, None)
         raise PermissionError(
-            "c4 realization bridge generation changed while loading"
+            "c5 realization bridge generation changed while loading"
         )
     return module
 
@@ -1272,53 +1325,70 @@ def _production_archival_validator(
     authorization_path: Path,
     receipt_path: Path,
 ) -> Mapping[str, object]:
-    bridge = _load_verified_c4_bridge()
+    bridge = _load_verified_c5_bridge()
     validator = getattr(bridge, "validate_archival_realization_chain", None)
     if not callable(validator):
-        raise PermissionError("c4 archival realization validator is absent")
+        raise PermissionError("c5 archival realization validator is absent")
     archival = validator(authorization_path, receipt_path)
     if not isinstance(archival, Mapping):
-        raise PermissionError("c4 archival realization validator returned no closure")
+        raise PermissionError("c5 archival realization validator returned no closure")
     result = dict(archival)
-    result["authorization_identity"] = _bind_r4_archival_root(
+    result["authorization_identity"] = _bind_r5_archival_root(
         authorization_path,
         result.get("authorization_identity"),
     )
-    result["receipt_identity"] = _bind_r4_archival_root(
+    result["receipt_identity"] = _bind_r5_archival_root(
         receipt_path,
         result.get("receipt_identity"),
     )
     return result
 
 
-def _load_verified_c3_failure_terminalizer() -> ModuleType:
-    """Load only the hash-pinned archival/read side of the C3 terminalizer."""
-
+def _require_frozen_sha256(value: object, *, name: str) -> str:
     if (
-        C3_FAILURE_TERMINALIZER_SHA256 == "__TO_BE_FROZEN__"
-        or len(C3_FAILURE_TERMINALIZER_SHA256) != 64
-        or any(
-            character not in "0123456789abcdef"
-            for character in C3_FAILURE_TERMINALIZER_SHA256
-        )
+        value == "__TO_BE_FROZEN__"
+        or not isinstance(value, str)
+        or not _is_sha256(value)
     ):
-        raise PermissionError("c3 failure terminalizer is not frozen")
-    raw, identity = _stable_source_bytes(C3_FAILURE_TERMINALIZER_PATH)
-    if hashlib.sha256(raw).hexdigest() != C3_FAILURE_TERMINALIZER_SHA256:
-        raise PermissionError("c3 failure terminalizer source changed")
+        raise PermissionError(f"{name} is not frozen")
+    return value
+
+
+def _verify_fixed_source(path: Path, digest: object, *, name: str) -> None:
+    expected = _require_frozen_sha256(digest, name=name)
+    raw, identity = _stable_source_bytes(path)
+    raw_after, identity_after = _stable_source_bytes(path)
+    if (
+        hashlib.sha256(raw).hexdigest() != expected
+        or raw_after != raw
+        or identity_after != identity
+    ):
+        raise PermissionError(f"{name} generation changed")
+
+
+def _load_verified_c4_failure_terminalizer() -> ModuleType:
+    """Load the fixed C4 terminal producer's archival validator only."""
+
+    expected = _require_frozen_sha256(
+        C4_FAILURE_TERMINALIZER_SHA256,
+        name="c4 receipt-seal terminalizer",
+    )
+    raw, identity = _stable_source_bytes(C4_FAILURE_TERMINALIZER_PATH)
+    if hashlib.sha256(raw).hexdigest() != expected:
+        raise PermissionError("c4 receipt-seal terminalizer source changed")
     name = (
-        "tools._cure_lite_v24_preaccess_compat_c3_environment_"
-        "stability_failure_terminal_verified_for_c4"
+        "tools._cure_lite_v24_preaccess_compat_c4_receipt_seal_"
+        "failure_terminal_verified_for_c5"
     )
     module = ModuleType(name)
-    module.__file__ = str(C3_FAILURE_TERMINALIZER_PATH)
+    module.__file__ = str(C4_FAILURE_TERMINALIZER_PATH)
     module.__package__ = "tools"
     sys.modules[name] = module
     try:
         exec(
             compile(
                 raw,
-                str(C3_FAILURE_TERMINALIZER_PATH),
+                str(C4_FAILURE_TERMINALIZER_PATH),
                 "exec",
                 dont_inherit=True,
             ),
@@ -1328,46 +1398,55 @@ def _load_verified_c3_failure_terminalizer() -> ModuleType:
         sys.modules.pop(name, None)
         raise
     raw_after, identity_after = _stable_source_bytes(
-        C3_FAILURE_TERMINALIZER_PATH
+        C4_FAILURE_TERMINALIZER_PATH
     )
     if (
-        hashlib.sha256(raw_after).hexdigest()
-        != C3_FAILURE_TERMINALIZER_SHA256
+        hashlib.sha256(raw_after).hexdigest() != expected
+        or raw_after != raw
         or identity_after != identity
     ):
         sys.modules.pop(name, None)
         raise PermissionError(
-            "c3 failure terminalizer generation changed while loading"
+            "c4 receipt-seal terminalizer changed while loading"
         )
     return module
 
 
-def _validate_c4_phase_guard(
+def _validate_c5_phase_guard(
     value: Mapping[str, object],
     *,
     require_live_absence: bool = False,
 ) -> dict[str, object]:
     try:
         guard = dict(value)
-        terminal_root = dict(guard["c3_failure_terminal_root"])
-        unit_state = dict(guard["c3_unit_state"])
-        absent_paths = dict(guard["c3_absent_outputs"])
+        terminal_root = dict(guard["c4_failure_terminal_root"])
+        unit_state = dict(guard["c4_unit_state"])
+        absent_paths = dict(guard["c4_absent_outputs"])
     except (KeyError, TypeError, ValueError) as error:
-        raise PermissionError("c4 phase guard is malformed") from error
+        raise PermissionError("c5 phase guard is malformed") from error
+    expected_terminal_sha = _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_SHA256,
+        name="c4 receipt-seal failure terminal",
+    )
+    expected_terminal_fingerprint = _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_FINGERPRINT,
+        name="c4 receipt-seal failure terminal fingerprint",
+    )
     expected_absent = {
         name: str(path.absolute())
-        for name, path in _C3_REQUIRED_ABSENT_PATHS.items()
+        for name, path in _C4_REQUIRED_ABSENT_PATHS.items()
     }
     expected_state = {
-        "Id": C3_TARGET_UNIT,
+        "Id": C4_TARGET_UNIT,
         "LoadState": "loaded",
         "ActiveState": "inactive",
         "SubState": "dead",
         "UnitFileState": "static",
-        "FragmentPath": str(C3_FRAGMENT_PATH),
+        "FragmentPath": str(C4_FRAGMENT_PATH),
         "InvocationID": "",
         "Restart": "no",
         "NRestarts": "0",
+        "NeedDaemonReload": "no",
     }
     required_root_fields = {
         "path",
@@ -1385,23 +1464,25 @@ def _validate_c4_phase_guard(
     if (
         set(guard)
         != {
-            "c3_failure_terminal_root",
-            "c3_unit_state",
-            "c3_absent_outputs",
+            "c4_failure_terminal_root",
+            "c4_unit_state",
+            "c4_absent_outputs",
             "D_R_payload_accessed",
             "D_V_payload_accessed",
             "D_T_payload_accessed",
         }
         or not required_root_fields.issubset(terminal_root)
         or Path(str(terminal_root.get("path", ""))).absolute()
-        != C3_FAILURE_TERMINAL_PATH.absolute()
+        != C4_FAILURE_TERMINAL_PATH.absolute()
         or not _is_sha256(terminal_root.get("file_sha256"))
         or not _is_sha256(terminal_root.get("terminal_fingerprint"))
         or terminal_root.get("file_sha256")
-        != C3_FAILURE_TERMINAL_SHA256
+        != expected_terminal_sha
         or terminal_root.get("terminal_fingerprint")
-        != C3_FAILURE_TERMINAL_FINGERPRINT
-        or "compat-c3" not in str(terminal_root.get("schema_version", ""))
+        != expected_terminal_fingerprint
+        or "compat-c4-receipt-seal-failure" not in str(
+            terminal_root.get("schema_version", "")
+        )
         or terminal_root.get("owner_uid") != os.getuid()
         or terminal_root.get("mode") != 0o444
         or terminal_root.get("nlink") != 1
@@ -1410,18 +1491,26 @@ def _validate_c4_phase_guard(
         or require_live_absence
         and any(
             os.path.lexists(path)
-            for path in _C3_REQUIRED_ABSENT_PATHS.values()
+            for path in _C4_REQUIRED_ABSENT_PATHS.values()
         )
     ):
-        raise PermissionError("c3 terminal/inert/absence guard changed")
-    _no_payload(guard, name="c4 phase guard")
+        raise PermissionError("c4 terminal/inert/absence guard changed")
+    _no_payload(guard, name="c5 phase guard")
     return guard
 
 
-def _production_c4_phase_guard() -> Mapping[str, object]:
-    terminalizer = _load_verified_c3_failure_terminalizer()
+def _production_c5_phase_guard() -> Mapping[str, object]:
+    terminalizer = _load_verified_c4_failure_terminalizer()
+    _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_SHA256,
+        name="c4 receipt-seal failure terminal",
+    )
+    _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_FINGERPRINT,
+        name="c4 receipt-seal failure terminal fingerprint",
+    )
     validator = getattr(terminalizer, "validate_archival", None)
-    state_reader = getattr(terminalizer, "_read_c3_unit_state", None)
+    state_reader = getattr(terminalizer, "_read_unit_state", None)
     terminal_absences = getattr(terminalizer, "ABSENT_OUTPUT_PATHS", None)
     if (
         not callable(validator)
@@ -1433,38 +1522,38 @@ def _production_c4_phase_guard() -> Mapping[str, object]:
         }
         != {
             name: path.absolute()
-            for name, path in _C3_REQUIRED_ABSENT_PATHS.items()
+            for name, path in _C4_REQUIRED_ABSENT_PATHS.items()
         }
     ):
-        raise PermissionError("c3 failure terminalizer read API changed")
+        raise PermissionError("c4 failure terminalizer read API changed")
     before = {
         name: str(path)
-        for name, path in _C3_REQUIRED_ABSENT_PATHS.items()
+        for name, path in _C4_REQUIRED_ABSENT_PATHS.items()
         if os.path.lexists(path)
     }
-    terminal_payload, terminal_root = validator(C3_FAILURE_TERMINAL_PATH)
+    terminal_payload, terminal_root = validator(C4_FAILURE_TERMINAL_PATH)
     payload_observation = terminal_payload.get("payload_observation")
     if not isinstance(payload_observation, Mapping):
-        raise PermissionError("c3 failure terminal payload closure changed")
+        raise PermissionError("c4 failure terminal payload closure changed")
     _no_payload(
         payload_observation,
-        name="c3 failure terminal payload observation",
+        name="c4 failure terminal payload observation",
     )
-    unit_state = state_reader()
+    unit_state = state_reader(C4_TARGET_UNIT, expected="static")
     after = {
         name: str(path)
-        for name, path in _C3_REQUIRED_ABSENT_PATHS.items()
+        for name, path in _C4_REQUIRED_ABSENT_PATHS.items()
         if os.path.lexists(path)
     }
     if before or after:
-        raise PermissionError("c3 forbidden future output appeared")
-    return _validate_c4_phase_guard(
+        raise PermissionError("c4 forbidden future output appeared")
+    return _validate_c5_phase_guard(
         {
-            "c3_failure_terminal_root": terminal_root,
-            "c3_unit_state": unit_state,
-            "c3_absent_outputs": {
+            "c4_failure_terminal_root": terminal_root,
+            "c4_unit_state": unit_state,
+            "c4_absent_outputs": {
                 name: str(path.absolute())
-                for name, path in _C3_REQUIRED_ABSENT_PATHS.items()
+                for name, path in _C4_REQUIRED_ABSENT_PATHS.items()
             },
             "D_R_payload_accessed": False,
             "D_V_payload_accessed": False,
@@ -1480,25 +1569,25 @@ def _resolve_archival(
     contract: object,
 ) -> dict[str, object]:
     archival = validator(
-        C4_REALIZATION_AUTHORIZATION_PATH,
-        C4_REALIZATION_RECEIPT_PATH,
+        C5_REALIZATION_AUTHORIZATION_PATH,
+        C5_REALIZATION_RECEIPT_PATH,
     )
     if not isinstance(archival, Mapping):
-        raise PermissionError("c4 archival validator returned no closure")
-    return validate_c4_realization_archival(archival, contract=contract)
+        raise PermissionError("c5 archival validator returned no closure")
+    return validate_c5_realization_archival(archival, contract=contract)
 
 
 
-def _validate_c4_policy_contract(
+def _validate_c5_policy_contract(
     policy: Mapping[str, object],
     *,
-    c4_contract: object,
+    c5_contract: object,
     roots: Mapping[str, object],
     archival: Mapping[str, object],
 ) -> dict[str, object]:
     value = _frozen.validate_environment_policy(policy)
     expected = _frozen.build_environment_policy(
-        c4_contract,
+        c5_contract,
         precleanup_root_binding=roots["precleanup_inventory_receipt"],
         cleanup_root_binding=roots["cleanup_receipt"],
         toolchain_binding=value["toolchain"],
@@ -1511,19 +1600,19 @@ def _validate_c4_policy_contract(
     policy_body.pop("policy_fingerprint")
     expected_body["created_at_utc"] = policy_body.get("created_at_utc")
     if not _frozen._deep_exact_equal(policy_body, expected_body):
-        raise PermissionError("c4 policy differs from exact handoff contract")
-    _no_payload(value, name="c4 environment policy")
+        raise PermissionError("c5 policy differs from exact handoff contract")
+    _no_payload(value, name="c5 environment policy")
     if not (
         _strict_utc(
             archival["receipt"]["created_at_utc"],
-            name="c4 realization receipt",
+            name="c5 realization receipt",
         )
         < _strict_utc(
             value["created_at_utc"],
-            name="c4 policy",
+            name="c5 policy",
         )
     ):
-        raise PermissionError("c4 policy predates unit realization")
+        raise PermissionError("c5 policy predates unit realization")
     return dict(value)
 
 
@@ -1554,7 +1643,7 @@ def _contract_from_mapping(value: Mapping[str, object]) -> object:
 
 
 def _normalized_contract_value(contract: object) -> dict[str, object]:
-    return json.loads(_frozen.canonical_json(asdict(contract)))
+    return json.loads(_canonical_json(asdict(contract)))
 
 
 def _validate_custom_live_root(
@@ -1570,18 +1659,18 @@ def _validate_custom_live_root(
     )
 
 
-def validate_c4_scope_handoff(
+def validate_c5_scope_handoff(
     value: Mapping[str, object],
     *,
     expected_old_contract: object | None = None,
-    expected_c4_contract: object | None = None,
+    expected_c5_contract: object | None = None,
     expected_roots: Mapping[str, object] | None = None,
     expected_archival: Mapping[str, object] | None = None,
     expected_phase_guard: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """Validate one closed, metadata-only C3-to-C4 scope handoff."""
+    """Validate one closed, metadata-only C4-to-C5 scope handoff."""
 
-    payload = json.loads(_frozen.canonical_json(dict(value)))
+    payload = json.loads(_canonical_json(dict(value)))
     body = dict(payload)
     fingerprint = body.pop("scope_handoff_fingerprint", None)
     expected_keys = {
@@ -1589,7 +1678,7 @@ def validate_c4_scope_handoff(
         "created_at_utc",
         "runtime_compatibility_id",
         "old_contract",
-        "c4_contract",
+        "c5_contract",
         "changed_fields",
         "root_evidence",
         "realization",
@@ -1606,32 +1695,32 @@ def validate_c4_scope_handoff(
     }
     if (
         set(body) != expected_keys
-        or payload.get("schema_version") != C4_HANDOFF_SCHEMA
-        or payload.get("runtime_compatibility_id") != "c4"
+        or payload.get("schema_version") != C5_HANDOFF_SCHEMA
+        or payload.get("runtime_compatibility_id") != "c5"
         or payload.get("changed_fields")
         != ["require_target_ready", "target_unit_id"]
-        or fingerprint != _frozen.stable_fingerprint(body)
+        or fingerprint != _stable_fingerprint(body)
         or payload.get("payload_authority") != "none"
     ):
-        raise PermissionError("c4 scope handoff schema changed")
-    _strict_utc(payload.get("created_at_utc"), name="c4 scope handoff")
+        raise PermissionError("c5 scope handoff schema changed")
+    _strict_utc(payload.get("created_at_utc"), name="c5 scope handoff")
     try:
         old_contract = _contract_from_mapping(payload["old_contract"])
-        c4_contract = _contract_from_mapping(payload["c4_contract"])
+        c5_contract = _contract_from_mapping(payload["c5_contract"])
         roots = dict(payload["root_evidence"])
         archival = dict(payload["realization"])
-        phase_guard = _validate_c4_phase_guard(payload["phase_guard"])
+        phase_guard = _validate_c5_phase_guard(payload["phase_guard"])
         toolchain = dict(payload["toolchain"])
         sampling = dict(payload["sampling"])
     except (KeyError, TypeError, ValueError) as error:
-        raise PermissionError("c4 scope handoff content is malformed") from error
+        raise PermissionError("c5 scope handoff content is malformed") from error
     old_projection = asdict(old_contract)
-    c4_projection = asdict(c4_contract)
+    c5_projection = asdict(c5_contract)
     if (
         old_contract.target_unit_id != OLD_TARGET_UNIT
         or old_contract.require_target_ready is not False
-        or c4_contract.target_unit_id != C4_TARGET_UNIT
-        or c4_contract.require_target_ready is not True
+        or c5_contract.target_unit_id != C5_TARGET_UNIT
+        or c5_contract.require_target_ready is not True
         or set(roots)
         != {"precleanup_inventory_receipt", "cleanup_receipt"}
         or Path(str(roots["precleanup_inventory_receipt"].get("path", ""))).absolute()
@@ -1647,31 +1736,31 @@ def validate_c4_scope_handoff(
         or any(
             not _frozen._deep_exact_equal(
                 old_projection[field.name],
-                c4_projection[field.name],
+                c5_projection[field.name],
             )
             for field in fields(old_contract)
             if field.name not in _HANDOFF_FIELDS
         )
     ):
-        raise PermissionError("c4 scope handoff semantics changed")
-    archival = validate_c4_realization_archival(
+        raise PermissionError("c5 scope handoff semantics changed")
+    archival = validate_c5_realization_archival(
         archival,
-        contract=c4_contract,
+        contract=c5_contract,
     )
     if not (
         _strict_utc(
             archival["receipt"]["created_at_utc"],
-            name="c4 realization receipt",
+            name="c5 realization receipt",
         )
         < _strict_utc(
             payload["created_at_utc"],
-            name="c4 scope handoff",
+            name="c5 scope handoff",
         )
     ):
-        raise PermissionError("c4 scope handoff predates realization")
+        raise PermissionError("c5 scope handoff predates realization")
     comparisons = (
         (expected_old_contract, old_contract),
-        (expected_c4_contract, c4_contract),
+        (expected_c5_contract, c5_contract),
         (expected_roots, roots),
         (expected_archival, archival),
         (expected_phase_guard, phase_guard),
@@ -1690,12 +1779,12 @@ def validate_c4_scope_handoff(
             else observed
         )
         if not _frozen._deep_exact_equal(left, right):
-            raise PermissionError("c4 scope handoff live binding changed")
-    _no_payload(payload, name="c4 scope handoff")
+            raise PermissionError("c5 scope handoff live binding changed")
+    _no_payload(payload, name="c5 scope handoff")
     return payload
 
 
-def build_c4_scope_handoff_in_memory(
+def build_c5_scope_handoff_in_memory(
     *,
     realization_validator: ArchivalValidator,
     phase_guard_validator: PhaseGuardValidator,
@@ -1707,24 +1796,24 @@ def build_c4_scope_handoff_in_memory(
     toolchain_reader: Callable[[], Mapping[str, object]] | None = None,
     clock: Callable[[], str] | None = None,
 ) -> dict[str, object]:
-    old_contract, c4_contract, roots = replay_old_scope_and_handoff(
+    old_contract, c5_contract, roots = replay_old_scope_and_handoff(
         prepare=prepare,
         activation_guard_reader=activation_guard_reader,
     )
     archival = _resolve_archival(
         realization_validator,
-        contract=c4_contract,
+        contract=c5_contract,
     )
-    phase_guard = _validate_c4_phase_guard(phase_guard_validator())
+    phase_guard = _validate_c5_phase_guard(phase_guard_validator())
     toolchain = dict(
         (toolchain_reader or _frozen.current_runtime_toolchain_binding)()
     )
     body: dict[str, object] = {
-        "schema_version": C4_HANDOFF_SCHEMA,
+        "schema_version": C5_HANDOFF_SCHEMA,
         "created_at_utc": (clock or _frozen.utc_now)(),
-        "runtime_compatibility_id": "c4",
+        "runtime_compatibility_id": "c5",
         "old_contract": _normalized_contract_value(old_contract),
-        "c4_contract": _normalized_contract_value(c4_contract),
+        "c5_contract": _normalized_contract_value(c5_contract),
         "changed_fields": ["require_target_ready", "target_unit_id"],
         "root_evidence": dict(roots),
         "realization": archival,
@@ -1742,20 +1831,20 @@ def build_c4_scope_handoff_in_memory(
         "training_started": False,
         "materialization_consumed": False,
     }
-    return validate_c4_scope_handoff(
+    return validate_c5_scope_handoff(
         {
             **body,
-            "scope_handoff_fingerprint": _frozen.stable_fingerprint(body),
+            "scope_handoff_fingerprint": _stable_fingerprint(body),
         },
         expected_old_contract=old_contract,
-        expected_c4_contract=c4_contract,
+        expected_c5_contract=c5_contract,
         expected_roots=roots,
         expected_archival=archival,
         expected_phase_guard=phase_guard,
     )
 
 
-def build_c4_policy_in_memory(
+def build_c5_policy_in_memory(
     scope_handoff: Mapping[str, object],
     *,
     realization_validator: ArchivalValidator,
@@ -1766,27 +1855,27 @@ def build_c4_policy_in_memory(
     | None = None,
     toolchain_reader: Callable[[], Mapping[str, object]] | None = None,
 ) -> dict[str, object]:
-    """Build, but do not write, the fixed c4 fresh environment policy."""
+    """Build, but do not write, the fixed c5 fresh environment policy."""
 
-    old_contract, c4_contract, roots = replay_old_scope_and_handoff(
+    old_contract, c5_contract, roots = replay_old_scope_and_handoff(
         prepare=prepare,
         activation_guard_reader=activation_guard_reader,
     )
     archival = _resolve_archival(
         realization_validator,
-        contract=c4_contract,
+        contract=c5_contract,
     )
-    validate_c4_scope_handoff(
+    validate_c5_scope_handoff(
         scope_handoff,
         expected_old_contract=old_contract,
-        expected_c4_contract=c4_contract,
+        expected_c5_contract=c5_contract,
         expected_roots=roots,
         expected_archival=archival,
     )
     if toolchain_reader is None:
         toolchain_reader = _frozen.current_runtime_toolchain_binding
     policy = _frozen.build_environment_policy(
-        c4_contract,
+        c5_contract,
         precleanup_root_binding=roots["precleanup_inventory_receipt"],
         cleanup_root_binding=roots["cleanup_receipt"],
         toolchain_binding=toolchain_reader(),
@@ -1797,15 +1886,15 @@ def build_c4_policy_in_memory(
     if not (
         _strict_utc(
             archival["receipt"]["created_at_utc"],
-            name="c4 realization receipt",
+            name="c5 realization receipt",
         )
-        < _strict_utc(policy["created_at_utc"], name="c4 policy")
+        < _strict_utc(policy["created_at_utc"], name="c5 policy")
     ):
-        raise PermissionError("c4 policy predates unit realization")
+        raise PermissionError("c5 policy predates unit realization")
     return policy
 
 
-def validate_c4_stability_attempt(
+def validate_c5_stability_attempt(
     value: Mapping[str, object],
     *,
     expected_scope_handoff_root: Mapping[str, object] | None = None,
@@ -1814,9 +1903,9 @@ def validate_c4_stability_attempt(
     expected_roots: Mapping[str, object] | None = None,
     expected_phase_guard: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """Validate the irreversible, pre-first-sample C4 attempt commit."""
+    """Validate the irreversible, pre-first-sample C5 attempt commit."""
 
-    payload = json.loads(_frozen.canonical_json(dict(value)))
+    payload = json.loads(_canonical_json(dict(value)))
     body = dict(payload)
     fingerprint = body.pop("stability_attempt_fingerprint", None)
     expected_keys = {
@@ -1845,45 +1934,45 @@ def validate_c4_stability_attempt(
     }
     if (
         set(body) != expected_keys
-        or payload.get("schema_version") != C4_STABILITY_ATTEMPT_SCHEMA
+        or payload.get("schema_version") != C5_STABILITY_ATTEMPT_SCHEMA
         or payload.get("command") != "stability-gate"
-        or payload.get("runtime_compatibility_id") != "c4"
-        or payload.get("target_unit_id") != C4_TARGET_UNIT
+        or payload.get("runtime_compatibility_id") != "c5"
+        or payload.get("target_unit_id") != C5_TARGET_UNIT
         or payload.get("sample_count") != SAMPLE_COUNT
         or payload.get("sample_interval_seconds")
         != SAMPLE_INTERVAL_SECONDS
         or payload.get("automatic_retry_allowed") is not False
         or payload.get("resume_allowed") is not False
         or payload.get("payload_authority") != "none"
-        or fingerprint != _frozen.stable_fingerprint(body)
+        or fingerprint != _stable_fingerprint(body)
     ):
-        raise PermissionError("c4 stability attempt schema changed")
-    _strict_utc(payload.get("created_at_utc"), name="c4 stability attempt")
+        raise PermissionError("c5 stability attempt schema changed")
+    _strict_utc(payload.get("created_at_utc"), name="c5 stability attempt")
     try:
         contract = _contract_from_mapping(payload["contract"])
         roots = dict(payload["root_evidence"])
         handoff_root = _validate_custom_live_root(
             payload["scope_handoff_root"],
-            path=C4_SCOPE_HANDOFF_PATH,
+            path=C5_SCOPE_HANDOFF_PATH,
             fingerprint_field="scope_handoff_fingerprint",
         )
         policy_root = _validate_custom_live_root(
             payload["policy_root"],
-            path=C4_POLICY_PATH,
+            path=C5_POLICY_PATH,
             fingerprint_field="policy_fingerprint",
         )
-        phase_guard = _validate_c4_phase_guard(payload["phase_guard"])
+        phase_guard = _validate_c5_phase_guard(payload["phase_guard"])
         toolchain = dict(payload["toolchain"])
     except (KeyError, TypeError, ValueError) as error:
-        raise PermissionError("c4 stability attempt content is malformed") from error
+        raise PermissionError("c5 stability attempt content is malformed") from error
     if (
-        contract.target_unit_id != C4_TARGET_UNIT
+        contract.target_unit_id != C5_TARGET_UNIT
         or contract.require_target_ready is not True
         or set(roots)
         != {"precleanup_inventory_receipt", "cleanup_receipt"}
         or not toolchain
     ):
-        raise PermissionError("c4 stability attempt semantics changed")
+        raise PermissionError("c5 stability attempt semantics changed")
     comparisons = (
         (expected_scope_handoff_root, handoff_root),
         (expected_policy_root, policy_root),
@@ -1901,12 +1990,12 @@ def validate_c4_stability_attempt(
             expected,
             observed,
         ):
-            raise PermissionError("c4 stability attempt binding changed")
-    _no_payload(payload, name="c4 stability attempt")
+            raise PermissionError("c5 stability attempt binding changed")
+    _no_payload(payload, name="c5 stability attempt")
     return payload
 
 
-def _build_c4_stability_attempt(
+def _build_c5_stability_attempt(
     *,
     contract: object,
     roots: Mapping[str, object],
@@ -1917,11 +2006,11 @@ def _build_c4_stability_attempt(
     clock: Callable[[], str],
 ) -> dict[str, object]:
     body: dict[str, object] = {
-        "schema_version": C4_STABILITY_ATTEMPT_SCHEMA,
+        "schema_version": C5_STABILITY_ATTEMPT_SCHEMA,
         "created_at_utc": clock(),
         "command": "stability-gate",
-        "runtime_compatibility_id": "c4",
-        "target_unit_id": C4_TARGET_UNIT,
+        "runtime_compatibility_id": "c5",
+        "target_unit_id": C5_TARGET_UNIT,
         "contract": _normalized_contract_value(contract),
         "root_evidence": dict(roots),
         "scope_handoff_root": dict(scope_handoff_root),
@@ -1940,10 +2029,10 @@ def _build_c4_stability_attempt(
         "training_started": False,
         "materialization_consumed": False,
     }
-    return validate_c4_stability_attempt(
+    return validate_c5_stability_attempt(
         {
             **body,
-            "stability_attempt_fingerprint": _frozen.stable_fingerprint(
+            "stability_attempt_fingerprint": _stable_fingerprint(
                 body
             ),
         },
@@ -1955,14 +2044,14 @@ def _build_c4_stability_attempt(
     )
 
 
-def validate_c4_stability_terminal(
+def validate_c5_stability_terminal(
     value: Mapping[str, object],
     *,
     expected_attempt_root: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """Validate the failure-only C4 stability terminal."""
+    """Validate the failure-only C5 stability terminal."""
 
-    payload = json.loads(_frozen.canonical_json(dict(value)))
+    payload = json.loads(_canonical_json(dict(value)))
     body = dict(payload)
     fingerprint = body.pop("stability_terminal_fingerprint", None)
     expected_keys = {
@@ -1992,9 +2081,9 @@ def validate_c4_stability_terminal(
     }
     if (
         set(body) != expected_keys
-        or payload.get("schema_version") != C4_STABILITY_TERMINAL_SCHEMA
+        or payload.get("schema_version") != C5_STABILITY_TERMINAL_SCHEMA
         or payload.get("command") != "stability-gate"
-        or payload.get("runtime_compatibility_id") != "c4"
+        or payload.get("runtime_compatibility_id") != "c5"
         or payload.get("outcome") != "failed"
         or type(payload.get("completed_sample_count")) is not int
         or not 0 <= payload["completed_sample_count"] <= SAMPLE_COUNT
@@ -2006,30 +2095,30 @@ def validate_c4_stability_terminal(
         or not payload["error_type"]
         or not isinstance(payload.get("error_message"), str)
         or payload.get("passed") is not False
-        or payload.get("blockers") != ["c4_stability_gate_exception"]
+        or payload.get("blockers") != ["c5_stability_gate_exception"]
         or payload.get("success_stability_absent_at_creation") is not True
         or payload.get("automatic_retry_allowed") is not False
         or payload.get("resume_allowed") is not False
         or payload.get("payload_authority") != "none"
-        or fingerprint != _frozen.stable_fingerprint(body)
+        or fingerprint != _stable_fingerprint(body)
     ):
-        raise PermissionError("c4 stability terminal schema changed")
-    _strict_utc(payload.get("created_at_utc"), name="c4 stability terminal")
+        raise PermissionError("c5 stability terminal schema changed")
+    _strict_utc(payload.get("created_at_utc"), name="c5 stability terminal")
     attempt_root = _validate_custom_live_root(
         payload["attempt_root"],
-        path=C4_STABILITY_ATTEMPT_PATH,
+        path=C5_STABILITY_ATTEMPT_PATH,
         fingerprint_field="stability_attempt_fingerprint",
     )
     if expected_attempt_root is not None and not _frozen._deep_exact_equal(
         attempt_root,
         expected_attempt_root,
     ):
-        raise PermissionError("c4 stability terminal attempt root changed")
-    _no_payload(payload, name="c4 stability terminal")
+        raise PermissionError("c5 stability terminal attempt root changed")
+    _no_payload(payload, name="c5 stability terminal")
     return payload
 
 
-def _build_c4_stability_terminal(
+def _build_c5_stability_terminal(
     *,
     attempt_root: Mapping[str, object],
     completed_sample_count: int,
@@ -2039,10 +2128,10 @@ def _build_c4_stability_terminal(
     clock: Callable[[], str],
 ) -> dict[str, object]:
     body: dict[str, object] = {
-        "schema_version": C4_STABILITY_TERMINAL_SCHEMA,
+        "schema_version": C5_STABILITY_TERMINAL_SCHEMA,
         "created_at_utc": clock(),
         "command": "stability-gate",
-        "runtime_compatibility_id": "c4",
+        "runtime_compatibility_id": "c5",
         "outcome": "failed",
         "attempt_root": dict(attempt_root),
         "completed_sample_count": completed_sample_count,
@@ -2051,7 +2140,7 @@ def _build_c4_stability_terminal(
         "error_type": type(error).__name__,
         "error_message": str(error),
         "passed": False,
-        "blockers": ["c4_stability_gate_exception"],
+        "blockers": ["c5_stability_gate_exception"],
         "success_stability_absent_at_creation": True,
         "automatic_retry_allowed": False,
         "resume_allowed": False,
@@ -2063,10 +2152,10 @@ def _build_c4_stability_terminal(
         "training_started": False,
         "materialization_consumed": False,
     }
-    return validate_c4_stability_terminal(
+    return validate_c5_stability_terminal(
         {
             **body,
-            "stability_terminal_fingerprint": _frozen.stable_fingerprint(
+            "stability_terminal_fingerprint": _stable_fingerprint(
                 body
             ),
         },
@@ -2074,7 +2163,7 @@ def _build_c4_stability_terminal(
     )
 
 
-def _validate_c4_stability_lane_state(
+def _validate_c5_stability_lane_state(
     value: Mapping[str, bool],
     *,
     expected: tuple[bool, bool, bool],
@@ -2086,11 +2175,11 @@ def _validate_c4_stability_lane_state(
         or tuple(state[name] for name in ("attempt", "success", "terminal"))
         != expected
     ):
-        raise PermissionError("c4 stability lane state changed")
+        raise PermissionError("c5 stability lane state changed")
     return state
 
 
-def run_c4_stability_in_memory(
+def run_c5_stability_in_memory(
     scope_handoff: Mapping[str, object],
     policy: Mapping[str, object],
     *,
@@ -2114,7 +2203,7 @@ def run_c4_stability_in_memory(
     toolchain_reader: Callable[[], Mapping[str, object]] | None = None,
     clock: Callable[[], str] | None = None,
 ) -> dict[str, object]:
-    """Commit once, sample C4 directly, and seal one terminal outcome."""
+    """Commit once, sample C5 directly, and seal one terminal outcome."""
 
     if not all(
         callable(candidate)
@@ -2130,7 +2219,7 @@ def run_c4_stability_in_memory(
             lane_state_reader,
         )
     ):
-        raise PermissionError("c4 stability closure dependency is absent")
+        raise PermissionError("c5 stability closure dependency is absent")
     sleep_once = sleeper or time.sleep
     monotonic = monotonic_clock or time.monotonic
     read_toolchain = (
@@ -2146,40 +2235,40 @@ def run_c4_stability_in_memory(
 
     def checkpoint(*, require_attempt: bool) -> dict[str, object]:
         _require_frozen_environment_source()
-        old_contract, c4_contract, roots = replay_old_scope_and_handoff(
+        old_contract, c5_contract, roots = replay_old_scope_and_handoff(
             prepare=prepare,
             activation_guard_reader=activation_guard_reader,
         )
         archival = _resolve_archival(
             realization_validator,
-            contract=c4_contract,
+            contract=c5_contract,
         )
-        current_guard = _validate_c4_phase_guard(
+        current_guard = _validate_c5_phase_guard(
             phase_guard_validator()
         )
         live_handoff, live_handoff_root = scope_handoff_reader()
-        live_handoff = validate_c4_scope_handoff(
+        live_handoff = validate_c5_scope_handoff(
             live_handoff,
             expected_old_contract=old_contract,
-            expected_c4_contract=c4_contract,
+            expected_c5_contract=c5_contract,
             expected_roots=roots,
             expected_archival=archival,
             expected_phase_guard=current_guard,
         )
         live_handoff_root = _validate_custom_live_root(
             live_handoff_root,
-            path=C4_SCOPE_HANDOFF_PATH,
+            path=C5_SCOPE_HANDOFF_PATH,
             fingerprint_field="scope_handoff_fingerprint",
         )
         live_policy, live_policy_root = policy_reader()
         live_policy_root = _validate_custom_live_root(
             live_policy_root,
-            path=C4_POLICY_PATH,
+            path=C5_POLICY_PATH,
             fingerprint_field="policy_fingerprint",
         )
-        live_policy = _validate_c4_policy_contract(
+        live_policy = _validate_c5_policy_contract(
             live_policy,
-            c4_contract=c4_contract,
+            c5_contract=c5_contract,
             roots=roots,
             archival=archival,
         )
@@ -2200,10 +2289,10 @@ def run_c4_stability_in_memory(
                 current_toolchain,
             )
         ):
-            raise PermissionError("c4 checkpoint policy/source binding changed")
+            raise PermissionError("c5 checkpoint policy/source binding changed")
         observed = {
             "old_contract": _normalized_contract_value(old_contract),
-            "c4_contract": _normalized_contract_value(c4_contract),
+            "c5_contract": _normalized_contract_value(c5_contract),
             "roots": dict(roots),
             "archival": archival,
             "phase_guard": current_guard,
@@ -2213,24 +2302,24 @@ def run_c4_stability_in_memory(
         }
         nonlocal baseline
         if baseline is None:
-            baseline = json.loads(_frozen.canonical_json(observed))
+            baseline = json.loads(_canonical_json(observed))
         elif not _frozen._deep_exact_equal(observed, baseline):
-            raise PermissionError("c4 checkpoint generation drifted")
+            raise PermissionError("c5 checkpoint generation drifted")
         if require_attempt:
             if attempt_value is None or attempt_root is None:
-                raise PermissionError("c4 committed attempt is unavailable")
+                raise PermissionError("c5 committed attempt is unavailable")
             live_attempt, live_attempt_root = attempt_reader()
-            live_attempt = validate_c4_stability_attempt(
+            live_attempt = validate_c5_stability_attempt(
                 live_attempt,
                 expected_scope_handoff_root=live_handoff_root,
                 expected_policy_root=live_policy_root,
-                expected_contract=c4_contract,
+                expected_contract=c5_contract,
                 expected_roots=roots,
                 expected_phase_guard=current_guard,
             )
             live_attempt_root = _validate_custom_live_root(
                 live_attempt_root,
-                path=C4_STABILITY_ATTEMPT_PATH,
+                path=C5_STABILITY_ATTEMPT_PATH,
                 fingerprint_field="stability_attempt_fingerprint",
             )
             if (
@@ -2242,19 +2331,19 @@ def run_c4_stability_in_memory(
                 or live_attempt_root.get("stability_attempt_fingerprint")
                 != live_attempt.get("stability_attempt_fingerprint")
             ):
-                raise PermissionError("c4 committed attempt changed")
+                raise PermissionError("c5 committed attempt changed")
         _require_frozen_environment_source()
         return observed
 
     try:
-        _validate_c4_stability_lane_state(
+        _validate_c5_stability_lane_state(
             lane_state_reader(),
             expected=(False, False, False),
         )
         pre = checkpoint(require_attempt=False)
-        c4_contract = _contract_from_mapping(pre["c4_contract"])
-        attempt_value = _build_c4_stability_attempt(
-            contract=c4_contract,
+        c5_contract = _contract_from_mapping(pre["c5_contract"])
+        attempt_value = _build_c5_stability_attempt(
+            contract=c5_contract,
             roots=pre["roots"],
             scope_handoff_root=pre["scope_handoff_root"],
             policy_root=pre["policy_root"],
@@ -2263,25 +2352,25 @@ def run_c4_stability_in_memory(
             clock=utc_clock,
         )
         if not (
-            _strict_utc(policy["created_at_utc"], name="c4 policy")
+            _strict_utc(policy["created_at_utc"], name="c5 policy")
             < _strict_utc(
                 attempt_value["created_at_utc"],
-                name="c4 stability attempt",
+                name="c5 stability attempt",
             )
         ):
-            raise PermissionError("c4 stability attempt predates policy")
+            raise PermissionError("c5 stability attempt predates policy")
         written_attempt, written_attempt_root = attempt_writer(attempt_value)
-        written_attempt = validate_c4_stability_attempt(
+        written_attempt = validate_c5_stability_attempt(
             written_attempt,
             expected_scope_handoff_root=pre["scope_handoff_root"],
             expected_policy_root=pre["policy_root"],
-            expected_contract=c4_contract,
+            expected_contract=c5_contract,
             expected_roots=pre["roots"],
             expected_phase_guard=pre["phase_guard"],
         )
         attempt_root = _validate_custom_live_root(
             written_attempt_root,
-            path=C4_STABILITY_ATTEMPT_PATH,
+            path=C5_STABILITY_ATTEMPT_PATH,
             fingerprint_field="stability_attempt_fingerprint",
         )
         if (
@@ -2289,8 +2378,8 @@ def run_c4_stability_in_memory(
             or attempt_root.get("stability_attempt_fingerprint")
             != written_attempt.get("stability_attempt_fingerprint")
         ):
-            raise PermissionError("c4 stability attempt seal changed")
-        _validate_c4_stability_lane_state(
+            raise PermissionError("c5 stability attempt seal changed")
+        _validate_c5_stability_lane_state(
             lane_state_reader(),
             expected=(True, False, False),
         )
@@ -2306,7 +2395,7 @@ def run_c4_stability_in_memory(
         samples: list[dict[str, object]] = []
         sample_monotonic_seconds: list[float] = []
         samples.append(
-            _frozen.audit_environment_once(c4_contract, **audit_kwargs)
+            _frozen.audit_environment_once(c5_contract, **audit_kwargs)
         )
         completed_sample_count = 1
         sample_monotonic_seconds.append(float(monotonic()))
@@ -2315,7 +2404,7 @@ def run_c4_stability_in_memory(
         completed_sleep_count = 1
         checkpoint(require_attempt=True)
         samples.append(
-            _frozen.audit_environment_once(c4_contract, **audit_kwargs)
+            _frozen.audit_environment_once(c5_contract, **audit_kwargs)
         )
         completed_sample_count = 2
         sample_monotonic_seconds.append(float(monotonic()))
@@ -2324,7 +2413,7 @@ def run_c4_stability_in_memory(
         root_evidence = dict(post["roots"])
         root_evidence["policy"] = dict(post["policy_root"])
         stability = _frozen.evaluate_environment_stability(
-            c4_contract,
+            c5_contract,
             root_evidence,
             samples,
             sample_interval_seconds=SAMPLE_INTERVAL_SECONDS,
@@ -2334,15 +2423,15 @@ def run_c4_stability_in_memory(
             stability
         )
         if stability.get("passed") is not True or stability.get("blockers") != []:
-            raise PermissionError("c4 direct stability evaluation failed")
-        validate_c4_environment_closure(
+            raise PermissionError("c5 direct stability evaluation failed")
+        validate_c5_environment_closure(
             scope_handoff,
             attempt_value,
             policy,
             stability,
             None,
             archival=post["archival"],
-            c4_contract=c4_contract,
+            c5_contract=c5_contract,
         )
         failure_phase = "success-seal"
         sealed_stability, stability_root = success_writer(stability)
@@ -2351,7 +2440,7 @@ def run_c4_stability_in_memory(
         )
         stability_root = _validate_custom_live_root(
             stability_root,
-            path=C4_STABILITY_PATH,
+            path=C5_STABILITY_PATH,
             fingerprint_field="stability_receipt_fingerprint",
         )
         if (
@@ -2359,25 +2448,25 @@ def run_c4_stability_in_memory(
             or stability_root.get("stability_receipt_fingerprint")
             != sealed_stability.get("stability_receipt_fingerprint")
         ):
-            raise PermissionError("c4 success stability seal changed")
-        _validate_c4_stability_lane_state(
+            raise PermissionError("c5 success stability seal changed")
+        _validate_c5_stability_lane_state(
             lane_state_reader(),
             expected=(True, True, False),
         )
-        validate_c4_environment_closure(
+        validate_c5_environment_closure(
             scope_handoff,
             attempt_value,
             policy,
             sealed_stability,
             None,
             archival=post["archival"],
-            c4_contract=c4_contract,
+            c5_contract=c5_contract,
         )
         return dict(sealed_stability)
     except BaseException as error:
         if attempt_root is not None:
             try:
-                state = _validate_c4_stability_lane_state(
+                state = _validate_c5_stability_lane_state(
                     lane_state_reader(),
                     expected=(True, False, False),
                 )
@@ -2388,7 +2477,7 @@ def run_c4_stability_in_memory(
                 "success": False,
                 "terminal": False,
             }:
-                terminal = _build_c4_stability_terminal(
+                terminal = _build_c5_stability_terminal(
                     attempt_root=attempt_root,
                     completed_sample_count=completed_sample_count,
                     completed_sleep_count=completed_sleep_count,
@@ -2400,13 +2489,13 @@ def run_c4_stability_in_memory(
                     sealed_terminal, terminal_root = terminal_writer(
                         terminal
                     )
-                    validate_c4_stability_terminal(
+                    validate_c5_stability_terminal(
                         sealed_terminal,
                         expected_attempt_root=attempt_root,
                     )
                     terminal_root = _validate_custom_live_root(
                         terminal_root,
-                        path=C4_STABILITY_TERMINAL_PATH,
+                        path=C5_STABILITY_TERMINAL_PATH,
                         fingerprint_field="stability_terminal_fingerprint",
                     )
                     if (
@@ -2418,21 +2507,21 @@ def run_c4_stability_in_memory(
                         )
                     ):
                         raise PermissionError(
-                            "c4 failure terminal seal changed"
+                            "c5 failure terminal seal changed"
                         )
-                    _validate_c4_stability_lane_state(
+                    _validate_c5_stability_lane_state(
                         lane_state_reader(),
                         expected=(True, False, True),
                     )
                 except BaseException as terminal_error:
                     terminal_error.add_note(
-                        "C4 ATTEMPT is consumed; same-generation retry is forbidden"
+                        "C5 ATTEMPT is consumed; same-generation retry is forbidden"
                     )
                     raise terminal_error from error
         raise
 
 
-def build_c4_postcleanup_in_memory(
+def build_c5_postcleanup_in_memory(
     scope_handoff: Mapping[str, object],
     stability_attempt: Mapping[str, object],
     policy: Mapping[str, object],
@@ -2455,27 +2544,27 @@ def build_c4_postcleanup_in_memory(
             live_roots,
             required=frozenset({"policy", "stability"}),
         )
-    _old, c4_contract, _roots = replay_old_scope_and_handoff(
+    _old, c5_contract, _roots = replay_old_scope_and_handoff(
         prepare=prepare,
         activation_guard_reader=activation_guard_reader,
     )
     archival = _resolve_archival(
         realization_validator,
-        contract=c4_contract,
+        contract=c5_contract,
     )
-    validate_c4_environment_closure(
+    validate_c5_environment_closure(
         scope_handoff,
         stability_attempt,
         policy,
         stability,
         None,
         archival=archival,
-        c4_contract=c4_contract,
+        c5_contract=c5_contract,
         live_roots=verified_live_roots,
     )
     samples = list(stability["samples"])
     inventory = json.loads(
-        _frozen.canonical_json(samples[-1]["inventory"])
+        _canonical_json(samples[-1]["inventory"])
     )
     endpoint = dict(inventory["manager"]["endpoint"])
     body = {
@@ -2501,26 +2590,26 @@ def build_c4_postcleanup_in_memory(
     }
     postcleanup = {
         **body,
-        "receipt_fingerprint": _frozen.stable_fingerprint(body),
+        "receipt_fingerprint": _stable_fingerprint(body),
     }
-    validate_c4_environment_closure(
+    validate_c5_environment_closure(
         scope_handoff,
         stability_attempt,
         policy,
         stability,
         postcleanup,
         archival=archival,
-        c4_contract=c4_contract,
+        c5_contract=c5_contract,
         live_roots=verified_live_roots,
     )
     return postcleanup
 
 
 def _normalized_contract(contract: object) -> dict[str, object]:
-    return json.loads(_frozen.canonical_json(asdict(contract)))
+    return json.loads(_canonical_json(asdict(contract)))
 
 
-def validate_c4_environment_closure(
+def validate_c5_environment_closure(
     scope_handoff: Mapping[str, object],
     stability_attempt: Mapping[str, object],
     policy: Mapping[str, object],
@@ -2528,7 +2617,7 @@ def validate_c4_environment_closure(
     postcleanup: Mapping[str, object] | None,
     *,
     archival: Mapping[str, object],
-    c4_contract: object,
+    c5_contract: object,
     live_roots: Mapping[str, Mapping[str, object]] | None = None,
 ) -> dict[str, object]:
     """Validate all cross-bindings omitted by the generic frozen validator.
@@ -2539,66 +2628,66 @@ def validate_c4_environment_closure(
     in-memory validation.
     """
 
-    if os.path.lexists(C4_STABILITY_TERMINAL_PATH):
+    if os.path.lexists(C5_STABILITY_TERMINAL_PATH):
         raise PermissionError(
-            "c4 PASS stability and failure terminal are mutually exclusive"
+            "c5 PASS stability and failure terminal are mutually exclusive"
         )
     verified_live_roots = None
     live_required = frozenset()
-    fixed_handoff = os.path.lexists(C4_SCOPE_HANDOFF_PATH)
-    fixed_attempt = os.path.lexists(C4_STABILITY_ATTEMPT_PATH)
+    fixed_handoff = os.path.lexists(C5_SCOPE_HANDOFF_PATH)
+    fixed_attempt = os.path.lexists(C5_STABILITY_ATTEMPT_PATH)
     fixed_handoff_root: dict[str, object] | None = None
     fixed_attempt_root: dict[str, object] | None = None
     fixed_state = (
-        os.path.lexists(C4_POLICY_PATH),
-        os.path.lexists(C4_STABILITY_PATH),
+        os.path.lexists(C5_POLICY_PATH),
+        os.path.lexists(C5_STABILITY_PATH),
     )
-    fixed_postcleanup = os.path.lexists(C4_POSTCLEANUP_PATH)
+    fixed_postcleanup = os.path.lexists(C5_POSTCLEANUP_PATH)
     fixed_postcleanup_root: dict[str, object] | None = None
     if fixed_state == (False, True):
         raise PermissionError(
-            "c4 closure fixed live-root state is partial"
+            "c5 closure fixed live-root state is partial"
         )
     if fixed_attempt and not fixed_handoff:
-        raise PermissionError("c4 fixed attempt has no scope handoff")
+        raise PermissionError("c5 fixed attempt has no scope handoff")
     if any(fixed_state) or fixed_postcleanup:
         if not fixed_handoff or not fixed_attempt:
             raise PermissionError(
-                "c4 fixed environment predecessors are incomplete"
+                "c5 fixed environment predecessors are incomplete"
             )
     if fixed_handoff:
         live_handoff, fixed_handoff_root = _read_live_sealed(
-            C4_SCOPE_HANDOFF_PATH,
+            C5_SCOPE_HANDOFF_PATH,
             fingerprint_field="scope_handoff_fingerprint",
         )
         if not _frozen._deep_exact_equal(live_handoff, scope_handoff):
-            raise PermissionError("c4 fixed scope handoff changed")
+            raise PermissionError("c5 fixed scope handoff changed")
     if fixed_attempt:
         live_attempt, fixed_attempt_root = _read_live_sealed(
-            C4_STABILITY_ATTEMPT_PATH,
+            C5_STABILITY_ATTEMPT_PATH,
             fingerprint_field="stability_attempt_fingerprint",
         )
         if not _frozen._deep_exact_equal(
             live_attempt,
             stability_attempt,
         ):
-            raise PermissionError("c4 fixed stability attempt changed")
+            raise PermissionError("c5 fixed stability attempt changed")
     if fixed_postcleanup and fixed_state != (True, True):
         raise PermissionError(
-            "c4 fixed postcleanup predecessors are incomplete"
+            "c5 fixed postcleanup predecessors are incomplete"
         )
     if fixed_state == (True, False):
         if postcleanup is not None:
             raise PermissionError(
-                "c4 postcleanup fixed live roots are incomplete"
+                "c5 postcleanup fixed live roots are incomplete"
             )
         live_policy, policy_root = _read_live_sealed(
-            C4_POLICY_PATH,
+            C5_POLICY_PATH,
             fingerprint_field="policy_fingerprint",
         )
         if not _frozen._deep_exact_equal(live_policy, policy):
             raise PermissionError(
-                "c4 fixed policy payload changed"
+                "c5 fixed policy payload changed"
             )
         if live_roots is not None:
             supplied = _verify_exact_live_roots(
@@ -2610,16 +2699,16 @@ def validate_c4_environment_closure(
                 policy_root,
             ):
                 raise PermissionError(
-                    "c4 supplied policy root changed"
+                    "c5 supplied policy root changed"
                 )
         live_roots = {"policy": policy_root}
     elif fixed_state == (True, True):
         live_policy, policy_root = _read_live_sealed(
-            C4_POLICY_PATH,
+            C5_POLICY_PATH,
             fingerprint_field="policy_fingerprint",
         )
         live_stability, stability_root = _read_live_sealed(
-            C4_STABILITY_PATH,
+            C5_STABILITY_PATH,
             fingerprint_field="stability_receipt_fingerprint",
         )
         if (
@@ -2630,7 +2719,7 @@ def validate_c4_environment_closure(
             )
         ):
             raise PermissionError(
-                "c4 fixed environment payload changed"
+                "c5 fixed environment payload changed"
             )
         fixed_roots = {
             "policy": policy_root,
@@ -2643,7 +2732,7 @@ def validate_c4_environment_closure(
                 frozenset({"policy", "stability"}),
             }:
                 raise PermissionError(
-                    "c4 closure supplied live-root lane changed"
+                    "c5 closure supplied live-root lane changed"
                 )
             supplied = _verify_exact_live_roots(
                 live_roots,
@@ -2657,16 +2746,16 @@ def validate_c4_environment_closure(
                 for name in supplied_required
             ):
                 raise PermissionError(
-                    "c4 supplied fixed live root changed"
+                    "c5 supplied fixed live root changed"
                 )
         live_roots = fixed_roots
     if fixed_postcleanup:
         if postcleanup is None:
             raise PermissionError(
-                "c4 fixed postcleanup payload was omitted"
+                "c5 fixed postcleanup payload was omitted"
             )
         live_postcleanup, fixed_postcleanup_root = _read_live_sealed(
-            C4_POSTCLEANUP_PATH,
+            C5_POSTCLEANUP_PATH,
             fingerprint_field="receipt_fingerprint",
         )
         if not _frozen._deep_exact_equal(
@@ -2674,7 +2763,7 @@ def validate_c4_environment_closure(
             postcleanup,
         ):
             raise PermissionError(
-                "c4 fixed postcleanup payload changed"
+                "c5 fixed postcleanup payload changed"
             )
     if live_roots is not None:
         live_required = frozenset(live_roots)
@@ -2684,7 +2773,7 @@ def validate_c4_environment_closure(
             else {frozenset({"policy", "stability"})}
         )
         if live_required not in allowed:
-            raise PermissionError("c4 closure live-root lane changed")
+            raise PermissionError("c5 closure live-root lane changed")
         verified_live_roots = _verify_exact_live_roots(
             live_roots,
             required=live_required,
@@ -2693,23 +2782,23 @@ def validate_c4_environment_closure(
     stability_value = _frozen.validate_environment_stability_receipt(
         stability
     )
-    archival_value = validate_c4_realization_archival(
+    archival_value = validate_c5_realization_archival(
         archival,
-        contract=c4_contract,
+        contract=c5_contract,
     )
-    handoff_value = validate_c4_scope_handoff(
+    handoff_value = validate_c5_scope_handoff(
         scope_handoff,
-        expected_c4_contract=c4_contract,
+        expected_c5_contract=c5_contract,
         expected_archival=archival_value,
     )
-    _no_payload(policy_value, name="c4 environment policy")
-    _no_payload(stability_value, name="c4 environment stability")
+    _no_payload(policy_value, name="c5 environment policy")
+    _no_payload(stability_value, name="c5 environment stability")
     scope = dict(policy_value["unit_scope"])
     sampling = dict(policy_value["sampling"])
     contract_value = dict(stability_value["contract"])
     samples = list(stability_value["samples"])
     expected_policy = _frozen.build_environment_policy(
-        c4_contract,
+        c5_contract,
         precleanup_root_binding=policy_value["precleanup_root"],
         cleanup_root_binding=policy_value["cleanup_root"],
         toolchain_binding=policy_value["toolchain"],
@@ -2725,10 +2814,10 @@ def validate_c4_environment_closure(
     )
     roots = dict(stability_value["root_evidence"])
     policy_root = dict(roots.get("policy", {}))
-    attempt_value = validate_c4_stability_attempt(
+    attempt_value = validate_c5_stability_attempt(
         stability_attempt,
         expected_policy_root=policy_root,
-        expected_contract=c4_contract,
+        expected_contract=c5_contract,
         expected_roots={
             "precleanup_inventory_receipt": roots.get(
                 "precleanup_inventory_receipt"
@@ -2748,9 +2837,9 @@ def validate_c4_environment_closure(
         and fixed_attempt_root.get("stability_attempt_fingerprint")
         != attempt_value.get("stability_attempt_fingerprint")
     ):
-        raise PermissionError("c4 fixed handoff/attempt root changed")
+        raise PermissionError("c5 fixed handoff/attempt root changed")
     if (
-        scope.get("target_unit_id") != C4_TARGET_UNIT
+        scope.get("target_unit_id") != C5_TARGET_UNIT
         or scope.get("require_target_ready") is not True
         or not _frozen._deep_exact_equal(
             policy_body,
@@ -2764,7 +2853,7 @@ def validate_c4_environment_closure(
         or Path(str(policy_value["cleanup_root"]["path"])).absolute()
         != CLEANUP_RECEIPT_PATH.absolute()
         or Path(str(policy_root.get("path", ""))).absolute()
-        != C4_POLICY_PATH.absolute()
+        != C5_POLICY_PATH.absolute()
         or policy_root.get("policy_fingerprint")
         != policy_value.get("policy_fingerprint")
         or verified_live_roots is not None
@@ -2799,7 +2888,7 @@ def validate_c4_environment_closure(
         )
         or not _frozen._deep_exact_equal(
             contract_value,
-            _normalized_contract(c4_contract),
+            _normalized_contract(c5_contract),
         )
         or stability_value.get("sample_count") != SAMPLE_COUNT
         or stability_value.get("sample_interval_seconds")
@@ -2808,43 +2897,43 @@ def validate_c4_environment_closure(
         or stability_value.get("passed") is not True
         or stability_value.get("blockers") != []
     ):
-        raise PermissionError("c4 stability scope handoff is not exact")
+        raise PermissionError("c5 stability scope handoff is not exact")
     realization_time = _strict_utc(
         archival_value["receipt"]["created_at_utc"],
-        name="c4 realization receipt",
+        name="c5 realization receipt",
     )
     handoff_time = _strict_utc(
         handoff_value["created_at_utc"],
-        name="c4 scope handoff",
+        name="c5 scope handoff",
     )
     policy_time = _strict_utc(
         policy_value["created_at_utc"],
-        name="c4 policy",
+        name="c5 policy",
     )
     attempt_time = _strict_utc(
         attempt_value["created_at_utc"],
-        name="c4 stability attempt",
+        name="c5 stability attempt",
     )
     if not realization_time < handoff_time < policy_time < attempt_time:
-        raise PermissionError("c4 metadata/stability chronology changed")
+        raise PermissionError("c5 metadata/stability chronology changed")
     prior_time = attempt_time
     for index, sample in enumerate(samples):
         sample_time = _strict_utc(
             sample.get("created_at_utc"),
-            name=f"c4 stability sample:{index}",
+            name=f"c5 stability sample:{index}",
         )
         try:
             inventory = dict(sample["inventory"])
             inventory_scope = dict(inventory["unit_scope"])
             target_shadow = dict(
-                inventory_scope["shadows"][C4_TARGET_UNIT]
+                inventory_scope["shadows"][C5_TARGET_UNIT]
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError(
-                f"c4 target sample is malformed:{index}"
+                f"c5 target sample is malformed:{index}"
             ) from error
         expected_target = {
-            "Id": C4_TARGET_UNIT,
+            "Id": C5_TARGET_UNIT,
             "LoadState": "loaded",
             "ActiveState": "inactive",
             "SubState": "dead",
@@ -2855,7 +2944,7 @@ def validate_c4_environment_closure(
         }
         if (
             not prior_time < sample_time
-            or inventory_scope.get("target_unit_id") != C4_TARGET_UNIT
+            or inventory_scope.get("target_unit_id") != C5_TARGET_UNIT
             or inventory_scope.get("require_target_ready") is not True
             or any(
                 target_shadow.get(key) != value
@@ -2863,21 +2952,21 @@ def validate_c4_environment_closure(
             )
             or not _frozen._deep_exact_equal(
                 _manager_generation_from_inventory(inventory),
-                _manager_generation_from_contract(c4_contract),
+                _manager_generation_from_contract(c5_contract),
             )
         ):
             raise PermissionError(
-                f"c4 target sample cross-binding changed:{index}"
+                f"c5 target sample cross-binding changed:{index}"
             )
-        _no_payload(sample, name=f"c4 stability sample:{index}")
-        _no_payload(inventory, name=f"c4 inventory:{index}")
+        _no_payload(sample, name=f"c5 stability sample:{index}")
+        _no_payload(inventory, name=f"c5 inventory:{index}")
         prior_time = sample_time
     stability_time = _strict_utc(
         stability_value.get("created_at_utc"),
-        name="c4 stability receipt",
+        name="c5 stability receipt",
     )
     if not prior_time < stability_time:
-        raise PermissionError("c4 stability receipt chronology changed")
+        raise PermissionError("c5 stability receipt chronology changed")
     prior_time = stability_time
     if postcleanup is None:
         if verified_live_roots is not None:
@@ -2911,7 +3000,7 @@ def validate_c4_environment_closure(
     final_inventory = dict(samples[-1]["inventory"])
     post_time = _strict_utc(
         post.get("created_at_utc"),
-        name="c4 postcleanup",
+        name="c5 postcleanup",
     )
     if (
         set(body) != expected_keys
@@ -2920,7 +3009,7 @@ def validate_c4_environment_closure(
         or post.get("passed") is not True
         or post.get("error_type") is not None
         or post.get("error_message") is not None
-        or fingerprint != _frozen.stable_fingerprint(body)
+        or fingerprint != _stable_fingerprint(body)
         or not _frozen._deep_exact_equal(
             post.get("inventory"),
             final_inventory,
@@ -2931,8 +3020,8 @@ def validate_c4_environment_closure(
         )
         or not prior_time < post_time
     ):
-        raise PermissionError("c4 postcleanup cross-binding changed")
-    _no_payload(post, name="c4 postcleanup")
+        raise PermissionError("c5 postcleanup cross-binding changed")
+    _no_payload(post, name="c5 postcleanup")
     if verified_live_roots is not None:
         _verify_exact_live_roots(
             verified_live_roots,
@@ -2940,7 +3029,7 @@ def validate_c4_environment_closure(
         )
     if fixed_postcleanup_root is not None:
         _verify_live_sealed(
-            C4_POSTCLEANUP_PATH,
+            C5_POSTCLEANUP_PATH,
             fixed_postcleanup_root,
             "receipt_fingerprint",
         )
@@ -2951,6 +3040,95 @@ def validate_c4_environment_closure(
         "stability": dict(stability_value),
         "postcleanup": post,
         "realization": archival_value,
+    }
+
+
+def load_c5_environment_closure() -> dict[str, object]:
+    """Load one sealed E5 PASS closure through E5's fixed producer API.
+
+    This is the only evidence-loading interface exposed to B5.  The function
+    delegates R5 authorization/receipt parsing to the hash-pinned R5 producer,
+    then reads each E5-owned lane exactly once through the no-follow sealed
+    reader and returns the five immutable roots alongside their payloads.
+    """
+
+    _require_c5_namespace()
+    _require_frozen_environment_source()
+    _load_verified_c5_bridge()
+    _load_verified_c4_failure_terminalizer()
+    _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_SHA256,
+        name="c4 receipt-seal failure terminal",
+    )
+    _require_frozen_sha256(
+        C4_FAILURE_TERMINAL_FINGERPRINT,
+        name="c4 receipt-seal failure terminal fingerprint",
+    )
+    if os.path.lexists(C5_STABILITY_TERMINAL_PATH):
+        raise PermissionError("c5 environment failure terminal closes PASS lane")
+    _old_contract, c5_contract, _roots = replay_old_scope_and_handoff()
+    archival = _production_archival_validator(
+        C5_REALIZATION_AUTHORIZATION_PATH,
+        C5_REALIZATION_RECEIPT_PATH,
+    )
+    scope_handoff, scope_handoff_root = _read_live_sealed(
+        C5_SCOPE_HANDOFF_PATH,
+        "scope_handoff_fingerprint",
+    )
+    stability_attempt, stability_attempt_root = _read_live_sealed(
+        C5_STABILITY_ATTEMPT_PATH,
+        "stability_attempt_fingerprint",
+    )
+    policy, policy_root = _read_live_sealed(
+        C5_POLICY_PATH,
+        "policy_fingerprint",
+    )
+    stability, stability_root = _read_live_sealed(
+        C5_STABILITY_PATH,
+        "stability_receipt_fingerprint",
+    )
+    postcleanup, postcleanup_root = _read_live_sealed(
+        C5_POSTCLEANUP_PATH,
+        "receipt_fingerprint",
+    )
+    validated = validate_c5_environment_closure(
+        scope_handoff,
+        stability_attempt,
+        policy,
+        stability,
+        postcleanup,
+        archival=archival,
+        c5_contract=c5_contract,
+        live_roots={
+            "policy": policy_root,
+            "stability": stability_root,
+        },
+    )
+    for expected_name, expected_value in (
+        ("scope_handoff", scope_handoff),
+        ("stability_attempt", stability_attempt),
+        ("policy", policy),
+        ("stability", stability),
+        ("postcleanup", postcleanup),
+    ):
+        if not _frozen._deep_exact_equal(
+            validated.get(expected_name),
+            expected_value,
+        ):
+            raise PermissionError("c5 environment producer returned drift")
+    return {
+        "scope_handoff": dict(scope_handoff),
+        "stability_attempt": dict(stability_attempt),
+        "policy": dict(policy),
+        "stability": dict(stability),
+        "postcleanup": dict(postcleanup),
+        "evidence_roots": {
+            "environment_scope_handoff": dict(scope_handoff_root),
+            "environment_stability_attempt": dict(stability_attempt_root),
+            "environment_policy": dict(policy_root),
+            "environment_stability": dict(stability_root),
+            "environment_postcleanup": dict(postcleanup_root),
+        },
     }
 
 
@@ -2982,12 +3160,12 @@ def _environment_binding_from_inventory(
 
 def _write_create_once(*args: object, **kwargs: object) -> None:
     del args, kwargs
-    raise PermissionError("c4 environment writes are CLI-closure only")
+    raise PermissionError("c5 environment writes are CLI-closure only")
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="CURE-Lite v24 c4 fresh environment scope handoff",
+        description="CURE-Lite v24 c5 fresh environment scope handoff",
     )
     parser.add_argument(
         "command",
@@ -3002,19 +3180,19 @@ def _validate_cli_payload(
     fingerprint_field: str,
 ) -> dict[str, object]:
     value = dict(payload)
-    _no_payload(value, name="c4 environment CLI payload")
+    _no_payload(value, name="c5 environment CLI payload")
     if fingerprint_field == "scope_handoff_fingerprint":
-        return validate_c4_scope_handoff(value)
+        return validate_c5_scope_handoff(value)
     if fingerprint_field == "stability_attempt_fingerprint":
-        return validate_c4_stability_attempt(value)
+        return validate_c5_stability_attempt(value)
     if fingerprint_field == "stability_terminal_fingerprint":
-        return validate_c4_stability_terminal(value)
+        return validate_c5_stability_terminal(value)
     if fingerprint_field == "policy_fingerprint":
         return _frozen.validate_environment_policy(value)
     if fingerprint_field == "stability_receipt_fingerprint":
         return _frozen.validate_environment_stability_receipt(value)
     if fingerprint_field != "receipt_fingerprint":
-        raise PermissionError("c4 environment fingerprint field changed")
+        raise PermissionError("c5 environment fingerprint field changed")
     body = dict(value)
     fingerprint = body.pop("receipt_fingerprint", None)
     expected_keys = {
@@ -3038,10 +3216,10 @@ def _validate_cli_payload(
         or value.get("passed") is not True
         or value.get("error_type") is not None
         or value.get("error_message") is not None
-        or fingerprint != _frozen.stable_fingerprint(body)
+        or fingerprint != _stable_fingerprint(body)
     ):
-        raise PermissionError("c4 postcleanup payload is not closed")
-    _strict_utc(value.get("created_at_utc"), name="c4 postcleanup")
+        raise PermissionError("c5 postcleanup payload is not closed")
+    _strict_utc(value.get("created_at_utc"), name="c5 postcleanup")
     return value
 
 
@@ -3049,31 +3227,33 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
     fixed_identity = (
         FROZEN_ENVIRONMENT_PATH,
         FROZEN_ENVIRONMENT_SHA256,
+        C5_TARGET_UNIT,
+        C5_FRAGMENT_PATH,
+        C5_COMPATIBILITY_BRIDGE_PATH,
+        C5_COMPATIBILITY_BRIDGE_SHA256,
+        C4_FAILURE_TERMINALIZER_PATH,
+        C4_FAILURE_TERMINALIZER_SHA256,
+        C4_FAILURE_TERMINAL_PATH,
+        C4_FAILURE_TERMINAL_SHA256,
+        C4_FAILURE_TERMINAL_FINGERPRINT,
         C4_TARGET_UNIT,
         C4_FRAGMENT_PATH,
-        C3_FAILURE_TERMINALIZER_PATH,
-        C3_FAILURE_TERMINALIZER_SHA256,
-        C3_FAILURE_TERMINAL_PATH,
-        C3_FAILURE_TERMINAL_SHA256,
-        C3_FAILURE_TERMINAL_FINGERPRINT,
-        C3_TARGET_UNIT,
-        C3_FRAGMENT_PATH,
-        tuple(_C3_REQUIRED_ABSENT_PATHS.items()),
+        tuple(_C4_REQUIRED_ABSENT_PATHS.items()),
         PRECLEANUP_PATH,
         CLEANUP_RECEIPT_PATH,
-        C4_SCOPE_HANDOFF_PATH,
-        C4_POLICY_PATH,
-        C4_STABILITY_ATTEMPT_PATH,
-        C4_STABILITY_PATH,
-        C4_STABILITY_TERMINAL_PATH,
-        C4_POSTCLEANUP_PATH,
-        C4_REALIZATION_AUTHORIZATION_PATH,
-        C4_REALIZATION_RECEIPT_PATH,
-        C4_BRIDGE_PATH,
-        C4_BRIDGE_SHA256,
-        C4_HANDOFF_SCHEMA,
-        C4_STABILITY_ATTEMPT_SCHEMA,
-        C4_STABILITY_TERMINAL_SCHEMA,
+        C5_SCOPE_HANDOFF_PATH,
+        C5_POLICY_PATH,
+        C5_STABILITY_ATTEMPT_PATH,
+        C5_STABILITY_PATH,
+        C5_STABILITY_TERMINAL_PATH,
+        C5_POSTCLEANUP_PATH,
+        C5_REALIZATION_AUTHORIZATION_PATH,
+        C5_REALIZATION_RECEIPT_PATH,
+        C5_BRIDGE_PATH,
+        C5_BRIDGE_SHA256,
+        C5_HANDOFF_SCHEMA,
+        C5_STABILITY_ATTEMPT_SCHEMA,
+        C5_STABILITY_TERMINAL_SCHEMA,
         SELECTED_GPU_INDEX,
         CONFLICT_UNIT_IDS,
         DEPENDENCY_UNIT_IDS,
@@ -3083,42 +3263,44 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
         SAMPLE_COUNT,
         SAMPLE_INTERVAL_SECONDS,
     )
-    fixed_handoff_path = C4_SCOPE_HANDOFF_PATH
-    fixed_policy_path = C4_POLICY_PATH
-    fixed_attempt_path = C4_STABILITY_ATTEMPT_PATH
-    fixed_stability_path = C4_STABILITY_PATH
-    fixed_terminal_path = C4_STABILITY_TERMINAL_PATH
-    fixed_postcleanup_path = C4_POSTCLEANUP_PATH
+    fixed_handoff_path = C5_SCOPE_HANDOFF_PATH
+    fixed_policy_path = C5_POLICY_PATH
+    fixed_attempt_path = C5_STABILITY_ATTEMPT_PATH
+    fixed_stability_path = C5_STABILITY_PATH
+    fixed_terminal_path = C5_STABILITY_TERMINAL_PATH
+    fixed_postcleanup_path = C5_POSTCLEANUP_PATH
 
     def require_fixed_identity() -> None:
         current_identity = (
             FROZEN_ENVIRONMENT_PATH,
             FROZEN_ENVIRONMENT_SHA256,
+            C5_TARGET_UNIT,
+            C5_FRAGMENT_PATH,
+            C5_COMPATIBILITY_BRIDGE_PATH,
+            C5_COMPATIBILITY_BRIDGE_SHA256,
+            C4_FAILURE_TERMINALIZER_PATH,
+            C4_FAILURE_TERMINALIZER_SHA256,
+            C4_FAILURE_TERMINAL_PATH,
+            C4_FAILURE_TERMINAL_SHA256,
+            C4_FAILURE_TERMINAL_FINGERPRINT,
             C4_TARGET_UNIT,
             C4_FRAGMENT_PATH,
-            C3_FAILURE_TERMINALIZER_PATH,
-            C3_FAILURE_TERMINALIZER_SHA256,
-            C3_FAILURE_TERMINAL_PATH,
-            C3_FAILURE_TERMINAL_SHA256,
-            C3_FAILURE_TERMINAL_FINGERPRINT,
-            C3_TARGET_UNIT,
-            C3_FRAGMENT_PATH,
-            tuple(_C3_REQUIRED_ABSENT_PATHS.items()),
+            tuple(_C4_REQUIRED_ABSENT_PATHS.items()),
             PRECLEANUP_PATH,
             CLEANUP_RECEIPT_PATH,
-            C4_SCOPE_HANDOFF_PATH,
-            C4_POLICY_PATH,
-            C4_STABILITY_ATTEMPT_PATH,
-            C4_STABILITY_PATH,
-            C4_STABILITY_TERMINAL_PATH,
-            C4_POSTCLEANUP_PATH,
-            C4_REALIZATION_AUTHORIZATION_PATH,
-            C4_REALIZATION_RECEIPT_PATH,
-            C4_BRIDGE_PATH,
-            C4_BRIDGE_SHA256,
-            C4_HANDOFF_SCHEMA,
-            C4_STABILITY_ATTEMPT_SCHEMA,
-            C4_STABILITY_TERMINAL_SCHEMA,
+            C5_SCOPE_HANDOFF_PATH,
+            C5_POLICY_PATH,
+            C5_STABILITY_ATTEMPT_PATH,
+            C5_STABILITY_PATH,
+            C5_STABILITY_TERMINAL_PATH,
+            C5_POSTCLEANUP_PATH,
+            C5_REALIZATION_AUTHORIZATION_PATH,
+            C5_REALIZATION_RECEIPT_PATH,
+            C5_BRIDGE_PATH,
+            C5_BRIDGE_SHA256,
+            C5_HANDOFF_SCHEMA,
+            C5_STABILITY_ATTEMPT_SCHEMA,
+            C5_STABILITY_TERMINAL_SCHEMA,
             SELECTED_GPU_INDEX,
             CONFLICT_UNIT_IDS,
             DEPENDENCY_UNIT_IDS,
@@ -3129,8 +3311,8 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             SAMPLE_INTERVAL_SECONDS,
         )
         if current_identity != fixed_identity:
-            raise PermissionError("c4 environment fixed identity changed")
-        _require_c4_namespace()
+            raise PermissionError("c5 environment fixed identity changed")
+        _require_c5_namespace()
         _require_frozen_environment_source()
 
     def require_order(fingerprint_field: str) -> Path:
@@ -3171,7 +3353,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
         }
         transition = transitions.get(fingerprint_field)
         if transition is None or state != transition[0]:
-            raise PermissionError("c4 environment write order is invalid")
+            raise PermissionError("c5 environment write order is invalid")
         return transition[1]
 
     def bound_main(argv: Sequence[str] | None = None) -> int:
@@ -3181,13 +3363,13 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             "stability-gate",
             "postcleanup",
         }:
-            raise PermissionError("c4 environment command changed")
+            raise PermissionError("c5 environment command changed")
         require_fixed_identity()
-        # R4 is hash-verified before any evidence transition is inspected or
+        # R5 is hash-verified before any evidence transition is inspected or
         # any policy/stability/postcleanup builder can execute.
-        _load_verified_c4_bridge()
+        _load_verified_c5_bridge()
         validator = _production_archival_validator
-        phase_guard_validator = _production_c4_phase_guard
+        phase_guard_validator = _production_c5_phase_guard
         handoff_root: dict[str, object] | None = None
         policy_root: dict[str, object] | None = None
         attempt_root: dict[str, object] | None = None
@@ -3247,7 +3429,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 ),
             }
             if lane not in lanes:
-                raise PermissionError("c4 environment write lane changed")
+                raise PermissionError("c5 environment write lane changed")
             (
                 path,
                 fingerprint_field,
@@ -3268,24 +3450,24 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 )
                 if observed != expected_state:
-                    raise PermissionError("c4 fixed lane state changed")
+                    raise PermissionError("c5 fixed lane state changed")
             require_fixed_identity()
             if require_order(fingerprint_field) != path:
-                raise PermissionError("c4 fixed write target changed")
+                raise PermissionError("c5 fixed write target changed")
             value = _validate_cli_payload(
                 payload,
                 fingerprint_field=fingerprint_field,
             )
             body = dict(value)
             supplied_fingerprint = body.pop(fingerprint_field, None)
-            if supplied_fingerprint != _frozen.stable_fingerprint(body):
-                raise PermissionError("c4 fixed write fingerprint changed")
+            if supplied_fingerprint != _stable_fingerprint(body):
+                raise PermissionError("c5 fixed write fingerprint changed")
             sealed_value = {
                 **body,
                 fingerprint_field: supplied_fingerprint,
             }
             encoded = (
-                _frozen.canonical_json(sealed_value) + "\n"
+                _canonical_json(sealed_value) + "\n"
             ).encode("utf-8")
             target = Path(path).absolute()
 
@@ -3306,20 +3488,20 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     sealed_value,
                 ):
                     raise PermissionError(
-                        "c4 fixed lane payload changed while open"
+                        "c5 fixed lane payload changed while open"
                     )
                 guard_phase = (
                     None
                     if lane == "terminal"
-                    else _validate_c4_phase_guard(
+                    else _validate_c5_phase_guard(
                         phase_guard_validator()
                     )
                 )
                 if lane == "handoff":
-                    validate_c4_scope_handoff(
+                    validate_c5_scope_handoff(
                         current_value,
                         expected_old_contract=historical_contract,
-                        expected_c4_contract=guard_contract,
+                        expected_c5_contract=guard_contract,
                         expected_roots=guard_roots,
                         expected_archival=guard_archival,
                         expected_phase_guard=guard_phase,
@@ -3331,10 +3513,10 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                         "scope_handoff_fingerprint",
                     )
                 )
-                validate_c4_scope_handoff(
+                validate_c5_scope_handoff(
                     current_handoff,
                     expected_old_contract=historical_contract,
-                    expected_c4_contract=guard_contract,
+                    expected_c5_contract=guard_contract,
                     expected_roots=guard_roots,
                     expected_archival=guard_archival,
                     expected_phase_guard=guard_phase,
@@ -3347,12 +3529,12 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed handoff root changed while open"
+                        "c5 fixed handoff root changed while open"
                     )
                 if lane == "policy":
-                    _validate_c4_policy_contract(
+                    _validate_c5_policy_contract(
                         current_value,
-                        c4_contract=guard_contract,
+                        c5_contract=guard_contract,
                         roots=guard_roots,
                         archival=guard_archival,
                     )
@@ -3369,16 +3551,16 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed policy root changed while open"
+                        "c5 fixed policy root changed while open"
                     )
-                _validate_c4_policy_contract(
+                _validate_c5_policy_contract(
                     current_policy,
-                    c4_contract=guard_contract,
+                    c5_contract=guard_contract,
                     roots=guard_roots,
                     archival=guard_archival,
                 )
                 if lane == "attempt":
-                    validate_c4_stability_attempt(
+                    validate_c5_stability_attempt(
                         current_value,
                         expected_scope_handoff_root=current_handoff_root,
                         expected_policy_root=current_policy_root,
@@ -3393,7 +3575,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                         "stability_attempt_fingerprint",
                     )
                 )
-                validate_c4_stability_attempt(
+                validate_c5_stability_attempt(
                     current_attempt,
                     expected_scope_handoff_root=current_handoff_root,
                     expected_policy_root=current_policy_root,
@@ -3409,27 +3591,27 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed attempt root changed while open"
+                        "c5 fixed attempt root changed while open"
                     )
                 if lane == "terminal":
-                    validate_c4_stability_terminal(
+                    validate_c5_stability_terminal(
                         current_value,
                         expected_attempt_root=current_attempt_root,
                     )
                     if os.path.lexists(fixed_stability_path):
                         raise PermissionError(
-                            "c4 failure terminal conflicts with success"
+                            "c5 failure terminal conflicts with success"
                         )
                     return
                 if lane == "stability":
-                    validate_c4_environment_closure(
+                    validate_c5_environment_closure(
                         current_handoff,
                         current_attempt,
                         current_policy,
                         current_value,
                         None,
                         archival=guard_archival,
-                        c4_contract=guard_contract,
+                        c5_contract=guard_contract,
                         live_roots={
                             "policy": current_policy_root,
                             "stability": current_root,
@@ -3450,16 +3632,16 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed stability root changed while open"
+                        "c5 fixed stability root changed while open"
                     )
-                validate_c4_environment_closure(
+                validate_c5_environment_closure(
                     current_handoff,
                     current_attempt,
                     current_policy,
                     current_stability,
                     current_value,
                     archival=guard_archival,
-                    c4_contract=guard_contract,
+                    c5_contract=guard_contract,
                     live_roots={
                         "policy": current_policy_root,
                         "stability": current_stability_root,
@@ -3480,7 +3662,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 or not hasattr(os, "O_NOFOLLOW")
                 or not hasattr(os, "O_DIRECTORY")
             ):
-                raise PermissionError("c4 fixed write parent is unsafe")
+                raise PermissionError("c5 fixed write parent is unsafe")
             directory_fd = os.open(
                 parent,
                 os.O_RDONLY
@@ -3497,7 +3679,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     _PARENT_IDENTITY_FIELDS,
                 ):
                     raise PermissionError(
-                        "c4 fixed write parent generation changed"
+                        "c5 fixed write parent generation changed"
                     )
                 descriptor = os.open(
                     target.name,
@@ -3518,13 +3700,13 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     or stat.S_IMODE(created.st_mode) != 0o600
                 ):
                     raise PermissionError(
-                        "c4 fixed write private generation changed"
+                        "c5 fixed write private generation changed"
                     )
                 offset = 0
                 while offset < len(encoded):
                     written = os.write(descriptor, encoded[offset:])
                     if written <= 0:
-                        raise OSError("short c4 fixed evidence write")
+                        raise OSError("short c5 fixed evidence write")
                     offset += written
                 os.fsync(descriptor)
                 private_written = os.fstat(descriptor)
@@ -3542,7 +3724,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     or private_readback != encoded
                 ):
                     raise PermissionError(
-                        "c4 fixed write private readback changed"
+                        "c5 fixed write private readback changed"
                     )
                 os.fchmod(descriptor, 0o444)
                 os.fsync(descriptor)
@@ -3573,7 +3755,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     != hashlib.sha256(encoded).hexdigest()
                 ):
                     raise PermissionError(
-                        "c4 fixed write sealed generation changed"
+                        "c5 fixed write sealed generation changed"
                     )
                 os.fsync(directory_fd)
                 parent_after_create = os.fstat(directory_fd)
@@ -3591,10 +3773,10 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed write parent generation changed"
+                        "c5 fixed write parent generation changed"
                     )
                 require_fixed_identity()
-                _load_verified_c4_bridge()
+                _load_verified_c5_bridge()
                 available_roots = {
                     "handoff": handoff_root,
                     "policy": policy_root,
@@ -3623,7 +3805,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     guard_root = available_roots[guard_name]
                     if guard_root is None:
                         raise PermissionError(
-                            "c4 fixed while-open guard is absent"
+                            "c5 fixed while-open guard is absent"
                         )
                     guard_path, guard_field = guard_specs[guard_name]
                     _verify_live_sealed(
@@ -3677,7 +3859,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                     )
                 ):
                     raise PermissionError(
-                        "c4 fixed while-open closure changed"
+                        "c5 fixed while-open closure changed"
                     )
             except BaseException:
                 for candidate in (descriptor, directory_fd):
@@ -3698,7 +3880,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             os.close(descriptor)
             os.close(directory_fd)
             require_fixed_identity()
-            _load_verified_c4_bridge()
+            _load_verified_c5_bridge()
             require_lane_state()
             parent_final = parent.lstat()
             if not same_generation(
@@ -3707,13 +3889,13 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 _PARENT_GUARD_IDENTITY_FIELDS,
             ):
                 raise PermissionError(
-                    "c4 fixed parent changed after close"
+                    "c5 fixed parent changed after close"
                 )
             for guard_name in guard_names:
                 guard_root = available_roots[guard_name]
                 if guard_root is None:
                     raise PermissionError(
-                        "c4 fixed post-close guard is absent"
+                        "c5 fixed post-close guard is absent"
                     )
                 guard_path, guard_field = guard_specs[guard_name]
                 _verify_live_sealed(
@@ -3729,7 +3911,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 observed_value,
                 sealed_value,
             ):
-                raise PermissionError("c4 fixed write reload changed")
+                raise PermissionError("c5 fixed write reload changed")
             _verify_live_sealed(
                 target,
                 observed_root,
@@ -3743,13 +3925,13 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 _PARENT_GUARD_IDENTITY_FIELDS,
             ):
                 raise PermissionError(
-                    "c4 fixed parent changed during reload"
+                    "c5 fixed parent changed during reload"
                 )
             for guard_name in guard_names:
                 guard_root = available_roots[guard_name]
                 if guard_root is None:
                     raise PermissionError(
-                        "c4 fixed terminal guard is absent"
+                        "c5 fixed terminal guard is absent"
                     )
                 guard_path, guard_field = guard_specs[guard_name]
                 _verify_live_sealed(
@@ -3770,7 +3952,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 _PARENT_GUARD_IDENTITY_FIELDS,
             ):
                 raise PermissionError(
-                    "c4 fixed parent changed before return"
+                    "c5 fixed parent changed before return"
                 )
             if lane == "handoff":
                 handoff_root = observed_root
@@ -3783,13 +3965,13 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             return observed_value, observed_root
         if args.command == "create-policy":
             require_order("scope_handoff_fingerprint")
-            handoff = build_c4_scope_handoff_in_memory(
+            handoff = build_c5_scope_handoff_in_memory(
                 realization_validator=validator,
                 phase_guard_validator=phase_guard_validator,
             )
             write_fixed_lane(handoff, "handoff")
             require_order("policy_fingerprint")
-            policy = build_c4_policy_in_memory(
+            policy = build_c5_policy_in_memory(
                 handoff,
                 realization_validator=validator,
             )
@@ -3809,7 +3991,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
                 policy,
                 fingerprint_field="policy_fingerprint",
             )
-            run_c4_stability_in_memory(
+            run_c5_stability_in_memory(
                 handoff,
                 policy,
                 realization_validator=validator,
@@ -3847,7 +4029,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             return 0
         require_order("receipt_fingerprint")
         if args.command != "postcleanup":
-            raise PermissionError("c4 environment command changed")
+            raise PermissionError("c5 environment command changed")
 
         handoff, handoff_root = _read_live_sealed(
             fixed_handoff_path,
@@ -3873,7 +4055,7 @@ def _bind_private_cli() -> Callable[[Sequence[str] | None], int]:
             stability,
             fingerprint_field="stability_receipt_fingerprint",
         )
-        postcleanup = build_c4_postcleanup_in_memory(
+        postcleanup = build_c5_postcleanup_in_memory(
             handoff,
             attempt,
             policy,

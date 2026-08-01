@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Append-only closure for CURE-Lite v24 runtime compatibility generation c4.
+"""Append-only closure for CURE-Lite v24 runtime compatibility generation c5.
 
 This module is deliberately not a scientific runner.  It can only authorize
-and seal the metadata-only c4 compatibility lane after the single c3
-environment-stability failure has been terminalized.  It never imports
+and seal the metadata-only c5 compatibility lane after the c4 B4 receipt-seal
+failure has been terminalized.  It never imports
 torch, opens a dataset, starts a unit, or creates a runtime specification.
 
-The c4 lane retains scientific attempt ordinal 2 and the original scientific
-output paths.  All old, c1, c2, c3, and scientific runtime paths remain
-protected.  The c3 terminal is a valid sealed failure boundary, never a PASS.
+The c5 lane retains scientific attempt ordinal 2 and the original scientific
+output paths.  All old, c1, c2, c3, c4, and scientific runtime paths remain
+protected.  The c4 terminal is a valid sealed failure boundary, never a PASS.
 A compatibility receipt is archival: its short authorization may expire after
 sealing, but the receipt chronology must remain inside the original
 authorization window.
@@ -17,6 +17,7 @@ authorization window.
 from __future__ import annotations
 
 import argparse
+import ast
 from dataclasses import asdict, is_dataclass
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -41,9 +42,9 @@ CANDIDATE = "GCR-PACRE-v24"
 STAGE_ID = "gcr_pacre_v24_D_R_structural_r2"
 SCIENTIFIC_ATTEMPT_ID = "gcr_pacre_v24_D_R_zero_update_structural_r2"
 SCIENTIFIC_ATTEMPT_ORDINAL = 2
-RUNTIME_COMPATIBILITY_ID = "c4"
-INSTRUCTION_ID = "user-2026-07-30-modify-then-run-v1"
-AUTHORIZATION_BASIS = "user instruction: 修改后运行"
+RUNTIME_COMPATIBILITY_ID = "c5"
+INSTRUCTION_ID = "user-2026-07-31-modify-after-c4-failure-v1"
+AUTHORIZATION_BASIS = "user instruction: 修改后继续"
 
 OLD_UNIT_NAME = "cure-lite-v24-gcr-pacre-dr-r2.service"
 C1_UNIT_NAME = (
@@ -58,12 +59,18 @@ C3_UNIT_NAME = (
 C4_UNIT_NAME = (
     "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c4.service"
 )
+C5_UNIT_NAME = (
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c5.service"
+)
 USER_SYSTEMD_UNIT_DIRECTORY = Path(
     f"/run/user/{os.getuid()}/systemd/user"
 )
+OLD_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / OLD_UNIT_NAME
+C1_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / C1_UNIT_NAME
 C2_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / C2_UNIT_NAME
 C3_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / C3_UNIT_NAME
 C4_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / C4_UNIT_NAME
+C5_UNIT_FRAGMENT_PATH = USER_SYSTEMD_UNIT_DIRECTORY / C5_UNIT_NAME
 
 C1_AUTHORIZATION_PATH = (
     EVIDENCE_ROOT / "r2_preaccess_schema_compat_c1_authorization.json"
@@ -107,6 +114,19 @@ C4_AUTHORIZATION_PATH = (
 )
 C4_RECEIPT_PATH = (
     EVIDENCE_ROOT / "r2_preaccess_schema_compat_c4_receipt.json"
+)
+C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH = (
+    EVIDENCE_ROOT
+    / "r2_preaccess_schema_compat_c4_receipt_seal_failure_terminal.json"
+)
+C5_AUTHORIZATION_PATH = (
+    EVIDENCE_ROOT / "r2_preaccess_schema_compat_c5_authorization.json"
+)
+C5_RECEIPT_PATH = (
+    EVIDENCE_ROOT / "r2_preaccess_schema_compat_c5_receipt.json"
+)
+C5_TERMINAL_PATH = (
+    EVIDENCE_ROOT / "r2_preaccess_schema_compat_c5_terminal.json"
 )
 
 R10_ROOT = (
@@ -170,10 +190,6 @@ C3_RESULT_RECEIPT_ALIAS_PATH = (
 C4_ENVIRONMENT_POLICY_PATH = (
     EVIDENCE_ROOT / "runtime_environment_policy_preaccess_compat_c4.json"
 )
-C4_ENVIRONMENT_STABILITY_PATH = (
-    EVIDENCE_ROOT
-    / "runtime_environment_stability_receipt_preaccess_compat_c4.json"
-)
 C4_ENVIRONMENT_SCOPE_HANDOFF_PATH = (
     EVIDENCE_ROOT
     / "runtime_environment_scope_handoff_preaccess_compat_c4.json"
@@ -181,6 +197,10 @@ C4_ENVIRONMENT_SCOPE_HANDOFF_PATH = (
 C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH = (
     EVIDENCE_ROOT
     / "runtime_environment_stability_attempt_preaccess_compat_c4.json"
+)
+C4_ENVIRONMENT_STABILITY_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_receipt_preaccess_compat_c4.json"
 )
 C4_ENVIRONMENT_STABILITY_TERMINAL_PATH = (
     EVIDENCE_ROOT
@@ -200,7 +220,6 @@ C4_UNIT_RECEIPT_PATH = (
 C4_UNIT_TERMINAL_PATH = (
     EVIDENCE_ROOT / "r2_preaccess_compat_c4_unit_realization_terminal.json"
 )
-
 C4_RUNTIME_SPEC_PATH = (
     EVIDENCE_ROOT
     / "D_R_structural_attempt_r2_preaccess_compat_c4_runtime_spec.json"
@@ -226,6 +245,67 @@ C4_RUN_ROOT_ALIAS_PATH = (
 C4_RESULT_RECEIPT_ALIAS_PATH = (
     EVIDENCE_ROOT
     / "D_R_structural_attempt_r2_preaccess_compat_c4_receipt.json"
+)
+
+C5_ENVIRONMENT_POLICY_PATH = (
+    EVIDENCE_ROOT / "runtime_environment_policy_preaccess_compat_c5.json"
+)
+C5_ENVIRONMENT_STABILITY_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_receipt_preaccess_compat_c5.json"
+)
+C5_ENVIRONMENT_SCOPE_HANDOFF_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_scope_handoff_preaccess_compat_c5.json"
+)
+C5_ENVIRONMENT_STABILITY_ATTEMPT_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_attempt_preaccess_compat_c5.json"
+)
+C5_ENVIRONMENT_STABILITY_TERMINAL_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_stability_terminal_preaccess_compat_c5.json"
+)
+C5_ENVIRONMENT_POSTCLEANUP_PATH = (
+    EVIDENCE_ROOT
+    / "runtime_environment_postcleanup_receipt_preaccess_compat_c5.json"
+)
+C5_UNIT_AUTHORIZATION_PATH = (
+    EVIDENCE_ROOT
+    / "r2_preaccess_compat_c5_unit_realization_authorization.json"
+)
+C5_UNIT_RECEIPT_PATH = (
+    EVIDENCE_ROOT / "r2_preaccess_compat_c5_unit_realization_receipt.json"
+)
+C5_UNIT_TERMINAL_PATH = (
+    EVIDENCE_ROOT / "r2_preaccess_compat_c5_unit_realization_terminal.json"
+)
+
+C5_RUNTIME_SPEC_PATH = (
+    EVIDENCE_ROOT
+    / "D_R_structural_attempt_r2_preaccess_compat_c5_runtime_spec.json"
+)
+C5_RUNTIME_LAUNCH_AUTHORIZATION_PATH = (
+    EVIDENCE_ROOT
+    / (
+        "D_R_structural_attempt_r2_preaccess_compat_c5_"
+        "runtime_launch_authorization.json"
+    )
+)
+C5_RUNTIME_ARTIFACT_ROOT = (
+    EVIDENCE_ROOT
+    / "D_R_structural_attempt_r2_preaccess_compat_c5_runtime_artifacts"
+)
+C5_GPU_LEASE_ROOT = (
+    EVIDENCE_ROOT
+    / "D_R_structural_attempt_r2_preaccess_compat_c5_gpu_lease"
+)
+C5_RUN_ROOT_ALIAS_PATH = (
+    RUNS_ROOT / "gcr_pacre_v24_D_R_structural_attempt_r2_preaccess_compat_c5"
+)
+C5_RESULT_RECEIPT_ALIAS_PATH = (
+    EVIDENCE_ROOT
+    / "D_R_structural_attempt_r2_preaccess_compat_c5_receipt.json"
 )
 
 C2_ENVIRONMENT_POLICY_PATH = (
@@ -323,35 +403,46 @@ SCIENTIFIC_RESULT_RECEIPT_PATH = (
     EVIDENCE_ROOT / "D_R_structural_attempt_r2_receipt.json"
 )
 
-C4_BRIDGE_SOURCE_PATH = Path(__file__).resolve()
+C5_BRIDGE_SOURCE_PATH = Path(__file__).resolve()
+C4_BRIDGE_SOURCE_PATH = (
+    REPOSITORY
+    / "tools/cure_lite_v24_preaccess_schema_compatibility_c4.py"
+).resolve()
+C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH = (
+    REPOSITORY
+    / (
+        "tools/cure_lite_v24_preaccess_compat_c4_"
+        "receipt_seal_failure_terminal.py"
+    )
+).resolve()
 C1_FAILURE_TERMINALIZER_SOURCE_PATH = (
     REPOSITORY
     / "tools/cure_lite_v24_preaccess_compat_c1_expired_prewrite_terminal.py"
 ).resolve()
-C4_ENVIRONMENT_WRAPPER_SOURCE_PATH = (
+C5_ENVIRONMENT_WRAPPER_SOURCE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_runtime_environment_preaccess_compat_c4.py"
+    / "tools/cure_lite_v24_runtime_environment_preaccess_compat_c5.py"
 ).resolve()
-C4_RELEASE_SOURCE_PATH = (
+C5_RELEASE_SOURCE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_actual_runtime_release_preaccess_compat_c4.py"
+    / "tools/cure_lite_v24_actual_runtime_release_preaccess_compat_c5.py"
 ).resolve()
-C4_SUPERVISOR_SOURCE_PATH = (
+C5_SUPERVISOR_SOURCE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_runtime_supervisor_preaccess_compat_c4.py"
+    / "tools/cure_lite_v24_runtime_supervisor_preaccess_compat_c5.py"
 ).resolve()
-C4_ADAPTER_SOURCE_PATH = (
+C5_ADAPTER_SOURCE_PATH = (
     REPOSITORY
-    / "tools/run_cure_lite_v24_gcr_pacre_dr_gate_r2_preaccess_compat_c4.py"
+    / "tools/run_cure_lite_v24_gcr_pacre_dr_gate_r2_preaccess_compat_c5.py"
 ).resolve()
-C4_UNIT_REALIZER_SOURCE_PATH = (
+C5_UNIT_REALIZER_SOURCE_PATH = (
     REPOSITORY
-    / "tools/cure_lite_v24_actual_unit_realization_preaccess_compat_c4.py"
+    / "tools/cure_lite_v24_actual_unit_realization_preaccess_compat_c5.py"
 ).resolve()
-C4_UNIT_TEMPLATE_PATH = (
+C5_UNIT_TEMPLATE_PATH = (
     REPOSITORY
     / "deploy/systemd/"
-    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c4.service.template"
+    "cure-lite-v24-gcr-pacre-dr-r2-preaccess-compat-c5.service.template"
 ).resolve()
 C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SOURCE_PATH = (
     REPOSITORY
@@ -424,11 +515,35 @@ C3_ENVIRONMENT_FAILURE_TERMINAL_FINGERPRINT = (
     "c31159e7033450ecc2a8dea071fd125ab756e43afbc8d8c433c425a045713670"
 )
 
+C4_BRIDGE_SHA256 = (
+    "ad660b7afe7ca87f690bc9565bd6674684c2b62824394751a39114a6efcf178a"
+)
+C4_RECEIPT_SEAL_FAILURE_TERMINAL_SCHEMA = (
+    "cure-lite-v24-r2-preaccess-schema-compat-c4-"
+    "receipt-seal-failure-terminal-v1"
+)
+# Independently frozen C4 receipt-seal FAIL producer and create-once record.
+C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256 = (
+    "3cf56e803d6d7b39c995125d17d145b5c8625a4eea03de6cf4c6118c9bc777c0"
+)
+C4_RECEIPT_SEAL_FAILURE_TERMINAL_SHA256 = (
+    "567b22e9839dad2d27168c36206b66be9b2b91d98269e9b9ce087ee3becea733"
+)
+C4_RECEIPT_SEAL_FAILURE_TERMINAL_FINGERPRINT = (
+    "d86ef0c432237043e39119c56cfb6602b7df7f8b62069f836ac6c3d08b75b622"
+)
+
 AUTHORIZATION_SCHEMA = (
-    "cure-lite-v24-r2-preaccess-schema-compat-c4-authorization-v1"
+    "cure-lite-v24-r2-preaccess-schema-compat-c5-authorization-v1"
 )
 RECEIPT_SCHEMA = (
-    "cure-lite-v24-r2-preaccess-schema-compat-c4-receipt-v1"
+    "cure-lite-v24-r2-preaccess-schema-compat-c5-receipt-v1"
+)
+C5_TERMINAL_SCHEMA = (
+    "cure-lite-v24-r2-preaccess-schema-compat-c5-terminal-v1"
+)
+C4_AUTHORIZATION_SCHEMA = (
+    "cure-lite-v24-r2-preaccess-schema-compat-c4-authorization-v1"
 )
 C1_AUTHORIZATION_SCHEMA = (
     "cure-lite-v24-r2-preaccess-schema-compat-c1-authorization-v1"
@@ -439,15 +554,15 @@ R10_TERMINAL_SCHEMA = (
 ENVIRONMENT_POLICY_SCHEMA = "cure-lite-v24-runtime-environment-policy-v1"
 ENVIRONMENT_SCOPE_HANDOFF_SCHEMA = (
     "cure-lite-v24-runtime-environment-scope-handoff-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
 ENVIRONMENT_STABILITY_ATTEMPT_SCHEMA = (
     "cure-lite-v24-runtime-environment-stability-attempt-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
 ENVIRONMENT_STABILITY_TERMINAL_SCHEMA = (
     "cure-lite-v24-runtime-environment-stability-terminal-"
-    "preaccess-compat-c4-v1"
+    "preaccess-compat-c5-v1"
 )
 ENVIRONMENT_STABILITY_SCHEMA = (
     "cure-lite-v24-runtime-environment-stability-receipt-v1"
@@ -474,6 +589,12 @@ R2_RUN_START_PATH_POLICY = (
 )
 R2_EXECUTION_KIND = "real_D_R"
 R2_EXECUTION_SEED = 42
+AUTHORITATIVE_ACCESS_AUDIT_SCHEMA = (
+    "cure-lite-v24-split-access-audit-v1"
+)
+FICTIONAL_ACCESS_AUDIT_SCHEMA = (
+    "cure-lite-v24-split-access-audit-r2-v1"
+)
 R2_RUN_START_FILENAME_PREFIX = (
     "gcr_pacre_v24_D_R_structural_run_start_"
 )
@@ -613,10 +734,6 @@ _R2_ARTIFACT_HASH_KEYS = frozenset(
 )
 
 _SHA256 = re.compile(r"[0-9a-f]{64}")
-_UNFROZEN_BINDING_ASSIGNMENT = re.compile(
-    rb"(?m)^\s*[A-Za-z_][A-Za-z0-9_]*\s*=(?!=)\s*"
-    rb"[\"']__TO_BE_FROZEN__[\"']\s*$"
-)
 _UTC_SUFFIX = "Z"
 _PAYLOAD_FLAGS = (
     "D_R_payload_accessed",
@@ -680,6 +797,9 @@ _SCOPE_FIELDS = (
 _SOURCE_LABELS = frozenset(
     {
         "compat_bridge",
+        "compat_policy",
+        "c4_bridge",
+        "c4_receipt_seal_failure_terminalizer",
         "c1_failure_terminalizer",
         "compat_environment_wrapper",
         "compat_release",
@@ -702,6 +822,8 @@ _EVIDENCE_LABELS = frozenset(
         "c2_mode_contract_failure_terminal",
         "c2_prewrite_failure_terminal",
         "c3_environment_failure_terminal",
+        "c4_authorization",
+        "c4_receipt_seal_failure_terminal",
         "r10_authorization",
         "r10_receipt",
         "environment_policy",
@@ -731,6 +853,8 @@ _AUTHORIZATION_KEYS = frozenset(
         "c2_mode_contract_failure_terminal_root",
         "c2_prewrite_failure_terminal_root",
         "c3_environment_failure_terminal_root",
+        "c4_authorization_root",
+        "c4_receipt_seal_failure_terminal_root",
         "c1_expired_authorization_root",
         "r10_roots",
         "compatibility_source_roots",
@@ -765,6 +889,7 @@ _RECEIPT_KEYS = frozenset(
         "current_environment_contract",
         "scientific_output_contract",
         "scientific_authority",
+        "schema_compatibility",
         "compatibility_closure_passed",
         "runtime_launch_authorized",
         "systemd_start_authorized",
@@ -783,19 +908,21 @@ _RECEIPT_KEYS = frozenset(
 UnitStateReader = Callable[[str], Mapping[str, object]]
 
 # Compatibility-facing names intentionally mirror the c1 bridge interface.
-# Downstream c4 realizer/supervisor/release modules must not need a permissive
+# Downstream c5 realizer/supervisor/release modules must not need a permissive
 # fallback or generation-specific import shim.
-COMPAT_AUTHORIZATION_PATH = C4_AUTHORIZATION_PATH
-COMPAT_RECEIPT_PATH = C4_RECEIPT_PATH
-COMPATIBILITY_RECEIPT_PATH = C4_RECEIPT_PATH
-COMPAT_UNIT_REALIZER_SOURCE_PATH = C4_UNIT_REALIZER_SOURCE_PATH
-COMPAT_UNIT_NAME = C4_UNIT_NAME
+COMPAT_AUTHORIZATION_PATH = C5_AUTHORIZATION_PATH
+COMPAT_RECEIPT_PATH = C5_RECEIPT_PATH
+COMPATIBILITY_RECEIPT_PATH = C5_RECEIPT_PATH
+COMPAT_UNIT_REALIZER_SOURCE_PATH = C5_UNIT_REALIZER_SOURCE_PATH
+COMPAT_UNIT_NAME = C5_UNIT_NAME
 
 
 def _canonical_json(value: object) -> str:
     return json.dumps(
         value,
-        ensure_ascii=True,
+        # C5 owns this UTF-8 profile.  Foreign C4/R5/E5 evidence is never
+        # reinterpreted with this helper; its fixed producer validates it.
+        ensure_ascii=False,
         allow_nan=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -1161,12 +1288,30 @@ def _expected_scientific_output_contract() -> dict[str, object]:
     return {
         "run_root": str(SCIENTIFIC_RUN_ROOT),
         "result_receipt": str(SCIENTIFIC_RESULT_RECEIPT_PATH),
-        "compat_run_root_alias": str(C4_RUN_ROOT_ALIAS_PATH),
+        "compat_run_root_alias": str(C5_RUN_ROOT_ALIAS_PATH),
         "compat_result_receipt_alias": str(
-            C4_RESULT_RECEIPT_ALIAS_PATH
+            C5_RESULT_RECEIPT_ALIAS_PATH
         ),
         "original_r2_paths_retained": True,
         "compatibility_aliases_forbidden": True,
+    }
+
+
+def _expected_schema_compatibility() -> dict[str, object]:
+    """Exact compatibility projection required by the frozen C1 consumer."""
+
+    return {
+        "producer_schema": AUTHORITATIVE_ACCESS_AUDIT_SCHEMA,
+        "scientific_authorization_bound_schema": (
+            AUTHORITATIVE_ACCESS_AUDIT_SCHEMA
+        ),
+        "compatibility_consumer_required_schema": (
+            AUTHORITATIVE_ACCESS_AUDIT_SCHEMA
+        ),
+        "buggy_frozen_consumer_expected_schema": (
+            FICTIONAL_ACCESS_AUDIT_SCHEMA
+        ),
+        "accept_either_schema": False,
     }
 
 
@@ -1186,9 +1331,12 @@ def _expected_scientific_authority() -> dict[str, object]:
 def _expected_mutation_authority() -> dict[str, object]:
     return {
         "compatibility_receipt_creation_authorized": True,
+        "compatibility_terminal_creation_authorized": True,
         "environment_scope_handoff_authorized": True,
         "environment_metadata_audit_authorized": True,
-        "c4_unit_realization_authorized": True,
+        "c5_unit_realization_authorized": True,
+        "c4_unit_mutation_authorized": False,
+        "c4_evidence_mutation_authorized": False,
         "runtime_spec_creation_authorized": False,
         "runtime_launch_authorization_creation_authorized": False,
         "unit_start_authorized": False,
@@ -1277,18 +1425,25 @@ def _require_missing_inert_state(
 
 def _source_paths() -> dict[str, Path]:
     return {
-        "compat_bridge": C4_BRIDGE_SOURCE_PATH,
+        "compat_bridge": C5_BRIDGE_SOURCE_PATH,
+        # Strict alias retained for the frozen C1 supervisor's consumer
+        # contract; both labels must bind the same B5 file generation.
+        "compat_policy": C5_BRIDGE_SOURCE_PATH,
+        "c4_bridge": C4_BRIDGE_SOURCE_PATH,
+        "c4_receipt_seal_failure_terminalizer": (
+            C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH
+        ),
         "c1_failure_terminalizer": (
             C1_FAILURE_TERMINALIZER_SOURCE_PATH
         ),
         "compat_environment_wrapper": (
-            C4_ENVIRONMENT_WRAPPER_SOURCE_PATH
+            C5_ENVIRONMENT_WRAPPER_SOURCE_PATH
         ),
-        "compat_release": C4_RELEASE_SOURCE_PATH,
-        "compat_supervisor": C4_SUPERVISOR_SOURCE_PATH,
-        "compat_adapter": C4_ADAPTER_SOURCE_PATH,
-        "compat_unit_realizer": C4_UNIT_REALIZER_SOURCE_PATH,
-        "compat_unit_template": C4_UNIT_TEMPLATE_PATH,
+        "compat_release": C5_RELEASE_SOURCE_PATH,
+        "compat_supervisor": C5_SUPERVISOR_SOURCE_PATH,
+        "compat_adapter": C5_ADAPTER_SOURCE_PATH,
+        "compat_unit_realizer": C5_UNIT_REALIZER_SOURCE_PATH,
+        "compat_unit_template": C5_UNIT_TEMPLATE_PATH,
         "c2_mode_contract_failure_terminalizer": (
             C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SOURCE_PATH
         ),
@@ -1303,6 +1458,35 @@ def _source_paths() -> dict[str, Path]:
         "r14_dummy_child": R14_DUMMY_CHILD_SOURCE_PATH,
         "r14_dummy_unit_template": R14_DUMMY_UNIT_TEMPLATE_PATH,
     }
+
+
+def _has_unfrozen_binding(raw: bytes, *, path: Path) -> bool:
+    """Detect sentinel assignments, including parenthesized multiline pins."""
+
+    if path.suffix != ".py":
+        return _TO_BE_FROZEN_SHA256.encode("ascii") in raw
+    try:
+        tree = ast.parse(raw.decode("utf-8"), filename=str(path))
+    except (SyntaxError, UnicodeDecodeError) as error:
+        raise PermissionError(
+            f"c5 source cannot be parsed while checking bindings: {path}"
+        ) from error
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            value = node.value
+        elif isinstance(node, ast.NamedExpr):
+            value = node.value
+        else:
+            continue
+        if value is not None and any(
+            isinstance(item, ast.Constant)
+            and item.value == _TO_BE_FROZEN_SHA256
+            for item in ast.walk(value)
+        ):
+            return True
+    return False
 
 
 def _require_frozen_c3_failure_hashes() -> None:
@@ -1321,6 +1505,23 @@ def _require_frozen_c3_failure_hashes() -> None:
         )
 
 
+def _require_frozen_c4_failure_hashes() -> None:
+    values = (
+        C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256,
+        C4_RECEIPT_SEAL_FAILURE_TERMINAL_SHA256,
+        C4_RECEIPT_SEAL_FAILURE_TERMINAL_FINGERPRINT,
+    )
+    if any(
+        value == _TO_BE_FROZEN_SHA256
+        or not isinstance(value, str)
+        or _SHA256.fullmatch(value) is None
+        for value in values
+    ):
+        raise PermissionError(
+            "c4 receipt-seal failure source/evidence hashes are not frozen"
+        )
+
+
 def _evidence_paths() -> dict[str, Path]:
     return {
         "c1_failure_terminal": C1_FAILURE_TERMINAL_PATH,
@@ -1333,24 +1534,29 @@ def _evidence_paths() -> dict[str, Path]:
         "c3_environment_failure_terminal": (
             C3_ENVIRONMENT_FAILURE_TERMINAL_PATH
         ),
+        "c4_authorization": C4_AUTHORIZATION_PATH,
+        "c4_receipt_seal_failure_terminal": (
+            C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH
+        ),
         "r10_authorization": R10_AUTHORIZATION_PATH,
         "r10_receipt": R10_RECEIPT_PATH,
-        "environment_policy": C4_ENVIRONMENT_POLICY_PATH,
-        "environment_scope_handoff": C4_ENVIRONMENT_SCOPE_HANDOFF_PATH,
+        "environment_policy": C5_ENVIRONMENT_POLICY_PATH,
+        "environment_scope_handoff": C5_ENVIRONMENT_SCOPE_HANDOFF_PATH,
         "environment_stability_attempt": (
-            C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH
+            C5_ENVIRONMENT_STABILITY_ATTEMPT_PATH
         ),
         "environment_stability_terminal": (
-            C4_ENVIRONMENT_STABILITY_TERMINAL_PATH
+            C5_ENVIRONMENT_STABILITY_TERMINAL_PATH
         ),
-        "environment_stability": C4_ENVIRONMENT_STABILITY_PATH,
-        "environment_postcleanup": C4_ENVIRONMENT_POSTCLEANUP_PATH,
-        "unit_realization_authorization": C4_UNIT_AUTHORIZATION_PATH,
-        "unit_realization_receipt": C4_UNIT_RECEIPT_PATH,
+        "environment_stability": C5_ENVIRONMENT_STABILITY_PATH,
+        "environment_postcleanup": C5_ENVIRONMENT_POSTCLEANUP_PATH,
+        "unit_realization_authorization": C5_UNIT_AUTHORIZATION_PATH,
+        "unit_realization_receipt": C5_UNIT_RECEIPT_PATH,
     }
 
 
 def _collect_source_roots() -> dict[str, dict[str, object]]:
+    _require_frozen_c4_failure_hashes()
     _require_frozen_c3_failure_hashes()
     for label in (
         "compat_environment_wrapper",
@@ -1368,19 +1574,24 @@ def _collect_source_roots() -> dict[str, dict[str, object]]:
             _source_paths()[label],
             sealed=False,
         )
-        if _UNFROZEN_BINDING_ASSIGNMENT.search(raw) is not None:
+        if _has_unfrozen_binding(raw, path=_source_paths()[label]):
             raise PermissionError(
-                f"c4 source still has an unfrozen binding: {label}"
+                f"c5 source still has an unfrozen binding: {label}"
             )
     roots = {
         label: _source_root(path)
         for label, path in _source_paths().items()
     }
     if set(roots) != _SOURCE_LABELS:
-        raise AssertionError("c4 source labels changed")
+        raise AssertionError("c5 source labels changed")
     if (
         roots["c1_failure_terminalizer"]["file_sha256"]
         != C1_FAILURE_TERMINALIZER_SHA256
+        or roots["compat_policy"] != roots["compat_bridge"]
+        or roots["c4_bridge"]["file_sha256"] != C4_BRIDGE_SHA256
+        or roots["c4_receipt_seal_failure_terminalizer"][
+            "file_sha256"
+        ] != C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256
         or roots["c2_mode_contract_failure_terminalizer"]["file_sha256"]
         != C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SHA256
         or roots["c2_prewrite_failure_terminalizer"]["file_sha256"]
@@ -1393,13 +1604,18 @@ def _collect_source_roots() -> dict[str, dict[str, object]]:
 
 
 def _validate_source_roots(roots: object) -> None:
+    _require_frozen_c4_failure_hashes()
     _require_frozen_c3_failure_hashes()
     if not isinstance(roots, Mapping) or set(roots) != _SOURCE_LABELS:
-        raise PermissionError("c4 source-root labels changed")
+        raise PermissionError("c5 source-root labels changed")
     for label, path in _source_paths().items():
         expected = None
         if label == "c1_failure_terminalizer":
             expected = C1_FAILURE_TERMINALIZER_SHA256
+        elif label == "c4_bridge":
+            expected = C4_BRIDGE_SHA256
+        elif label == "c4_receipt_seal_failure_terminalizer":
+            expected = C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256
         elif label == "c2_mode_contract_failure_terminalizer":
             expected = C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SHA256
         elif label == "c2_prewrite_failure_terminalizer":
@@ -1411,6 +1627,8 @@ def _validate_source_roots(roots: object) -> None:
             expected_path=path,
             expected_sha256=expected,
         )
+    if roots["compat_policy"] != roots["compat_bridge"]:
+        raise PermissionError("c5 bridge/policy source alias diverged")
 
 
 def _always_absent_paths() -> dict[str, Path]:
@@ -1450,14 +1668,27 @@ def _always_absent_paths() -> dict[str, Path]:
         "c3_gpu_lease": C3_GPU_LEASE_ROOT,
         "c3_run_alias": C3_RUN_ROOT_ALIAS_PATH,
         "c3_result_alias": C3_RESULT_RECEIPT_ALIAS_PATH,
+        "c4_compatibility_receipt": C4_RECEIPT_PATH,
+        "c4_environment_stability_terminal": (
+            C4_ENVIRONMENT_STABILITY_TERMINAL_PATH
+        ),
+        "c4_unit_terminal": C4_UNIT_TERMINAL_PATH,
+        "c4_runtime_spec": C4_RUNTIME_SPEC_PATH,
+        "c4_runtime_launch_authorization": (
+            C4_RUNTIME_LAUNCH_AUTHORIZATION_PATH
+        ),
+        "c4_runtime_artifacts": C4_RUNTIME_ARTIFACT_ROOT,
+        "c4_gpu_lease": C4_GPU_LEASE_ROOT,
+        "c4_run_alias": C4_RUN_ROOT_ALIAS_PATH,
+        "c4_result_alias": C4_RESULT_RECEIPT_ALIAS_PATH,
         "old_runtime_spec": OLD_RUNTIME_SPEC_PATH,
         "old_runtime_launch_authorization": (
             OLD_RUNTIME_LAUNCH_AUTHORIZATION_PATH
         ),
         "old_runtime_artifacts": OLD_RUNTIME_ARTIFACT_ROOT,
         "old_gpu_lease": OLD_GPU_LEASE_ROOT,
-        "c4_run_alias": C4_RUN_ROOT_ALIAS_PATH,
-        "c4_result_alias": C4_RESULT_RECEIPT_ALIAS_PATH,
+        "c5_run_alias": C5_RUN_ROOT_ALIAS_PATH,
+        "c5_result_alias": C5_RESULT_RECEIPT_ALIAS_PATH,
     }
 
 
@@ -1468,35 +1699,36 @@ def _preactivation_scientific_paths() -> dict[str, Path]:
     }
 
 
-def _c4_preauthorization_paths() -> dict[str, Path]:
+def _c5_preauthorization_paths() -> dict[str, Path]:
     return {
-        "c4_environment_policy": C4_ENVIRONMENT_POLICY_PATH,
-        "c4_environment_scope_handoff": (
-            C4_ENVIRONMENT_SCOPE_HANDOFF_PATH
+        "c5_environment_policy": C5_ENVIRONMENT_POLICY_PATH,
+        "c5_environment_scope_handoff": (
+            C5_ENVIRONMENT_SCOPE_HANDOFF_PATH
         ),
-        "c4_environment_stability_attempt": (
-            C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH
+        "c5_environment_stability_attempt": (
+            C5_ENVIRONMENT_STABILITY_ATTEMPT_PATH
         ),
-        "c4_environment_stability_terminal": (
-            C4_ENVIRONMENT_STABILITY_TERMINAL_PATH
+        "c5_environment_stability_terminal": (
+            C5_ENVIRONMENT_STABILITY_TERMINAL_PATH
         ),
-        "c4_environment_stability": C4_ENVIRONMENT_STABILITY_PATH,
-        "c4_environment_postcleanup": C4_ENVIRONMENT_POSTCLEANUP_PATH,
-        "c4_unit_authorization": C4_UNIT_AUTHORIZATION_PATH,
-        "c4_unit_receipt": C4_UNIT_RECEIPT_PATH,
-        "c4_unit_terminal": C4_UNIT_TERMINAL_PATH,
-        "c4_unit_fragment": C4_UNIT_FRAGMENT_PATH,
+        "c5_environment_stability": C5_ENVIRONMENT_STABILITY_PATH,
+        "c5_environment_postcleanup": C5_ENVIRONMENT_POSTCLEANUP_PATH,
+        "c5_unit_authorization": C5_UNIT_AUTHORIZATION_PATH,
+        "c5_unit_receipt": C5_UNIT_RECEIPT_PATH,
+        "c5_unit_terminal": C5_UNIT_TERMINAL_PATH,
+        "c5_unit_fragment": C5_UNIT_FRAGMENT_PATH,
+        "c5_compatibility_terminal": C5_TERMINAL_PATH,
     }
 
 
-def _c4_future_paths() -> dict[str, Path]:
+def _c5_future_paths() -> dict[str, Path]:
     return {
-        "c4_runtime_spec": C4_RUNTIME_SPEC_PATH,
-        "c4_runtime_launch_authorization": (
-            C4_RUNTIME_LAUNCH_AUTHORIZATION_PATH
+        "c5_runtime_spec": C5_RUNTIME_SPEC_PATH,
+        "c5_runtime_launch_authorization": (
+            C5_RUNTIME_LAUNCH_AUTHORIZATION_PATH
         ),
-        "c4_runtime_artifacts": C4_RUNTIME_ARTIFACT_ROOT,
-        "c4_gpu_lease": C4_GPU_LEASE_ROOT,
+        "c5_runtime_artifacts": C5_RUNTIME_ARTIFACT_ROOT,
+        "c5_gpu_lease": C5_GPU_LEASE_ROOT,
     }
 
 
@@ -1881,7 +2113,7 @@ def _validate_scientific_output_phase(
             _validate_runtime_scientific_run_root(require_empty=False)
         return
     if phase != RUNTIME_PHASE_FINALIZE_SUCCESS:
-        raise AssertionError("unhandled c4 runtime phase")
+        raise AssertionError("unhandled c5 runtime phase")
     _validate_runtime_scientific_run_root(require_empty=False)
     _validate_runtime_scientific_result_receipt(required=True)
 
@@ -1894,7 +2126,380 @@ def _validate_common_identity(value: Mapping[str, object]) -> None:
         or value.get("scientific_attempt_ordinal")
         != SCIENTIFIC_ATTEMPT_ORDINAL
     ):
-        raise PermissionError("c4 scientific identity changed")
+        raise PermissionError("c5 scientific identity changed")
+
+
+def _load_verified_c4_bridge() -> tuple[ModuleType, dict[str, object]]:
+    """Load the exact B4 producer so B4 evidence keeps B4's JSON profile."""
+
+    raw, _observed = _read_regular_bytes(C4_BRIDGE_SOURCE_PATH, sealed=False)
+    if hashlib.sha256(raw).hexdigest() != C4_BRIDGE_SHA256:
+        raise PermissionError("frozen c4 bridge source changed")
+    name = "tools._cure_lite_v24_compat_c4_verified_for_c5_bridge"
+    module = ModuleType(name)
+    module.__file__ = str(C4_BRIDGE_SOURCE_PATH)
+    module.__package__ = "tools"
+    exec(
+        compile(
+            raw,
+            str(C4_BRIDGE_SOURCE_PATH),
+            "exec",
+            dont_inherit=True,
+        ),
+        module.__dict__,
+    )
+    root = _source_root(C4_BRIDGE_SOURCE_PATH)
+    if (
+        root.get("file_sha256") != C4_BRIDGE_SHA256
+        or Path(module.C4_AUTHORIZATION_PATH).absolute()
+        != C4_AUTHORIZATION_PATH.absolute()
+        or Path(module.C4_RECEIPT_PATH).absolute()
+        != C4_RECEIPT_PATH.absolute()
+        or module.AUTHORIZATION_SCHEMA != C4_AUTHORIZATION_SCHEMA
+        or module.CANDIDATE != CANDIDATE
+        or module.STAGE_ID != STAGE_ID
+        or module.SCIENTIFIC_ATTEMPT_ID != SCIENTIFIC_ATTEMPT_ID
+        or module.SCIENTIFIC_ATTEMPT_ORDINAL != SCIENTIFIC_ATTEMPT_ORDINAL
+        or module.RUNTIME_COMPATIBILITY_ID != "c4"
+        or module.C4_UNIT_NAME != C4_UNIT_NAME
+        or not callable(module.validate_c4_authorization)
+    ):
+        raise PermissionError("frozen c4 bridge producer interface changed")
+    return module, root
+
+
+def _validate_c4_authorization_archival(
+    *,
+    unit_state_reader: UnitStateReader,
+    allow_runtime_activation: bool,
+    runtime_phase: str,
+    now: Callable[[], datetime],
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    """Validate B4 authorization only through its exact frozen producer."""
+
+    module, source_root = _load_verified_c4_bridge()
+    source_before, source_stat_before = _read_regular_bytes(
+        C4_BRIDGE_SOURCE_PATH,
+        sealed=False,
+    )
+    auth_before, auth_stat_before = _read_regular_bytes(
+        C4_AUTHORIZATION_PATH,
+        sealed=True,
+    )
+    authorization, root = module.validate_c4_authorization(
+        C4_AUTHORIZATION_PATH,
+        unit_state_reader=unit_state_reader,
+        require_fresh=False,
+        allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=runtime_phase,
+        now=now,
+    )
+    source_after, source_stat_after = _read_regular_bytes(
+        C4_BRIDGE_SOURCE_PATH,
+        sealed=False,
+    )
+    auth_after, auth_stat_after = _read_regular_bytes(
+        C4_AUTHORIZATION_PATH,
+        sealed=True,
+    )
+    if (
+        source_after != source_before
+        or auth_after != auth_before
+        or any(
+            getattr(source_stat_before, field)
+            != getattr(source_stat_after, field)
+            for field in _STAT_GENERATION_FIELDS
+        )
+        or any(
+            getattr(auth_stat_before, field) != getattr(auth_stat_after, field)
+            for field in _STAT_GENERATION_FIELDS
+        )
+        or _source_root(C4_BRIDGE_SOURCE_PATH) != source_root
+        or hashlib.sha256(source_after).hexdigest() != C4_BRIDGE_SHA256
+        or not isinstance(authorization, Mapping)
+        or not isinstance(root, Mapping)
+        or root.get("path") != str(C4_AUTHORIZATION_PATH.absolute())
+        or root.get("file_sha256") != hashlib.sha256(auth_after).hexdigest()
+        or authorization.get("schema_version") != C4_AUTHORIZATION_SCHEMA
+        or authorization.get("runtime_compatibility_id") != "c4"
+        or authorization.get("scientific_attempt_id")
+        != SCIENTIFIC_ATTEMPT_ID
+        or authorization.get("scientific_attempt_ordinal")
+        != SCIENTIFIC_ATTEMPT_ORDINAL
+        or authorization.get("scientific_authority", {}).get(
+            "fresh_scientific_attempt"
+        )
+        is not False
+        or authorization.get("mutation_authority", {}).get(
+            "runtime_spec_creation_authorized"
+        )
+        is not False
+    ):
+        raise PermissionError("archival c4 authorization producer diverged")
+    _require_no_payload(authorization)
+    return dict(authorization), dict(root), source_root
+
+
+def _load_verified_c4_receipt_seal_failure_terminalizer(
+) -> tuple[ModuleType, dict[str, object]]:
+    """Load only the frozen producer for the direct C4 FAIL boundary."""
+
+    _require_frozen_c4_failure_hashes()
+    raw, _observed = _read_regular_bytes(
+        C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH,
+        sealed=False,
+    )
+    if (
+        hashlib.sha256(raw).hexdigest()
+        != C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256
+    ):
+        raise PermissionError("c4 receipt-seal terminalizer source changed")
+    name = (
+        "tools._cure_lite_v24_c4_receipt_seal_failure_terminal_"
+        "verified_for_c5_bridge"
+    )
+    module = ModuleType(name)
+    module.__file__ = str(C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH)
+    module.__package__ = "tools"
+    exec(
+        compile(
+            raw,
+            str(C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH),
+            "exec",
+            dont_inherit=True,
+        ),
+        module.__dict__,
+    )
+    root = _source_root(C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH)
+    if (
+        root.get("file_sha256")
+        != C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256
+        or Path(module.TERMINAL_PATH).absolute()
+        != C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH.absolute()
+        or module.SCHEMA != C4_RECEIPT_SEAL_FAILURE_TERMINAL_SCHEMA
+        or module.CANDIDATE != CANDIDATE
+        or module.STAGE_ID != STAGE_ID
+        or module.SCIENTIFIC_ATTEMPT_ID != SCIENTIFIC_ATTEMPT_ID
+        or module.SCIENTIFIC_ATTEMPT_ORDINAL != SCIENTIFIC_ATTEMPT_ORDINAL
+        or module.RUNTIME_COMPATIBILITY_ID != "c4"
+        or module.C4_UNIT_NAME != C4_UNIT_NAME
+        or not callable(module.validate_archival)
+    ):
+        raise PermissionError("c4 receipt-seal terminalizer interface changed")
+    return module, root
+
+
+def _validate_c4_receipt_seal_failure_terminal(
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    """Validate C4 as a sealed FAIL, never as a compatibility PASS."""
+
+    module, source_root = (
+        _load_verified_c4_receipt_seal_failure_terminalizer()
+    )
+    source_before, source_stat_before = _read_regular_bytes(
+        C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH,
+        sealed=False,
+    )
+    terminal_before, terminal_stat_before = _read_regular_bytes(
+        C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH,
+        sealed=True,
+    )
+    payload, root = module.validate_archival(
+        C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH
+    )
+    source_after, source_stat_after = _read_regular_bytes(
+        C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH,
+        sealed=False,
+    )
+    terminal_after, terminal_stat_after = _read_regular_bytes(
+        C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH,
+        sealed=True,
+    )
+    identity = payload.get("identity") if isinstance(payload, Mapping) else None
+    failure = (
+        payload.get("b4_receipt_seal_failure")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    observation = (
+        payload.get("original_execution_observation")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    closure = (
+        payload.get("metadata_success_closure")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    continuation = (
+        payload.get("continuation_policy")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    payload_observation = (
+        payload.get("payload_observation")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    expiry = (
+        payload.get("authorization_expiry")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    historical = (
+        payload.get("historical_state_observation")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    reproduction = (
+        payload.get("deterministic_reproduction")
+        if isinstance(payload, Mapping)
+        else None
+    )
+    expected_terminalizer_source_root = {
+        "path": str(
+            C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SOURCE_PATH.absolute()
+        ),
+        "file_sha256": hashlib.sha256(source_after).hexdigest(),
+        "device": source_stat_after.st_dev,
+        "inode": source_stat_after.st_ino,
+        "owner_uid": source_stat_after.st_uid,
+        "owner_gid": source_stat_after.st_gid,
+        "mode": stat.S_IMODE(source_stat_after.st_mode),
+        "nlink": source_stat_after.st_nlink,
+        "size": source_stat_after.st_size,
+        "mtime_ns": source_stat_after.st_mtime_ns,
+        "ctime_ns": source_stat_after.st_ctime_ns,
+    }
+    if (
+        source_after != source_before
+        or terminal_after != terminal_before
+        or any(
+            getattr(source_stat_before, field)
+            != getattr(source_stat_after, field)
+            for field in _STAT_GENERATION_FIELDS
+        )
+        or any(
+            getattr(terminal_stat_before, field)
+            != getattr(terminal_stat_after, field)
+            for field in _STAT_GENERATION_FIELDS
+        )
+        or hashlib.sha256(source_after).hexdigest()
+        != C4_RECEIPT_SEAL_FAILURE_TERMINALIZER_SHA256
+        or hashlib.sha256(terminal_after).hexdigest()
+        != C4_RECEIPT_SEAL_FAILURE_TERMINAL_SHA256
+        or not isinstance(root, Mapping)
+        or root.get("path")
+        != str(C4_RECEIPT_SEAL_FAILURE_TERMINAL_PATH.absolute())
+        or root.get("file_sha256")
+        != C4_RECEIPT_SEAL_FAILURE_TERMINAL_SHA256
+        or root.get("terminal_fingerprint")
+        != C4_RECEIPT_SEAL_FAILURE_TERMINAL_FINGERPRINT
+        or root.get("schema_version")
+        != C4_RECEIPT_SEAL_FAILURE_TERMINAL_SCHEMA
+        or root.get("terminalizer_source_root")
+        != expected_terminalizer_source_root
+        or not isinstance(identity, Mapping)
+        or identity.get("candidate") != CANDIDATE
+        or identity.get("stage_id") != STAGE_ID
+        or identity.get("scientific_attempt_id") != SCIENTIFIC_ATTEMPT_ID
+        or identity.get("scientific_attempt_ordinal")
+        != SCIENTIFIC_ATTEMPT_ORDINAL
+        or identity.get("runtime_compatibility_id") != "c4"
+        or identity.get("failure_stage")
+        != "B4_compatibility_receipt_seal"
+        or not isinstance(failure, Mapping)
+        or failure.get("first_rejected_path")
+        != str(C4_UNIT_AUTHORIZATION_PATH.absolute())
+        or failure.get("fingerprint_field") != "authorization_fingerprint"
+        or failure.get("producer_canonical_profile")
+        != "compact_sorted_ensure_ascii_false_utf8"
+        or failure.get("consumer_canonical_profile")
+        != "compact_sorted_ensure_ascii_true_utf8"
+        or failure.get("producer_fingerprint")
+        != "543f794fd27e6277471eb2e52ab290a228415091c3071070cf3f0920c3d28c10"
+        or failure.get("consumer_recomputed_fingerprint")
+        != "11b4f19ae10d7b032af4eb7611e8b36155be6cf577149450128d6b439b14cb44"
+        or failure.get("profile_mismatch") is not True
+        or failure.get("receipt_writer_reached") is not False
+        or failure.get("receipt_sealed") is not False
+        or not isinstance(observation, Mapping)
+        or observation.get("attempt_count") != 1
+        or observation.get("control_plane_observed_exit_code") != 1
+        or observation.get("durable_original_execution_artifact") is not False
+        or observation.get("exit_code_independently_verifiable") is not False
+        or observation.get("original_argv_claimed") is not False
+        or observation.get("original_stdout_claimed") is not False
+        or observation.get("original_stderr_claimed") is not False
+        or observation.get("original_traceback_claimed") is not False
+        or not isinstance(closure, Mapping)
+        or closure.get("r4_unit_realization_passed") is not True
+        or closure.get("r4_static_unit_verified") is not True
+        or closure.get("e4_scope_handoff_present") is not True
+        or closure.get("e4_stability_attempt_count") != 1
+        or closure.get("e4_environment_sample_count") != 2
+        or closure.get("e4_stability_passed") is not True
+        or closure.get("e4_postcleanup_passed") is not True
+        or closure.get("c4_compatibility_receipt_present") is not False
+        or not isinstance(continuation, Mapping)
+        or continuation.get("automatic_retry") is not False
+        or continuation.get("same_c4_reentry") is not False
+        or continuation.get("same_c4_reauthorization") is not False
+        or continuation.get("same_c4_source_repair") is not False
+        or continuation.get("same_c4_loader_patch") is not False
+        or continuation.get("same_c4_receipt_seal_reentry") is not False
+        or continuation.get("r4_e4_reentry") is not False
+        or continuation.get("r14_l4_runtime_scientific_launch") is not False
+        or continuation.get("c5_required") is not True
+        or continuation.get("new_explicit_authorization_required") is not True
+        or continuation.get("scientific_attempt_consumed") is not False
+        or continuation.get("terminal_grants_c5_reuse_authority") is not False
+        or continuation.get("b4_authorization_consumed") is not True
+        or continuation.get("r4_unit_realization_consumed") is not True
+        or continuation.get("e4_metadata_attempt_consumed") is not True
+        or continuation.get("runtime_launch_consumed") is not False
+        or continuation.get("runtime_materialization_consumed") is not False
+        or continuation.get("scientific_attempt_id")
+        != SCIENTIFIC_ATTEMPT_ID
+        or continuation.get("scientific_attempt_ordinal")
+        != SCIENTIFIC_ATTEMPT_ORDINAL
+        or continuation.get("scientific_attempt_id_unchanged") is not True
+        or continuation.get("scientific_attempt_ordinal_unchanged") is not True
+        or not isinstance(payload_observation, Mapping)
+        or payload_observation.get("D_R_payload_accessed") is not False
+        or payload_observation.get("D_V_payload_accessed") is not False
+        or payload_observation.get("D_T_payload_accessed") is not False
+        or payload_observation.get("gpu_compute_accessed") is not False
+        or payload_observation.get("training_started") is not False
+        or payload_observation.get("scientific_samples_processed") != 0
+        or payload_observation.get("optimizer_steps") != 0
+        or payload_observation.get("parameter_updates") != 0
+        or payload_observation.get("scientific_attempt_consumed") is not False
+        or not isinstance(expiry, Mapping)
+        or expiry.get("B4_expired") is not True
+        or expiry.get("R4_expired") is not True
+        or expiry.get("B4_compatibility_receipt_absent_at_observation")
+        is not True
+        or expiry.get("B4_sealed_by_compatibility_receipt") is not False
+        or not isinstance(historical, Mapping)
+        or historical.get("historical_observation_only") is not True
+        or historical.get("future_state_authority") is not False
+        or historical.get("archival_live_absence_recheck_required")
+        is not False
+        or historical.get("archival_live_manager_recheck_required")
+        is not False
+        or not isinstance(reproduction, Mapping)
+        or reproduction.get("first_failure_stage")
+        != "R4_authorization_fingerprint_validation"
+        or reproduction.get("first_failure_reproduced") is not True
+        or reproduction.get("retry_or_replay_performed") is not False
+        or reproduction.get("systemd_mutation_performed") is not False
+        or reproduction.get("gpu_or_payload_accessed") is not False
+        or reproduction.get("old_B4_seal_called") is not False
+        or reproduction.get("R4_E4_writer_called") is not False
+    ):
+        raise PermissionError("c4 receipt-seal failure transition changed")
+    return dict(payload), dict(root), source_root
 
 
 def _load_verified_terminalizer() -> tuple[ModuleType, dict[str, object]]:
@@ -1940,71 +2545,125 @@ def _load_verified_terminalizer() -> tuple[ModuleType, dict[str, object]]:
 def _load_verified_environment_wrapper(
     expected_root: Mapping[str, object],
 ) -> tuple[ModuleType, dict[str, object]]:
-    """Load exactly the wrapper generation captured by c4 authorization.
+    """Load exactly the wrapper generation captured by c5 authorization.
 
     The wrapper is intentionally not hash-pinned in this bridge: doing so
-    would form a source-hash cycle once the wrapper pins the c4 realizer.  The
+    would form a source-hash cycle once the wrapper pins the c5 realizer.  The
     create-once authorization captures the wrapper's full source root, and
     every later phase requires that same file generation before and after
     execution.
     """
 
     if not isinstance(expected_root, Mapping):
-        raise PermissionError("c4 environment wrapper root is malformed")
+        raise PermissionError("c5 environment wrapper root is malformed")
     expected = dict(expected_root)
     _validate_source_root(
         expected,
-        expected_path=C4_ENVIRONMENT_WRAPPER_SOURCE_PATH,
+        expected_path=C5_ENVIRONMENT_WRAPPER_SOURCE_PATH,
     )
     raw, _observed = _read_regular_bytes(
-        C4_ENVIRONMENT_WRAPPER_SOURCE_PATH,
+        C5_ENVIRONMENT_WRAPPER_SOURCE_PATH,
         sealed=False,
     )
     if hashlib.sha256(raw).hexdigest() != expected.get("file_sha256"):
-        raise PermissionError("c4 environment wrapper bytes changed")
-    name = "tools._cure_lite_v24_environment_compat_c4_verified_for_bridge"
+        raise PermissionError("c5 environment wrapper bytes changed")
+    name = "tools._cure_lite_v24_environment_compat_c5_verified_for_bridge"
     module = ModuleType(name)
-    module.__file__ = str(C4_ENVIRONMENT_WRAPPER_SOURCE_PATH)
+    module.__file__ = str(C5_ENVIRONMENT_WRAPPER_SOURCE_PATH)
     module.__package__ = "tools"
     sys.modules[name] = module
     try:
         exec(
             compile(
                 raw,
-                str(C4_ENVIRONMENT_WRAPPER_SOURCE_PATH),
+                str(C5_ENVIRONMENT_WRAPPER_SOURCE_PATH),
                 "exec",
                 dont_inherit=True,
             ),
             module.__dict__,
         )
-        after = _source_root(C4_ENVIRONMENT_WRAPPER_SOURCE_PATH)
+        after = _source_root(C5_ENVIRONMENT_WRAPPER_SOURCE_PATH)
         if after != expected:
             raise PermissionError(
-                "c4 environment wrapper generation changed while loading"
+                "c5 environment wrapper generation changed while loading"
             )
         if (
-            Path(module.C4_POLICY_PATH).absolute()
-            != C4_ENVIRONMENT_POLICY_PATH.absolute()
-            or Path(module.C4_SCOPE_HANDOFF_PATH).absolute()
-            != C4_ENVIRONMENT_SCOPE_HANDOFF_PATH.absolute()
-            or Path(module.C4_STABILITY_ATTEMPT_PATH).absolute()
-            != C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH.absolute()
-            or Path(module.C4_STABILITY_TERMINAL_PATH).absolute()
-            != C4_ENVIRONMENT_STABILITY_TERMINAL_PATH.absolute()
-            or Path(module.C4_STABILITY_PATH).absolute()
-            != C4_ENVIRONMENT_STABILITY_PATH.absolute()
-            or Path(module.C4_POSTCLEANUP_PATH).absolute()
-            != C4_ENVIRONMENT_POSTCLEANUP_PATH.absolute()
-            or Path(module.C4_REALIZATION_AUTHORIZATION_PATH).absolute()
-            != C4_UNIT_AUTHORIZATION_PATH.absolute()
-            or Path(module.C4_REALIZATION_RECEIPT_PATH).absolute()
-            != C4_UNIT_RECEIPT_PATH.absolute()
-            or module.C4_TARGET_UNIT != C4_UNIT_NAME
+            Path(module.C5_POLICY_PATH).absolute()
+            != C5_ENVIRONMENT_POLICY_PATH.absolute()
+            or Path(module.C5_SCOPE_HANDOFF_PATH).absolute()
+            != C5_ENVIRONMENT_SCOPE_HANDOFF_PATH.absolute()
+            or Path(module.C5_STABILITY_ATTEMPT_PATH).absolute()
+            != C5_ENVIRONMENT_STABILITY_ATTEMPT_PATH.absolute()
+            or Path(module.C5_STABILITY_TERMINAL_PATH).absolute()
+            != C5_ENVIRONMENT_STABILITY_TERMINAL_PATH.absolute()
+            or Path(module.C5_STABILITY_PATH).absolute()
+            != C5_ENVIRONMENT_STABILITY_PATH.absolute()
+            or Path(module.C5_POSTCLEANUP_PATH).absolute()
+            != C5_ENVIRONMENT_POSTCLEANUP_PATH.absolute()
+            or Path(module.C5_REALIZATION_AUTHORIZATION_PATH).absolute()
+            != C5_UNIT_AUTHORIZATION_PATH.absolute()
+            or Path(module.C5_REALIZATION_RECEIPT_PATH).absolute()
+            != C5_UNIT_RECEIPT_PATH.absolute()
+            or module.C5_TARGET_UNIT != C5_UNIT_NAME
             or not callable(module.replay_old_scope_and_handoff)
-            or not callable(module.validate_c4_environment_closure)
-            or not callable(module._production_archival_validator)
+            or not callable(module.validate_c5_environment_closure)
+            or not callable(module.load_c5_environment_closure)
         ):
-            raise PermissionError("c4 environment wrapper interface changed")
+            raise PermissionError("c5 environment wrapper interface changed")
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    return module, after
+
+
+def _load_verified_unit_realizer(
+    expected_root: Mapping[str, object],
+) -> tuple[ModuleType, dict[str, object]]:
+    """Load the exact R5 producer generation captured by B5 authorization."""
+
+    if not isinstance(expected_root, Mapping):
+        raise PermissionError("c5 unit realizer root is malformed")
+    expected = dict(expected_root)
+    _validate_source_root(
+        expected,
+        expected_path=C5_UNIT_REALIZER_SOURCE_PATH,
+    )
+    raw, _observed = _read_regular_bytes(
+        C5_UNIT_REALIZER_SOURCE_PATH,
+        sealed=False,
+    )
+    if hashlib.sha256(raw).hexdigest() != expected.get("file_sha256"):
+        raise PermissionError("c5 unit realizer bytes changed")
+    name = "tools._cure_lite_v24_realizer_compat_c5_verified_for_bridge"
+    module = ModuleType(name)
+    module.__file__ = str(C5_UNIT_REALIZER_SOURCE_PATH)
+    module.__package__ = "tools"
+    sys.modules[name] = module
+    try:
+        exec(
+            compile(
+                raw,
+                str(C5_UNIT_REALIZER_SOURCE_PATH),
+                "exec",
+                dont_inherit=True,
+            ),
+            module.__dict__,
+        )
+        after = _source_root(C5_UNIT_REALIZER_SOURCE_PATH)
+        if (
+            after != expected
+            or module.COMPAT_UNIT != C5_UNIT_NAME
+            or Path(module.COMPAT_BRIDGE_AUTHORIZATION_PATH).absolute()
+            != C5_AUTHORIZATION_PATH.absolute()
+            or Path(module.COMPAT_AUTHORIZATION_PATH).absolute()
+            != C5_UNIT_AUTHORIZATION_PATH.absolute()
+            or Path(module.COMPAT_RECEIPT_PATH).absolute()
+            != C5_UNIT_RECEIPT_PATH.absolute()
+            or Path(module.COMPAT_TERMINAL_PATH).absolute()
+            != C5_UNIT_TERMINAL_PATH.absolute()
+            or not callable(module.validate_archival_realization_chain)
+        ):
+            raise PermissionError("c5 unit realizer producer interface changed")
     except BaseException:
         sys.modules.pop(name, None)
         raise
@@ -2013,10 +2672,10 @@ def _load_verified_environment_wrapper(
 
 def _normalize_environment_contract(contract: object) -> dict[str, object]:
     if not is_dataclass(contract) or isinstance(contract, type):
-        raise PermissionError("c4 environment contract is not a dataclass")
+        raise PermissionError("c5 environment contract is not a dataclass")
     value = asdict(contract)
     if not isinstance(value, dict):
-        raise PermissionError("c4 environment contract is malformed")
+        raise PermissionError("c5 environment contract is malformed")
     return json.loads(_canonical_json(value))
 
 
@@ -2132,7 +2791,7 @@ def _load_verified_mode_contract_failure_terminalizer(
     ):
         raise PermissionError("c2 mode-contract terminalizer source changed")
 
-    name = "tools._cure_lite_v24_c2_mode_contract_terminal_verified_for_c4_bridge"
+    name = "tools._cure_lite_v24_c2_mode_contract_terminal_verified_for_c5_bridge"
     module = ModuleType(name)
     module.__file__ = str(C2_MODE_CONTRACT_FAILURE_TERMINALIZER_SOURCE_PATH)
     module.__package__ = "tools"
@@ -2336,15 +2995,16 @@ def _validate_mode_contract_failure_terminal(
     ):
         raise PermissionError("c2 mode-contract failure transition changed")
 
-    # F's payload and historical-live claims are not C4 authority.  Only the
+    # F's payload and historical-live claims are not C5 authority.  Only the
     # fixed source/evidence lineage and the historical C2 -> C3 transition are
-    # consumed.  C3 -> C4 authority comes only from the direct C3 terminal.
+    # consumed.  C3 only authorizes the historical C3 -> C4 transition; direct
+    # C5 continuation authority comes from the sealed C4 failure terminal.
     return dict(payload), expected_root, source_root
 
 
 def _load_verified_c3_environment_failure_terminalizer(
 ) -> tuple[ModuleType, dict[str, object]]:
-    """Byte-pin the direct C3 predecessor before executing archival code."""
+    """Byte-pin the historical C3 predecessor before archival validation."""
 
     _require_frozen_c3_failure_hashes()
     raw, _observed = _read_regular_bytes(
@@ -2360,7 +3020,7 @@ def _load_verified_c3_environment_failure_terminalizer(
         )
     name = (
         "tools._cure_lite_v24_c3_environment_failure_terminal_"
-        "verified_for_c4_bridge"
+        "verified_for_c5_bridge"
     )
     module = ModuleType(name)
     module.__file__ = str(
@@ -2558,8 +3218,9 @@ def _validate_c3_environment_failure_terminal(
         raise PermissionError(
             "c3 environment-failure transition changed"
         )
-    # VALID/SEALED FAIL is the sole direct-predecessor authority.  It is never
-    # converted into a compatibility, environment, or scientific PASS.
+    # This VALID/SEALED FAIL proves only the historical C3 -> C4 transition.
+    # It is never promoted to direct C5 authority or converted into a
+    # compatibility, environment, or scientific PASS.
     return dict(payload), dict(terminal_root), source_root
 
 
@@ -2831,22 +3492,22 @@ def _authorization_times(
 ) -> tuple[datetime, datetime, datetime]:
     created = _parse_utc(
         authorization.get("created_at_utc"),
-        name="c4 authorization creation",
+        name="c5 authorization creation",
     )
     issued = _parse_utc(
         authorization.get("issued_at_utc"),
-        name="c4 authorization issuance",
+        name="c5 authorization issuance",
     )
     expires = _parse_utc(
         authorization.get("expires_at_utc"),
-        name="c4 authorization expiry",
+        name="c5 authorization expiry",
     )
     if (
         not issued <= created <= expires
         or expires - issued > timedelta(seconds=300)
         or (require_fresh and not issued <= current <= expires)
     ):
-        raise PermissionError("c4 authorization is stale or malformed")
+        raise PermissionError("c5 authorization is stale or malformed")
     return created, issued, expires
 
 
@@ -2857,31 +3518,46 @@ def _collect_protected_unit_states(
     c1_state = _normalized_state(unit_state_reader, C1_UNIT_NAME)
     c2_state = _normalized_state(unit_state_reader, C2_UNIT_NAME)
     c3_state = _normalized_state(unit_state_reader, C3_UNIT_NAME)
-    _require_inert_state(old_state, unit_name=OLD_UNIT_NAME)
-    _require_inert_state(c1_state, unit_name=C1_UNIT_NAME)
+    c4_state = _normalized_state(unit_state_reader, C4_UNIT_NAME)
+    _require_inert_state(
+        old_state,
+        unit_name=OLD_UNIT_NAME,
+        fragment_path=str(OLD_UNIT_FRAGMENT_PATH),
+    )
+    _require_inert_state(
+        c1_state,
+        unit_name=C1_UNIT_NAME,
+        fragment_path=str(C1_UNIT_FRAGMENT_PATH),
+    )
     _require_missing_inert_state(c2_state, unit_name=C2_UNIT_NAME)
     _require_inert_state(
         c3_state,
         unit_name=C3_UNIT_NAME,
         fragment_path=str(C3_UNIT_FRAGMENT_PATH),
     )
+    _require_inert_state(
+        c4_state,
+        unit_name=C4_UNIT_NAME,
+        fragment_path=str(C4_UNIT_FRAGMENT_PATH),
+    )
     return {
         "old": old_state,
         "c1": c1_state,
         "c2": c2_state,
         "c3": c3_state,
+        "c4": c4_state,
     }
 
 
 def _collect_preauthorization_target_unit_state(
     unit_state_reader: UnitStateReader,
 ) -> dict[str, object]:
-    state = _normalized_state(unit_state_reader, C4_UNIT_NAME)
-    _require_missing_inert_state(state, unit_name=C4_UNIT_NAME)
+    state = _normalized_state(unit_state_reader, C5_UNIT_NAME)
+    _require_missing_inert_state(state, unit_name=C5_UNIT_NAME)
     return state
 
 
-def authorize_c4(
+def authorize_c5(
     *,
     instruction_id: str,
     authorization_basis: str,
@@ -2891,11 +3567,11 @@ def authorize_c4(
     now: Callable[[], datetime] = _utc_now,
 ) -> dict[str, object]:
     if authorization_path is None:
-        authorization_path = C4_AUTHORIZATION_PATH
+        authorization_path = C5_AUTHORIZATION_PATH
     _require_fixed_path(
         authorization_path,
-        C4_AUTHORIZATION_PATH,
-        name="c4 authorization",
+        C5_AUTHORIZATION_PATH,
+        name="c5 authorization",
     )
     if (
         instruction_id != INSTRUCTION_ID
@@ -2904,18 +3580,20 @@ def authorize_c4(
         or not isinstance(validity_seconds, int)
         or not 1 <= validity_seconds <= 300
     ):
-        raise ValueError("c4 authorization input changed")
-    if os.path.lexists(C4_AUTHORIZATION_PATH) or os.path.lexists(
-        C4_RECEIPT_PATH
+        raise ValueError("c5 authorization input changed")
+    if any(
+        os.path.lexists(path)
+        for path in (C5_AUTHORIZATION_PATH, C5_RECEIPT_PATH, C5_TERMINAL_PATH)
     ):
-        raise FileExistsError("c4 compatibility identity is consumed")
+        raise FileExistsError("c5 compatibility identity is consumed")
+    _require_frozen_c4_failure_hashes()
     _require_frozen_c3_failure_hashes()
     _validate_scientific_output_phase(
         allow_runtime_activation=False,
         runtime_phase=RUNTIME_PHASE_PREACTIVATION,
     )
-    _require_absent(_c4_preauthorization_paths())
-    _require_absent(_c4_future_paths())
+    _require_absent(_c5_preauthorization_paths())
+    _require_absent(_c5_future_paths())
     issued = now().astimezone(timezone.utc)
     _prewrite, prewrite_root, prewrite_source_root = (
         _validate_c2_prewrite_failure_terminal()
@@ -2925,6 +3603,17 @@ def authorize_c4(
     )
     c3_failure, c3_failure_root, c3_failure_source_root = (
         _validate_c3_environment_failure_terminal()
+    )
+    _c4_authorization, c4_authorization_root, c4_bridge_root = (
+        _validate_c4_authorization_archival(
+            unit_state_reader=unit_state_reader,
+            allow_runtime_activation=False,
+            runtime_phase=RUNTIME_PHASE_PREACTIVATION,
+            now=lambda: issued,
+        )
+    )
+    c4_failure, c4_failure_root, c4_failure_source_root = (
+        _validate_c4_receipt_seal_failure_terminal()
     )
     terminal, terminal_root, _terminalizer_root = (
         _validate_c1_failure_terminal(
@@ -2943,6 +3632,9 @@ def authorize_c4(
         != prewrite_source_root
         or sources["c3_environment_failure_terminalizer"]
         != c3_failure_source_root
+        or sources["c4_bridge"] != c4_bridge_root
+        or sources["c4_receipt_seal_failure_terminalizer"]
+        != c4_failure_source_root
     ):
         raise PermissionError(
             "c2 predecessor terminalizer root diverged"
@@ -2950,8 +3642,9 @@ def authorize_c4(
     _load_verified_environment_wrapper(
         sources["compat_environment_wrapper"]
     )
+    _load_verified_unit_realizer(sources["compat_unit_realizer"])
     protected_states = _collect_protected_unit_states(unit_state_reader)
-    c4_preauthorization_state = (
+    c5_preauthorization_state = (
         _collect_preauthorization_target_unit_state(unit_state_reader)
     )
     c1_expires = _parse_utc(
@@ -2966,12 +3659,17 @@ def authorize_c4(
         c3_failure["identity"]["sealed_at_utc"],
         name="c3 environment-failure sealing",
     )
+    c4_failure_sealed = _parse_utc(
+        c4_failure["identity"]["sealed_at_utc"],
+        name="c4 receipt-seal failure sealing",
+    )
     if (
         issued <= c1_expires
         or issued <= c2_failure_sealed
         or issued <= c3_failure_sealed
+        or issued <= c4_failure_sealed
     ):
-        raise PermissionError("c4 cannot precede its sealed predecessors")
+        raise PermissionError("c5 cannot precede its sealed predecessors")
     body: dict[str, object] = {
         "schema_version": AUTHORIZATION_SCHEMA,
         "candidate": CANDIDATE,
@@ -2991,11 +3689,13 @@ def authorize_c4(
         "c2_mode_contract_failure_terminal_root": failure_root,
         "c2_prewrite_failure_terminal_root": prewrite_root,
         "c3_environment_failure_terminal_root": c3_failure_root,
+        "c4_authorization_root": c4_authorization_root,
+        "c4_receipt_seal_failure_terminal_root": c4_failure_root,
         "c1_expired_authorization_root": c1_root,
         "r10_roots": r10_roots,
         "compatibility_source_roots": sources,
         "protected_unit_states": protected_states,
-        "preauthorization_target_unit_state": c4_preauthorization_state,
+        "preauthorization_target_unit_state": c5_preauthorization_state,
         "expected_evidence_paths": {
             label: str(path)
             for label, path in _evidence_paths().items()
@@ -3018,13 +3718,13 @@ def authorize_c4(
         "materialization_consumed": False,
     }
     return _write_sealed(
-        C4_AUTHORIZATION_PATH,
+        C5_AUTHORIZATION_PATH,
         body,
         fingerprint_field="authorization_fingerprint",
     )
 
 
-def validate_c4_authorization(
+def validate_c5_authorization(
     path: Path | None = None,
     *,
     unit_state_reader: UnitStateReader = _default_unit_state_reader,
@@ -3037,13 +3737,14 @@ def validate_c4_authorization(
         allow_runtime_activation=allow_runtime_activation,
         runtime_phase=runtime_phase,
     )
+    _require_frozen_c4_failure_hashes()
     _require_frozen_c3_failure_hashes()
     if path is None:
-        path = C4_AUTHORIZATION_PATH
+        path = C5_AUTHORIZATION_PATH
     fixed = _require_fixed_path(
         path,
-        C4_AUTHORIZATION_PATH,
-        name="c4 authorization",
+        C5_AUTHORIZATION_PATH,
+        name="c5 authorization",
     )
     authorization, root = _load_sealed(
         fixed,
@@ -3053,7 +3754,7 @@ def validate_c4_authorization(
     _validate_common_identity(authorization)
     _require_no_payload(authorization)
     if set(authorization) != _AUTHORIZATION_KEYS:
-        raise PermissionError("c4 authorization keys changed")
+        raise PermissionError("c5 authorization keys changed")
     _validate_scientific_output_phase(
         allow_runtime_activation=allow_runtime_activation,
         runtime_phase=phase,
@@ -3073,6 +3774,17 @@ def validate_c4_authorization(
     c3_failure, c3_failure_root, c3_failure_source_root = (
         _validate_c3_environment_failure_terminal()
     )
+    _c4_authorization, c4_authorization_root, c4_bridge_root = (
+        _validate_c4_authorization_archival(
+            unit_state_reader=unit_state_reader,
+            allow_runtime_activation=allow_runtime_activation,
+            runtime_phase=phase,
+            now=lambda: current,
+        )
+    )
+    c4_failure, c4_failure_root, c4_failure_source_root = (
+        _validate_c4_receipt_seal_failure_terminal()
+    )
     terminal, terminal_root, _terminalizer_root = (
         _validate_c1_failure_terminal(
             unit_state_reader=unit_state_reader,
@@ -3083,23 +3795,24 @@ def validate_c4_authorization(
     if authorization.get("r10_roots") != _r10_roots_from_terminal(
         terminal
     ):
-        raise PermissionError("c4 authorization r10 lineage changed")
-    _validate_source_roots(
-        authorization.get("compatibility_source_roots")
-    )
+        raise PermissionError("c5 authorization r10 lineage changed")
+    sources = authorization.get("compatibility_source_roots")
+    _validate_source_roots(sources)
+    if not isinstance(sources, Mapping):
+        raise PermissionError("c5 authorization source roots are malformed")
     protected_states = _collect_protected_unit_states(unit_state_reader)
     preauthorization_target_state = authorization.get(
         "preauthorization_target_unit_state"
     )
     if not isinstance(preauthorization_target_state, Mapping):
-        raise PermissionError("c4 preauthorization target state is absent")
+        raise PermissionError("c5 preauthorization target state is absent")
     _require_missing_inert_state(
         preauthorization_target_state,
-        unit_name=C4_UNIT_NAME,
+        unit_name=C5_UNIT_NAME,
     )
     authorized_at = _parse_utc(
         authorization["created_at_utc"],
-        name="c4 authorization creation",
+        name="c5 authorization creation",
     )
     c2_failure_sealed = _parse_utc(
         _failure["identity"]["sealed_at_utc"],
@@ -3109,10 +3822,15 @@ def validate_c4_authorization(
         c3_failure["identity"]["sealed_at_utc"],
         name="c3 environment-failure sealing",
     )
+    c4_failure_sealed = _parse_utc(
+        c4_failure["identity"]["sealed_at_utc"],
+        name="c4 receipt-seal failure sealing",
+    )
     if (
         authorized_at <= c2_failure_sealed
         or authorized_at <= c3_failure_sealed
-        or authorization.get("runtime_compatibility_id") != "c4"
+        or authorized_at <= c4_failure_sealed
+        or authorization.get("runtime_compatibility_id") != "c5"
         or authorization.get("instruction_id") != INSTRUCTION_ID
         or authorization.get("authorization_basis") != AUTHORIZATION_BASIS
         or authorization.get("authorized_uid") != os.getuid()
@@ -3140,6 +3858,13 @@ def validate_c4_authorization(
         != prewrite_root
         or authorization.get("c3_environment_failure_terminal_root")
         != c3_failure_root
+        or sources.get("c4_bridge") != c4_bridge_root
+        or authorization.get("c4_authorization_root")
+        != c4_authorization_root
+        or sources.get("c4_receipt_seal_failure_terminalizer")
+        != c4_failure_source_root
+        or authorization.get("c4_receipt_seal_failure_terminal_root")
+        != c4_failure_root
         or authorization.get("compatibility_source_roots", {}).get(
             "c2_prewrite_failure_terminalizer"
         )
@@ -3150,6 +3875,9 @@ def validate_c4_authorization(
         or authorization.get("compatibility_source_roots", {}).get(
             "c3_environment_failure_terminalizer"
         ) != c3_failure_source_root
+        or sources.get("c4_bridge") != c4_bridge_root
+        or sources.get("c4_receipt_seal_failure_terminalizer")
+        != c4_failure_source_root
         or authorization.get("c1_expired_authorization_root") != c1_root
         or authorization.get("protected_unit_states")
         != protected_states
@@ -3164,7 +3892,7 @@ def validate_c4_authorization(
         )
         is not False
     ):
-        raise PermissionError("c4 authorization closure changed")
+        raise PermissionError("c5 authorization closure changed")
     return authorization, root
 
 
@@ -3174,38 +3902,47 @@ def validate_compat_authorization(
     unit_state_reader: UnitStateReader = _default_unit_state_reader,
     require_fresh: bool = True,
     require_future_absence: bool = True,
+    allow_runtime_activation: bool = False,
+    runtime_phase: str | None = None,
     now: Callable[[], datetime] = _utc_now,
 ) -> tuple[dict[str, object], dict[str, object]]:
-    """c1-compatible consumer interface for the c4 authorization.
+    """c1-compatible consumer interface for the c5 authorization.
 
-    ``require_future_absence`` controls only the c4 runtime spec/launch/
-    artifact/lease namespace.  This unit-realization consumer is always
-    preactivation, so original scientific outputs and every alias stay absent.
+    ``require_future_absence`` controls only the c5 runtime spec/launch/
+    artifact/lease namespace.  Fresh realization is preactivation-only;
+    archival consumers must preserve an explicit, internally consistent
+    runtime phase while original scientific outputs and every alias stay
+    subject to that phase's exact absence contract.
     """
 
     if not isinstance(require_future_absence, bool):
         raise TypeError("require_future_absence must be boolean")
-    authorization, root = validate_c4_authorization(
+    authorization, root = validate_c5_authorization(
         path=path,
         unit_state_reader=unit_state_reader,
         require_fresh=require_fresh,
-        allow_runtime_activation=False,
-        runtime_phase=RUNTIME_PHASE_PREACTIVATION,
+        allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=runtime_phase,
         now=now,
     )
     _validate_scientific_output_phase(
-        allow_runtime_activation=False,
-        runtime_phase=RUNTIME_PHASE_PREACTIVATION,
+        allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=_resolve_runtime_phase(
+            allow_runtime_activation=allow_runtime_activation,
+            runtime_phase=runtime_phase,
+        ),
     )
     if require_future_absence:
-        _require_absent(_c4_future_paths())
+        _require_absent(_c5_future_paths())
     return authorization, root
 
 
 def _validate_unit_chain(
     *,
+    realizer_root: Mapping[str, object],
     unit_state_reader: UnitStateReader,
     allow_runtime_activation: bool,
+    runtime_phase: str,
 ) -> tuple[
     dict[str, object],
     dict[str, object],
@@ -3213,35 +3950,51 @@ def _validate_unit_chain(
     dict[str, object],
     datetime,
 ]:
-    authorization, auth_root = _load_sealed(
-        C4_UNIT_AUTHORIZATION_PATH,
-        fingerprint_field="authorization_fingerprint",
-        schema=UNIT_AUTHORIZATION_SCHEMA,
+    producer, _producer_root = _load_verified_unit_realizer(realizer_root)
+    archival = producer.validate_archival_realization_chain(
+        C5_UNIT_AUTHORIZATION_PATH,
+        C5_UNIT_RECEIPT_PATH,
+        allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=runtime_phase,
     )
-    receipt, receipt_root = _load_sealed(
-        C4_UNIT_RECEIPT_PATH,
-        fingerprint_field="receipt_fingerprint",
-        schema=UNIT_RECEIPT_SCHEMA,
-    )
+    if not isinstance(archival, Mapping):
+        raise PermissionError("R5 producer returned malformed archival evidence")
+    authorization = archival.get("authorization")
+    auth_root = archival.get("authorization_identity")
+    if auth_root is None:
+        auth_root = archival.get("authorization_root")
+    receipt = archival.get("receipt")
+    receipt_root = archival.get("receipt_identity")
+    if receipt_root is None:
+        receipt_root = archival.get("receipt_root")
+    if not all(
+        isinstance(item, Mapping)
+        for item in (authorization, auth_root, receipt, receipt_root)
+    ):
+        raise PermissionError("R5 producer omitted archival roots")
+    authorization = dict(authorization)
+    auth_root = dict(auth_root)
+    receipt = dict(receipt)
+    receipt_root = dict(receipt_root)
     _require_no_payload(authorization)
     _require_no_payload(receipt)
     issued = _parse_utc(
         authorization.get("issued_at_utc"),
-        name="c4 realization issuance",
+        name="c5 realization issuance",
     )
     expires = _parse_utc(
         authorization.get("expires_at_utc"),
-        name="c4 realization expiry",
+        name="c5 realization expiry",
     )
     receipt_time = _parse_utc(
         receipt.get("created_at_utc"),
-        name="c4 realization receipt creation",
+        name="c5 realization receipt creation",
     )
     full_shadow = receipt.get("full_static_shadow")
     fragment = receipt.get("fragment_identity")
     if (
-        authorization.get("unit_name") != C4_UNIT_NAME
-        or receipt.get("unit_name") != C4_UNIT_NAME
+        authorization.get("unit_name") != C5_UNIT_NAME
+        or receipt.get("unit_name") != C5_UNIT_NAME
         or receipt.get("passed") is not True
         or receipt.get("static") is not True
         or receipt.get("started") is not False
@@ -3251,40 +4004,46 @@ def _validate_unit_chain(
         or expires - issued > timedelta(seconds=300)
         or not isinstance(full_shadow, Mapping)
         or not isinstance(fragment, Mapping)
-        or full_shadow.get("Id") != C4_UNIT_NAME
+        or not set(_BRIDGE_STATE_FIELDS).issubset(full_shadow)
+        or full_shadow.get("Id") != C5_UNIT_NAME
         or full_shadow.get("FragmentPath") != fragment.get("path")
         or receipt.get("manager_generation")
         != authorization.get("manager_generation")
     ):
-        raise PermissionError("c4 unit realization chain changed")
-    live = _normalized_state(unit_state_reader, C4_UNIT_NAME)
+        raise PermissionError("c5 unit realization chain changed")
+    live = _normalized_state(unit_state_reader, C5_UNIT_NAME)
     if live.get("FragmentPath") != fragment.get("path"):
-        raise PermissionError("c4 fragment path changed")
+        raise PermissionError("c5 fragment path changed")
     fragment_root = _source_root(Path(str(fragment["path"])))
     if (
         fragment_root.get("file_sha256") != fragment.get("file_sha256")
         or fragment_root.get("device") != fragment.get("device")
         or fragment_root.get("inode") != fragment.get("inode")
     ):
-        raise PermissionError("c4 fragment generation changed")
-    for field in _STATE_FIELDS:
-        if field in full_shadow and live.get(field) != full_shadow[field]:
+        raise PermissionError("c5 fragment generation changed")
+    # R5's fixed producer has already validated its complete systemd shadow.
+    # This independent B5 reader intentionally observes the narrower bridge
+    # state projection, so compare exactly that shared projection here.
+    for field in _BRIDGE_STATE_FIELDS:
+        if live.get(field) != full_shadow[field]:
             if (
                 allow_runtime_activation
                 and field in ("ActiveState", "SubState", "InvocationID")
             ):
                 continue
-            raise PermissionError(f"c4 live unit shadow changed: {field}")
+            raise PermissionError(f"c5 live unit shadow changed: {field}")
     if not allow_runtime_activation:
         _require_inert_state(
             live,
-            unit_name=C4_UNIT_NAME,
+            unit_name=C5_UNIT_NAME,
             fragment_path=str(fragment["path"]),
         )
     return authorization, auth_root, receipt, receipt_root, receipt_time
 
 
-def _load_environment_evidence() -> tuple[
+def _load_environment_evidence(
+    environment: ModuleType,
+) -> tuple[
     dict[str, object],
     dict[str, object],
     dict[str, object],
@@ -3294,36 +4053,49 @@ def _load_environment_evidence() -> tuple[
 ]:
     _require_absent(
         {
-            "c4_environment_stability_terminal": (
-                C4_ENVIRONMENT_STABILITY_TERMINAL_PATH
+            "c5_environment_stability_terminal": (
+                C5_ENVIRONMENT_STABILITY_TERMINAL_PATH
             )
         }
     )
-    scope_handoff, scope_handoff_root = _load_sealed(
-        C4_ENVIRONMENT_SCOPE_HANDOFF_PATH,
-        fingerprint_field="scope_handoff_fingerprint",
-        schema=ENVIRONMENT_SCOPE_HANDOFF_SCHEMA,
-    )
-    stability_attempt, stability_attempt_root = _load_sealed(
-        C4_ENVIRONMENT_STABILITY_ATTEMPT_PATH,
-        fingerprint_field="stability_attempt_fingerprint",
-        schema=ENVIRONMENT_STABILITY_ATTEMPT_SCHEMA,
-    )
-    policy, policy_root = _load_sealed(
-        C4_ENVIRONMENT_POLICY_PATH,
-        fingerprint_field="policy_fingerprint",
-        schema=ENVIRONMENT_POLICY_SCHEMA,
-    )
-    stability, stability_root = _load_sealed(
-        C4_ENVIRONMENT_STABILITY_PATH,
-        fingerprint_field="stability_receipt_fingerprint",
-        schema=ENVIRONMENT_STABILITY_SCHEMA,
-    )
-    postcleanup, postcleanup_root = _load_sealed(
-        C4_ENVIRONMENT_POSTCLEANUP_PATH,
-        fingerprint_field="receipt_fingerprint",
-        schema=ENVIRONMENT_RECEIPT_SCHEMA,
-    )
+    loaded = environment.load_c5_environment_closure()
+    if not isinstance(loaded, Mapping):
+        raise PermissionError("E5 producer returned malformed closure")
+    scope_handoff = loaded.get("scope_handoff")
+    stability_attempt = loaded.get("stability_attempt")
+    policy = loaded.get("policy")
+    stability = loaded.get("stability")
+    postcleanup = loaded.get("postcleanup")
+    roots = loaded.get("evidence_roots")
+    if not all(
+        isinstance(item, Mapping)
+        for item in (
+            scope_handoff,
+            stability_attempt,
+            policy,
+            stability,
+            postcleanup,
+            roots,
+        )
+    ):
+        raise PermissionError("E5 producer omitted closure roots")
+    scope_handoff = dict(scope_handoff)
+    stability_attempt = dict(stability_attempt)
+    policy = dict(policy)
+    stability = dict(stability)
+    postcleanup = dict(postcleanup)
+    roots = dict(roots)
+    expected_root_labels = {
+        "environment_scope_handoff",
+        "environment_stability_attempt",
+        "environment_policy",
+        "environment_stability",
+        "environment_postcleanup",
+    }
+    if set(roots) != expected_root_labels or not all(
+        isinstance(root, Mapping) for root in roots.values()
+    ):
+        raise PermissionError("E5 producer root labels changed")
     for value in (
         scope_handoff,
         stability_attempt,
@@ -3334,18 +4106,19 @@ def _load_environment_evidence() -> tuple[
         _require_no_payload(value)
     _require_absent(
         {
-            "c4_environment_stability_terminal": (
-                C4_ENVIRONMENT_STABILITY_TERMINAL_PATH
+            "c5_environment_stability_terminal": (
+                C5_ENVIRONMENT_STABILITY_TERMINAL_PATH
             )
         }
     )
-    return scope_handoff, stability_attempt, policy, stability, postcleanup, {
-        "environment_scope_handoff": scope_handoff_root,
-        "environment_stability_attempt": stability_attempt_root,
-        "environment_policy": policy_root,
-        "environment_stability": stability_root,
-        "environment_postcleanup": postcleanup_root,
-    }
+    return (
+        scope_handoff,
+        stability_attempt,
+        policy,
+        stability,
+        postcleanup,
+        {label: dict(root) for label, root in roots.items()},
+    )
 
 
 def _collect_full_closure(
@@ -3354,6 +4127,7 @@ def _collect_full_closure(
     authorization_root: Mapping[str, object],
     unit_state_reader: UnitStateReader,
     allow_runtime_activation: bool,
+    runtime_phase: str,
     receipt_time: datetime,
 ) -> dict[str, object]:
     _prewrite, prewrite_root, prewrite_source_root = (
@@ -3364,6 +4138,17 @@ def _collect_full_closure(
     )
     c3_failure, c3_failure_root, c3_failure_source_root = (
         _validate_c3_environment_failure_terminal()
+    )
+    _c4_authorization, c4_authorization_root, c4_bridge_root = (
+        _validate_c4_authorization_archival(
+            unit_state_reader=unit_state_reader,
+            allow_runtime_activation=allow_runtime_activation,
+            runtime_phase=runtime_phase,
+            now=lambda: receipt_time,
+        )
+    )
+    c4_failure, c4_failure_root, c4_failure_source_root = (
+        _validate_c4_receipt_seal_failure_terminal()
     )
     terminal, terminal_root, _terminalizer_root = (
         _validate_c1_failure_terminal(
@@ -3378,10 +4163,10 @@ def _collect_full_closure(
         "preauthorization_target_unit_state"
     )
     if not isinstance(preauthorization_target_state, Mapping):
-        raise PermissionError("c4 preauthorization target state is absent")
+        raise PermissionError("c5 preauthorization target state is absent")
     _require_missing_inert_state(
         preauthorization_target_state,
-        unit_name=C4_UNIT_NAME,
+        unit_name=C5_UNIT_NAME,
     )
     terminal_evidence = terminal.get("evidence_roots")
     if not isinstance(terminal_evidence, Mapping):
@@ -3389,7 +4174,7 @@ def _collect_full_closure(
     sources = authorization.get("compatibility_source_roots")
     _validate_source_roots(sources)
     if not isinstance(sources, Mapping):
-        raise PermissionError("c4 source roots are malformed")
+        raise PermissionError("c5 source roots are malformed")
     if (
         sources.get("c2_mode_contract_failure_terminalizer")
         != failure_source_root
@@ -3403,6 +4188,13 @@ def _collect_full_closure(
         != c3_failure_source_root
         or authorization.get("c3_environment_failure_terminal_root")
         != c3_failure_root
+        or sources.get("c4_bridge") != c4_bridge_root
+        or authorization.get("c4_authorization_root")
+        != c4_authorization_root
+        or sources.get("c4_receipt_seal_failure_terminalizer")
+        != c4_failure_source_root
+        or authorization.get("c4_receipt_seal_failure_terminal_root")
+        != c4_failure_root
     ):
         raise PermissionError(
             "c2 predecessor failure lineage changed"
@@ -3411,7 +4203,7 @@ def _collect_full_closure(
         sources["compat_environment_wrapper"]
     )
     if wrapper_root != dict(sources["compat_environment_wrapper"]):
-        raise PermissionError("c4 environment wrapper generation changed")
+        raise PermissionError("c5 environment wrapper generation changed")
     (
         unit_authorization,
         unit_auth_root,
@@ -3419,19 +4211,17 @@ def _collect_full_closure(
         unit_receipt_root,
         unit_receipt_time,
     ) = _validate_unit_chain(
+        realizer_root=sources["compat_unit_realizer"],
         unit_state_reader=unit_state_reader,
         allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=runtime_phase,
     )
-    archival = environment._production_archival_validator(
-        C4_UNIT_AUTHORIZATION_PATH,
-        C4_UNIT_RECEIPT_PATH,
-    )
-    if (
-        not isinstance(archival, Mapping)
-        or archival.get("authorization") != unit_authorization
-        or archival.get("receipt") != unit_receipt
-    ):
-        raise PermissionError("c4 realization archival validator diverged")
+    archival = {
+        "authorization": unit_authorization,
+        "authorization_identity": unit_auth_root,
+        "receipt": unit_receipt,
+        "receipt_identity": unit_receipt_root,
+    }
     historical_contract, current_contract, _replay_roots = (
         environment.replay_old_scope_and_handoff()
     )
@@ -3443,16 +4233,16 @@ def _collect_full_closure(
         postcleanup,
         environment_roots,
     ) = (
-        _load_environment_evidence()
+        _load_environment_evidence(environment)
     )
-    validated = environment.validate_c4_environment_closure(
+    validated = environment.validate_c5_environment_closure(
         scope_handoff,
         stability_attempt,
         policy,
         stability,
         postcleanup,
         archival=archival,
-        c4_contract=current_contract,
+        c5_contract=current_contract,
     )
     if (
         not isinstance(validated, Mapping)
@@ -3462,19 +4252,23 @@ def _collect_full_closure(
         or validated.get("stability") != stability
         or validated.get("postcleanup") != postcleanup
     ):
-        raise PermissionError("c4 environment wrapper returned a different closure")
+        raise PermissionError("c5 environment wrapper returned a different closure")
     policy_time = _parse_utc(
         policy.get("created_at_utc"),
-        name="c4 environment policy creation",
+        name="c5 environment policy creation",
     )
     postcleanup_time = _parse_utc(
         postcleanup.get("created_at_utc"),
-        name="c4 postcleanup creation",
+        name="c5 postcleanup creation",
     )
     c1_root = terminal_evidence.get("bridge_authorization")
     c3_failure_time = _parse_utc(
         c3_failure["identity"]["sealed_at_utc"],
         name="c3 environment-failure sealing",
+    )
+    c4_failure_time = _parse_utc(
+        c4_failure["identity"]["sealed_at_utc"],
+        name="c4 receipt-seal failure sealing",
     )
     if (
         authorization.get("c1_failure_terminal_root") != terminal_root
@@ -3483,16 +4277,23 @@ def _collect_full_closure(
         != _r10_roots_from_terminal(terminal)
         or authorization.get("c3_environment_failure_terminal_root")
         != c3_failure_root
-        or not c3_failure_time < unit_receipt_time < policy_time
+        or authorization.get("c4_authorization_root")
+        != c4_authorization_root
+        or authorization.get("c4_receipt_seal_failure_terminal_root")
+        != c4_failure_root
+        or not c3_failure_time < c4_failure_time < unit_receipt_time
+        or not unit_receipt_time < policy_time
         or policy_time > postcleanup_time
         or postcleanup_time > receipt_time
     ):
-        raise PermissionError("c4 closure chronology/lineage changed")
+        raise PermissionError("c5 closure chronology/lineage changed")
     evidence_roots = {
         "c1_failure_terminal": terminal_root,
         "c2_mode_contract_failure_terminal": failure_root,
         "c2_prewrite_failure_terminal": prewrite_root,
         "c3_environment_failure_terminal": c3_failure_root,
+        "c4_authorization": c4_authorization_root,
+        "c4_receipt_seal_failure_terminal": c4_failure_root,
         "r10_authorization": authorization["r10_roots"]["authorization"],
         "r10_receipt": authorization["r10_roots"]["receipt"],
         **environment_roots,
@@ -3500,7 +4301,7 @@ def _collect_full_closure(
         "unit_realization_receipt": unit_receipt_root,
     }
     if set(evidence_roots) != _EVIDENCE_LABELS:
-        raise AssertionError("c4 evidence labels changed")
+        raise AssertionError("c5 evidence labels changed")
     return {
         "authorization_root": dict(authorization_root),
         "source_roots": dict(sources),
@@ -3528,21 +4329,21 @@ def seal_receipt(
     now: Callable[[], datetime] = _utc_now,
 ) -> dict[str, object]:
     if receipt_path is None:
-        receipt_path = C4_RECEIPT_PATH
+        receipt_path = C5_RECEIPT_PATH
     _require_fixed_path(
         receipt_path,
-        C4_RECEIPT_PATH,
-        name="c4 receipt",
+        C5_RECEIPT_PATH,
+        name="c5 receipt",
     )
-    if os.path.lexists(C4_RECEIPT_PATH):
-        raise FileExistsError("c4 compatibility receipt already exists")
+    if os.path.lexists(C5_RECEIPT_PATH) or os.path.lexists(C5_TERMINAL_PATH):
+        raise FileExistsError("c5 compatibility identity is consumed")
     _validate_scientific_output_phase(
         allow_runtime_activation=False,
         runtime_phase=RUNTIME_PHASE_PREACTIVATION,
     )
-    _require_absent(_c4_future_paths())
+    _require_absent(_c5_future_paths())
     created = now().astimezone(timezone.utc)
-    authorization, authorization_root = validate_c4_authorization(
+    authorization, authorization_root = validate_c5_authorization(
         unit_state_reader=unit_state_reader,
         require_fresh=True,
         allow_runtime_activation=False,
@@ -3559,10 +4360,11 @@ def seal_receipt(
         authorization_root=authorization_root,
         unit_state_reader=unit_state_reader,
         allow_runtime_activation=False,
+        runtime_phase=RUNTIME_PHASE_PREACTIVATION,
         receipt_time=created,
     )
     if not issued <= created <= expires:
-        raise PermissionError("c4 receipt is outside authorization window")
+        raise PermissionError("c5 receipt is outside authorization window")
     body: dict[str, object] = {
         "schema_version": RECEIPT_SCHEMA,
         "candidate": CANDIDATE,
@@ -3582,6 +4384,7 @@ def seal_receipt(
             authorization["scientific_output_contract"]
         ),
         "scientific_authority": authorization["scientific_authority"],
+        "schema_compatibility": _expected_schema_compatibility(),
         "compatibility_closure_passed": True,
         "runtime_launch_authorized": False,
         "systemd_start_authorized": False,
@@ -3595,7 +4398,7 @@ def seal_receipt(
         "materialization_consumed": False,
     }
     return _write_sealed(
-        C4_RECEIPT_PATH,
+        C5_RECEIPT_PATH,
         body,
         fingerprint_field="receipt_fingerprint",
     )
@@ -3610,7 +4413,7 @@ def _validate_receipt_evidence_roots(
         or set(roots) != _EVIDENCE_LABELS
         or dict(roots) != dict(expected)
     ):
-        raise PermissionError("c4 receipt evidence-root labels changed")
+        raise PermissionError("c5 receipt evidence-root labels changed")
 
 
 def _validate_expected_runtime_spec_contract(
@@ -3623,10 +4426,10 @@ def _validate_expected_runtime_spec_contract(
         or not isinstance(artifacts, Mapping)
         or expected_spec.get("attempt_ordinal")
         != SCIENTIFIC_ATTEMPT_ORDINAL
-        or systemd.get("unit_name") != C4_UNIT_NAME
-        or artifacts.get("root") != str(C4_RUNTIME_ARTIFACT_ROOT)
+        or systemd.get("unit_name") != C5_UNIT_NAME
+        or artifacts.get("root") != str(C5_RUNTIME_ARTIFACT_ROOT)
     ):
-        raise PermissionError("expected spec is outside c4")
+        raise PermissionError("expected spec is outside c5")
 
 
 def verify_compatibility_receipt(
@@ -3644,19 +4447,19 @@ def verify_compatibility_receipt(
         runtime_phase=runtime_phase,
     )
     if path is None:
-        path = C4_RECEIPT_PATH
+        path = C5_RECEIPT_PATH
     fixed = _require_fixed_path(
         path,
-        C4_RECEIPT_PATH,
-        name="c4 receipt",
+        C5_RECEIPT_PATH,
+        name="c5 receipt",
     )
     if type(require_spec_binding) is not bool:
-        raise TypeError("c4 verification phase flags must be boolean")
+        raise TypeError("c5 verification phase flags must be boolean")
     if (
         (expected_spec is None and require_spec_binding)
         or (expected_spec is not None and not require_spec_binding)
     ):
-        raise PermissionError("c4 runtime-spec verification phase changed")
+        raise PermissionError("c5 runtime-spec verification phase changed")
     receipt, receipt_root = _load_sealed(
         fixed,
         fingerprint_field="receipt_fingerprint",
@@ -3665,9 +4468,9 @@ def verify_compatibility_receipt(
     _validate_common_identity(receipt)
     _require_no_payload(receipt)
     if set(receipt) != _RECEIPT_KEYS:
-        raise PermissionError("c4 receipt keys changed")
+        raise PermissionError("c5 receipt keys changed")
     if (
-        receipt.get("runtime_compatibility_id") != "c4"
+        receipt.get("runtime_compatibility_id") != "c5"
         or receipt.get("compatibility_closure_passed") is not True
         or receipt.get("runtime_launch_authorized") is not False
         or receipt.get("systemd_start_authorized") is not False
@@ -3677,9 +4480,11 @@ def verify_compatibility_receipt(
         != _expected_scientific_output_contract()
         or receipt.get("scientific_authority")
         != _expected_scientific_authority()
+        or receipt.get("schema_compatibility")
+        != _expected_schema_compatibility()
     ):
-        raise PermissionError("c4 receipt semantics changed")
-    authorization, authorization_root = validate_c4_authorization(
+        raise PermissionError("c5 receipt semantics changed")
+    authorization, authorization_root = validate_c5_authorization(
         unit_state_reader=unit_state_reader,
         require_fresh=False,
         allow_runtime_activation=allow_runtime_activation,
@@ -3688,7 +4493,7 @@ def verify_compatibility_receipt(
     )
     receipt_time = _parse_utc(
         receipt.get("created_at_utc"),
-        name="c4 receipt creation",
+        name="c5 receipt creation",
     )
     _created, issued, expires = _authorization_times(
         authorization,
@@ -3696,12 +4501,13 @@ def verify_compatibility_receipt(
         require_fresh=False,
     )
     if not issued <= receipt_time <= expires:
-        raise PermissionError("archival c4 receipt chronology changed")
+        raise PermissionError("archival c5 receipt chronology changed")
     closure = _collect_full_closure(
         authorization=authorization,
         authorization_root=authorization_root,
         unit_state_reader=unit_state_reader,
         allow_runtime_activation=allow_runtime_activation,
+        runtime_phase=phase,
         receipt_time=receipt_time,
     )
     _validate_receipt_evidence_roots(
@@ -3725,23 +4531,23 @@ def verify_compatibility_receipt(
         or receipt.get("scientific_output_contract")
         != authorization["scientific_output_contract"]
     ):
-        raise PermissionError("c4 compatibility receipt lineage changed")
+        raise PermissionError("c5 compatibility receipt lineage changed")
     _validate_scientific_output_phase(
         allow_runtime_activation=allow_runtime_activation,
         runtime_phase=phase,
     )
     if expected_spec is None:
-        _require_absent(_c4_future_paths())
+        _require_absent(_c5_future_paths())
     else:
         if not isinstance(expected_spec, Mapping):
-            raise TypeError("expected c4 runtime spec must be a mapping")
+            raise TypeError("expected c5 runtime spec must be a mapping")
         sealed_spec, _root = _load_sealed(
-            C4_RUNTIME_SPEC_PATH,
+            C5_RUNTIME_SPEC_PATH,
             fingerprint_field="runtime_spec_fingerprint",
             schema=RUNTIME_SPEC_SCHEMA,
         )
         if sealed_spec != dict(expected_spec):
-            raise PermissionError("expected c4 runtime spec changed")
+            raise PermissionError("expected c5 runtime spec changed")
         _validate_expected_runtime_spec_contract(sealed_spec)
     result = dict(receipt)
     result["receipt_root"] = receipt_root
@@ -3774,10 +4580,10 @@ def verify_compatibility_prewrite_spec(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="CURE-Lite v24 c4 preaccess compatibility closure",
+        description="CURE-Lite v24 c5 preaccess compatibility closure",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    authorize = subparsers.add_parser("authorize-c4")
+    authorize = subparsers.add_parser("authorize-c5")
     authorize.add_argument("--instruction-id", required=True)
     authorize.add_argument("--authorization-basis", required=True)
     authorize.add_argument(
@@ -3795,8 +4601,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command == "authorize-c4":
-        result = authorize_c4(
+    if args.command == "authorize-c5":
+        result = authorize_c5(
             instruction_id=args.instruction_id,
             authorization_basis=args.authorization_basis,
             validity_seconds=args.validity_seconds,
@@ -3821,8 +4627,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             expected, _root = _load_sealed(
                 _require_fixed_path(
                     args.expected_spec,
-                    C4_RUNTIME_SPEC_PATH,
-                    name="c4 runtime spec",
+                    C5_RUNTIME_SPEC_PATH,
+                    name="c5 runtime spec",
                 ),
                 fingerprint_field="runtime_spec_fingerprint",
                 schema=RUNTIME_SPEC_SCHEMA,

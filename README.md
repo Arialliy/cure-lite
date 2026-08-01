@@ -38,7 +38,7 @@ dataset-free / efficiency               PASS (sealed CUDA receipt)
 D_R structural r1                       OBSERVABILITY LOST; NO DECISION
 D_R structural r2 scientific preaccess  AUTHORIZED
 r2 unit realization                     RECOVERED AND SEALED
-r2 preaccess compatibility              BLOCKED BEFORE MATERIALIZATION
+r2 preaccess compatibility              C5 B5-seal FAILED; stopped before materialization
 D_R payload access in r2                NONE
 D_R OOF, bounded-400, Formal800         BLOCKED
 D_V / D_T                               BLOCKED; payloads not authorized
@@ -50,15 +50,15 @@ execution observability was restored. It is therefore neither a structural
 PASS nor a scientific FAIL. Generated-data success, supervisor scaffolding, and
 process exit state do not substitute for decision-bearing real-data evidence.
 
-Fresh r2 now has a sealed scientific preaccess authorization and a recovered,
-sealed actual-unit realization. Its execution bridge has nevertheless stopped
-at successive preaccess compatibility checks. The recorded failures occurred
-before result materialization, runtime launch, or scientific-attempt
-consumption; no `D_R`, `D_V`, or `D_T` payload was accessed. Consequently r2
-has not produced a structural decision and must not be described as either
-PASS or FAIL. OOF, bounded training, Formal800, `D_V`, and `D_T` remain blocked
-until the explicitly authorized compatibility chain completes and one authentic
-r2 structural receipt passes.
+Fresh r2 has a sealed scientific preaccess authorization and recovered, sealed
+unit realizations. C4 reached R4/E4 but its B4 receipt seal failed; the
+append-only C5 lane then reached R5/E5, while B5 seal failed because the
+archival-root field contract did not match. C5 was stopped as required before
+result materialization, runtime launch, or scientific-attempt consumption; no
+`D_R`, `D_V`, or `D_T` payload was accessed. Consequently r2 has not produced
+a structural decision and must not be described as either PASS or FAIL. OOF,
+bounded training, Formal800, `D_V`, and `D_T` remain blocked. The next allowed
+step is a new append-only compatibility generation; C5 must not be retried.
 
 See
 [the v24 design and execution record](CURE_Lite_PACRE_VC_v23_DV_FAIL归因与v24_GCR_PACRE修改方案.md),
